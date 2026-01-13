@@ -51,6 +51,7 @@ export default function HomePage() {
   );
   const [quartersToShow, setQuartersToShow] = useState(5);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(true);
 
   useEffect(() => {
     loadRoadmap().then((data) => {
@@ -111,6 +112,7 @@ export default function HomePage() {
         };
         startDate: string;
         quartersToShow: number;
+        isHeaderCollapsed: boolean;
       }>;
 
       if (parsed.selectedPillars) setSelectedPillars(parsed.selectedPillars);
@@ -124,6 +126,9 @@ export default function HomePage() {
       if (parsed.displayOptions) setDisplayOptions(parsed.displayOptions);
       if (parsed.startDate) setStartDate(parsed.startDate);
       if (parsed.quartersToShow) setQuartersToShow(parsed.quartersToShow);
+      if (typeof parsed.isHeaderCollapsed === 'boolean') {
+        setIsHeaderCollapsed(parsed.isHeaderCollapsed);
+      }
     } catch {
       // Ignore corrupted storage entries.
     } finally {
@@ -143,6 +148,7 @@ export default function HomePage() {
       displayOptions,
       startDate,
       quartersToShow,
+      isHeaderCollapsed,
     };
     localStorage.setItem(settingsKey, JSON.stringify(payload));
   }, [
@@ -156,6 +162,7 @@ export default function HomePage() {
     displayOptions,
     startDate,
     quartersToShow,
+    isHeaderCollapsed,
     settingsKey,
   ]);
 
@@ -235,6 +242,8 @@ export default function HomePage() {
             setCurrentCsvText(text);
           }}
           onCsvDownload={handleCsvDownload}
+          isHeaderCollapsed={isHeaderCollapsed}
+          setIsHeaderCollapsed={setIsHeaderCollapsed}
         />
 
         <RoadmapTimeline

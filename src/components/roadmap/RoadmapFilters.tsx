@@ -68,6 +68,8 @@ interface Props {
   setQuartersToShow: (value: number) => void;
   onCsvUpload: (text: string) => void;
   onCsvDownload: () => void;
+  isHeaderCollapsed: boolean;
+  setIsHeaderCollapsed: (value: boolean) => void;
 }
 
 export function RoadmapFilters({
@@ -92,8 +94,9 @@ export function RoadmapFilters({
   setQuartersToShow,
   onCsvUpload,
   onCsvDownload,
+  isHeaderCollapsed,
+  setIsHeaderCollapsed,
 }: Props) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const pillars = Array.from(
     new Set(items.map((i) => i.pillar).filter(Boolean)),
@@ -284,14 +287,14 @@ export function RoadmapFilters({
         </div>
         <button
           type="button"
-          onClick={() => setIsCollapsed((prev) => !prev)}
+          onClick={() => setIsHeaderCollapsed(!isHeaderCollapsed)}
           className="text-xs px-3 py-1 rounded-full border border-slate-300 text-slate-700 hover:bg-slate-100"
         >
-          {isCollapsed ? 'Show options' : 'Hide options'}
+          {isHeaderCollapsed ? 'Show options' : 'Hide options'}
         </button>
       </div>
 
-      {isCollapsed ? null : (
+      {isHeaderCollapsed ? null : (
         <div className="grid gap-6 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
         <div className="space-y-3">
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
