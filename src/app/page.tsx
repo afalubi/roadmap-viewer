@@ -26,6 +26,7 @@ export default function HomePage() {
     showRegionEmojis: true,
     showShortDescription: true,
     titleAbove: false,
+    itemVerticalPadding: 6,
   });
   const [selectedTheme, setSelectedTheme] = useState<
     'coastal' | 'orchard' | 'sunset'

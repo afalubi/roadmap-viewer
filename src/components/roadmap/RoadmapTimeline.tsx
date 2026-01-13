@@ -14,6 +14,7 @@ interface Props {
     showRegionEmojis: boolean;
     showShortDescription: boolean;
     titleAbove: boolean;
+    itemVerticalPadding: number;
   };
   theme: 'coastal' | 'orchard' | 'sunset';
   startDate: string;

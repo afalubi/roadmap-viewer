@@ -20,6 +20,7 @@ interface Props {
     showRegionEmojis: boolean;
     showShortDescription: boolean;
     titleAbove: boolean;
+    itemVerticalPadding: number;
   };
   theme: 'coastal' | 'orchard' | 'sunset';
   laneIndex: number;
@@ -47,9 +48,9 @@ export function RoadmapSwimlane({
   const lanePaddingTop = displayOptions.titleAbove ? 20 : 8;
   const lanePaddingX = 8;
   const lanePaddingBottom = 8;
-  const rowHeight = 24;
+  const rowHeight = displayOptions.showShortDescription ? 34 : 24;
   const labelHeight = displayOptions.titleAbove ? 12 : 0;
-  const rowGap = 6;
+  const rowGap = displayOptions.itemVerticalPadding;
   const laneRowHeight = rowHeight + rowGap + labelHeight;
   const timelineStart = quarters[0]?.start.getTime() ?? 0;
   const timelineEnd = quarters[quarters.length - 1]?.end.getTime() ?? 0;

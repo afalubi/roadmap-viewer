@@ -21,11 +21,13 @@ interface Props {
     showRegionEmojis: boolean;
     showShortDescription: boolean;
     titleAbove: boolean;
+    itemVerticalPadding: number;
   };
   setDisplayOptions: (value: {
     showRegionEmojis: boolean;
     showShortDescription: boolean;
     titleAbove: boolean;
+    itemVerticalPadding: number;
   }) => void;
   selectedTheme: 'coastal' | 'orchard' | 'sunset';
   setSelectedTheme: (value: 'coastal' | 'orchard' | 'sunset') => void;
@@ -288,6 +290,42 @@ export function RoadmapFilters({
               />
               Title above item
             </label>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Item vertical padding
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  min={0}
+                  max={16}
+                  step={1}
+                  value={displayOptions.itemVerticalPadding}
+                  onChange={(e) =>
+                    setDisplayOptions({
+                      ...displayOptions,
+                      itemVerticalPadding: Number(e.target.value),
+                    })
+                  }
+                  className="w-28"
+                />
+                <input
+                  type="number"
+                  min={0}
+                  max={16}
+                  step={1}
+                  value={displayOptions.itemVerticalPadding}
+                  onChange={(e) =>
+                    setDisplayOptions({
+                      ...displayOptions,
+                      itemVerticalPadding: Number(e.target.value),
+                    })
+                  }
+                  className="w-14 rounded-md border border-slate-300 px-2 py-1 text-xs"
+                />
+                <span className="text-[0.7rem] text-slate-500">px</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
