@@ -10,6 +10,7 @@ import { RoadmapFilters } from '@/components/roadmap/RoadmapFilters';
 import { RoadmapTimeline } from '@/components/roadmap/RoadmapTimeline';
 
 export default function HomePage() {
+  const settingsKey = 'roadmap-viewer-settings';
   const [items, setItems] = useState<RoadmapItem[]>([]);
   const [filteredItems, setFilteredItems] = useState<RoadmapItem[]>([]);
   const [selectedPillars, setSelectedPillars] = useState<string[]>([]);
@@ -47,6 +48,7 @@ export default function HomePage() {
     formatDateInput(getQuarterStartDate(new Date())),
   );
   const [quartersToShow, setQuartersToShow] = useState(5);
+  const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
     loadRoadmap().then((data) => {
@@ -54,6 +56,89 @@ export default function HomePage() {
       setFilteredItems(data);
     });
   }, []);
+
+  useEffect(() => {
+    const raw = localStorage.getItem(settingsKey);
+    if (!raw) {
+      setIsHydrated(true);
+      return;
+    }
+    try {
+      const parsed = JSON.parse(raw) as Partial<{
+        selectedPillars: string[];
+        selectedRegions: Region[];
+        selectedCriticalities: string[];
+        selectedImpactedStakeholders: string[];
+        selectedGroupBy: 'pillar' | 'stakeholder' | 'criticality' | 'region';
+        selectedTheme:
+          | 'coastal'
+          | 'orchard'
+          | 'sunset'
+          | 'slate'
+          | 'sand'
+          | 'mist'
+          | 'mono'
+          | 'forest'
+          | 'metro'
+          | 'metro-dark';
+        displayOptions: {
+          showRegionEmojis: boolean;
+          showShortDescription: boolean;
+          titleAbove: boolean;
+          itemVerticalPadding: number;
+          laneDividerOpacity: number;
+          itemStyle: 'tile' | 'line';
+          lineTitleGap: number;
+        };
+        startDate: string;
+        quartersToShow: number;
+      }>;
+
+      if (parsed.selectedPillars) setSelectedPillars(parsed.selectedPillars);
+      if (parsed.selectedRegions) setSelectedRegions(parsed.selectedRegions);
+      if (parsed.selectedCriticalities)
+        setSelectedCriticalities(parsed.selectedCriticalities);
+      if (parsed.selectedImpactedStakeholders)
+        setSelectedImpactedStakeholders(parsed.selectedImpactedStakeholders);
+      if (parsed.selectedGroupBy) setSelectedGroupBy(parsed.selectedGroupBy);
+      if (parsed.selectedTheme) setSelectedTheme(parsed.selectedTheme);
+      if (parsed.displayOptions) setDisplayOptions(parsed.displayOptions);
+      if (parsed.startDate) setStartDate(parsed.startDate);
+      if (parsed.quartersToShow) setQuartersToShow(parsed.quartersToShow);
+    } catch {
+      // Ignore corrupted storage entries.
+    } finally {
+      setIsHydrated(true);
+    }
+  }, [settingsKey]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    const payload = {
+      selectedPillars,
+      selectedRegions,
+      selectedCriticalities,
+      selectedImpactedStakeholders,
+      selectedGroupBy,
+      selectedTheme,
+      displayOptions,
+      startDate,
+      quartersToShow,
+    };
+    localStorage.setItem(settingsKey, JSON.stringify(payload));
+  }, [
+    isHydrated,
+    selectedPillars,
+    selectedRegions,
+    selectedCriticalities,
+    selectedImpactedStakeholders,
+    selectedGroupBy,
+    selectedTheme,
+    displayOptions,
+    startDate,
+    quartersToShow,
+    settingsKey,
+  ]);
 
   useEffect(() => {
     let result = [...items];
