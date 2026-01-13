@@ -6,6 +6,11 @@ export interface QuarterBucket {
   end: Date;
 }
 
+export interface MonthBucket {
+  label: string; // e.g., "Jan 2026"
+  start: Date;
+}
+
 function getQuarter(date: Date): 1 | 2 | 3 | 4 {
   const month = date.getUTCMonth();
   return (Math.floor(month / 3) + 1) as 1 | 2 | 3 | 4;
@@ -96,4 +101,22 @@ export function getTimelinePosition(
     leftPercent: Math.max(0, Math.min(left, 100)),
     widthPercent: Math.max(2, Math.min(width, 100 - left)),
   };
+}
+
+export function buildMonthBuckets(start: Date, end: Date): MonthBucket[] {
+  const buckets: MonthBucket[] = [];
+  const cursor = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1));
+  const endTime = end.getTime();
+
+  while (cursor.getTime() <= endTime) {
+    const label = cursor.toLocaleString('en-US', {
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'UTC',
+    });
+    buckets.push({ label, start: new Date(cursor) });
+    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+  }
+
+  return buckets;
 }

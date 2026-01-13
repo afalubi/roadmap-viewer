@@ -33,6 +33,8 @@ export default function HomePage() {
     laneDividerOpacity: 0.12,
     itemStyle: 'tile' as 'tile' | 'line',
     lineTitleGap: 2,
+    showQuarters: true,
+    showMonths: false,
   });
   const [selectedTheme, setSelectedTheme] = useState<
     | 'coastal'
@@ -52,6 +54,7 @@ export default function HomePage() {
   const [quartersToShow, setQuartersToShow] = useState(5);
   const [isHydrated, setIsHydrated] = useState(false);
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     loadRoadmap().then((data) => {
@@ -76,6 +79,56 @@ export default function HomePage() {
     link.click();
     URL.revokeObjectURL(url);
   };
+
+  const handleExportImage = async () => {
+    setIsExporting(true);
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+    );
+    const exportNode = document.getElementById('roadmap-export');
+    if (!exportNode) {
+      setIsExporting(false);
+      return;
+    }
+    const { toPng } = await import('html-to-image');
+    const dataUrl = await toPng(exportNode, {
+      backgroundColor: '#ffffff',
+      pixelRatio: 2,
+    });
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = 'roadmap.png';
+    link.click();
+    setIsExporting(false);
+  };
+
+  const summaryViewBy = {
+    pillar: 'Pillar',
+    stakeholder: 'Primary stakeholder',
+    criticality: 'Criticality',
+    region: 'Region',
+  }[selectedGroupBy];
+
+  const summaryFilters = [
+    `Pillars: ${selectedPillars.length ? selectedPillars.join(', ') : 'All'}`,
+    `Regions: ${selectedRegions.length ? selectedRegions.join(', ') : 'All'}`,
+    `Criticality: ${
+      selectedCriticalities.length ? selectedCriticalities.join(', ') : 'All'
+    }`,
+    `Stakeholders: ${
+      selectedImpactedStakeholders.length
+        ? selectedImpactedStakeholders.join(', ')
+        : 'All'
+    }`,
+  ].join(' · ');
+
+  const summaryDisplay = [
+    `Theme: ${selectedTheme}`,
+    `Style: ${displayOptions.itemStyle}`,
+    `Start: ${startDate}`,
+    `Quarters: ${displayOptions.showQuarters ? quartersToShow : 'Off'}`,
+    `Months: ${displayOptions.showMonths ? 'On' : 'Off'}`,
+  ].join(' · ');
 
   useEffect(() => {
     const raw = localStorage.getItem(settingsKey);
@@ -123,7 +176,12 @@ export default function HomePage() {
         setSelectedImpactedStakeholders(parsed.selectedImpactedStakeholders);
       if (parsed.selectedGroupBy) setSelectedGroupBy(parsed.selectedGroupBy);
       if (parsed.selectedTheme) setSelectedTheme(parsed.selectedTheme);
-      if (parsed.displayOptions) setDisplayOptions(parsed.displayOptions);
+      if (parsed.displayOptions) {
+        setDisplayOptions((current) => ({
+          ...current,
+          ...parsed.displayOptions,
+        }));
+      }
       if (parsed.startDate) setStartDate(parsed.startDate);
       if (parsed.quartersToShow) setQuartersToShow(parsed.quartersToShow);
       if (typeof parsed.isHeaderCollapsed === 'boolean') {
@@ -242,6 +300,8 @@ export default function HomePage() {
             setCurrentCsvText(text);
           }}
           onCsvDownload={handleCsvDownload}
+          onExportImage={handleExportImage}
+          isExporting={isExporting}
           isHeaderCollapsed={isHeaderCollapsed}
           setIsHeaderCollapsed={setIsHeaderCollapsed}
         />
@@ -253,6 +313,12 @@ export default function HomePage() {
           theme={selectedTheme}
           startDate={startDate}
           quartersToShow={quartersToShow}
+          exportSummary={{
+            viewBy: summaryViewBy,
+            filters: summaryFilters,
+            display: summaryDisplay,
+          }}
+          isExporting={isExporting}
         />
       </div>
     </main>

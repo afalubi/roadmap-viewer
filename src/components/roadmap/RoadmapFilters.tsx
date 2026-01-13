@@ -28,6 +28,8 @@ interface Props {
     laneDividerOpacity: number;
     itemStyle: 'tile' | 'line';
     lineTitleGap: number;
+    showQuarters: boolean;
+    showMonths: boolean;
   };
   setDisplayOptions: (value: {
     showRegionEmojis: boolean;
@@ -37,6 +39,8 @@ interface Props {
     laneDividerOpacity: number;
     itemStyle: 'tile' | 'line';
     lineTitleGap: number;
+    showQuarters: boolean;
+    showMonths: boolean;
   }) => void;
   selectedTheme:
     | 'coastal'
@@ -68,6 +72,8 @@ interface Props {
   setQuartersToShow: (value: number) => void;
   onCsvUpload: (text: string) => void;
   onCsvDownload: () => void;
+  onExportImage: () => void;
+  isExporting: boolean;
   isHeaderCollapsed: boolean;
   setIsHeaderCollapsed: (value: boolean) => void;
 }
@@ -94,6 +100,8 @@ export function RoadmapFilters({
   setQuartersToShow,
   onCsvUpload,
   onCsvDownload,
+  onExportImage,
+  isExporting,
   isHeaderCollapsed,
   setIsHeaderCollapsed,
 }: Props) {
@@ -284,6 +292,14 @@ export function RoadmapFilters({
           >
             Download CSV
           </button>
+          <button
+            type="button"
+            onClick={onExportImage}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+            disabled={isExporting}
+          >
+            {isExporting ? 'Exporting...' : 'Export Image'}
+          </button>
         </div>
         <button
           type="button"
@@ -414,6 +430,36 @@ export function RoadmapFilters({
                   })}
                 </select>
               </div>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <label className="flex items-center gap-2 text-xs text-slate-700">
+                <input
+                  type="checkbox"
+                  className={checkboxClasses}
+                  checked={displayOptions.showQuarters}
+                  onChange={(e) =>
+                    setDisplayOptions({
+                      ...displayOptions,
+                      showQuarters: e.target.checked,
+                    })
+                  }
+                />
+                Show quarters
+              </label>
+              <label className="flex items-center gap-2 text-xs text-slate-700">
+                <input
+                  type="checkbox"
+                  className={checkboxClasses}
+                  checked={displayOptions.showMonths}
+                  onChange={(e) =>
+                    setDisplayOptions({
+                      ...displayOptions,
+                      showMonths: e.target.checked,
+                    })
+                  }
+                />
+                Show months
+              </label>
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">

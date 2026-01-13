@@ -26,6 +26,8 @@ interface Props {
     itemVerticalPadding: number;
     itemStyle: 'tile' | 'line';
     lineTitleGap: number;
+    showQuarters: boolean;
+    showMonths: boolean;
   };
   theme:
     | 'coastal'

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type { RoadmapItem } from '@/types/roadmap';
-import { buildQuarterBuckets } from '@/lib/timeScale';
+import { buildMonthBuckets, buildQuarterBuckets } from '@/lib/timeScale';
 import {
   getItemClassesByIndex,
   getLaneBackgroundClassFromItem,
@@ -22,6 +22,8 @@ interface Props {
     laneDividerOpacity: number;
     itemStyle: 'tile' | 'line';
     lineTitleGap: number;
+    showQuarters: boolean;
+    showMonths: boolean;
   };
   theme:
     | 'coastal'
@@ -36,6 +38,12 @@ interface Props {
     | 'metro-dark';
   startDate: string;
   quartersToShow: number;
+  exportSummary: {
+    viewBy: string;
+    filters: string;
+    display: string;
+  };
+  isExporting: boolean;
 }
 
 const GROUP_LABELS: Record<
@@ -68,12 +76,20 @@ export function RoadmapTimeline({
   theme,
   startDate,
   quartersToShow,
+  exportSummary,
+  isExporting,
 }: Props) {
   const labelWidth = 160;
   const timelinePadding = 8;
   const [selectedItem, setSelectedItem] = useState<RoadmapItem | null>(null);
 
   const quarters = buildQuarterBuckets(items, quartersToShow, startDate);
+  const timelineStart = quarters[0]?.start ?? null;
+  const timelineEnd = quarters[quarters.length - 1]?.end ?? null;
+  const months =
+    displayOptions.showMonths && timelineStart && timelineEnd
+      ? buildMonthBuckets(timelineStart, timelineEnd)
+      : [];
   const todayLeft = getTodayLeftPercent(quarters);
 
   const pillarsMap = new Map<string, RoadmapItem[]>();
@@ -86,35 +102,89 @@ export function RoadmapTimeline({
   const pillars = Array.from(pillarsMap.keys()).sort();
 
   return (
-    <section className="bg-white border border-slate-200 rounded-lg shadow-sm p-4 space-y-4">
+    <section
+      id="roadmap-export"
+      className="bg-white border border-slate-200 rounded-lg shadow-sm p-4 space-y-4"
+    >
+      {isExporting ? (
+        <div className="space-y-1 border border-slate-200 rounded-md bg-slate-50 px-3 py-2">
+          <div className="text-sm font-semibold text-slate-800">
+            Technology Roadmap
+          </div>
+          <div className="text-[0.7rem] text-slate-600">
+            View by: {exportSummary.viewBy}
+          </div>
+          <div className="text-[0.7rem] text-slate-600">
+            {exportSummary.filters}
+          </div>
+          <div className="text-[0.7rem] text-slate-600">
+            {exportSummary.display}
+          </div>
+        </div>
+      ) : null}
       <div className="overflow-x-auto overflow-y-visible">
         <div className="min-w-full">
-          <div className="relative">
-            <div
-              className="grid border-b border-slate-200"
-              style={{
-                gridTemplateColumns: `${labelWidth}px ${timelinePadding}px repeat(${quarters.length}, minmax(0, 1fr))`,
-              }}
-            >
-              <div className="py-2 text-xs font-semibold text-slate-700 px-2">
-                {GROUP_LABELS[groupBy]}
-              </div>
-              <div className="bg-white" />
-              {quarters.map((q) => (
-                <div
-                  key={q.label}
-                  className="py-2 text-xs font-semibold text-slate-700 text-center"
-                >
-                  {q.label}
+          <div className="relative space-y-1">
+            {displayOptions.showQuarters ? (
+              <div
+                className="grid border-b border-slate-200"
+                style={{
+                  gridTemplateColumns: `${labelWidth}px ${timelinePadding}px repeat(${quarters.length}, minmax(0, 1fr))`,
+                }}
+              >
+                <div className="py-2 text-xs font-semibold text-slate-700 px-2">
+                  {GROUP_LABELS[groupBy]}
                 </div>
-              ))}
-            </div>
+                <div className="bg-white" />
+                {quarters.map((q) => (
+                  <div
+                    key={q.label}
+                    className="py-2 text-xs font-semibold text-slate-700 text-center"
+                  >
+                    {q.label}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {displayOptions.showMonths && timelineStart && timelineEnd ? (
+              <div className="relative h-5">
+                <div
+                  className="absolute inset-y-0"
+                  style={{ left: labelWidth + timelinePadding, right: 0 }}
+                >
+                  {months.map((month, index) => {
+                    const total =
+                      timelineEnd.getTime() - timelineStart.getTime() || 1;
+                    const nextStart =
+                      months[index + 1]?.start.getTime() ??
+                      timelineEnd.getTime();
+                    const mid =
+                      (month.start.getTime() + nextStart) / 2;
+                    const left =
+                      ((mid - timelineStart.getTime()) / total) *
+                      100;
+                    return (
+                      <div
+                        key={month.label}
+                        className="absolute text-[10px] text-slate-500"
+                        style={{ left: `${left}%`, transform: 'translateX(-50%)' }}
+                      >
+                        {month.label}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
 
             <div
               className="divide-y divide-[color:var(--lane-divider)]"
               style={{
                 ['--quarter-count' as string]: quarters.length,
+                ['--month-count' as string]: months.length || 1,
                 ['--lane-divider' as string]: `rgba(15, 23, 42, ${displayOptions.laneDividerOpacity})`,
+                ['--quarter-divider' as string]: 'rgba(15, 23, 42, 0.12)',
+                ['--month-divider' as string]: 'rgba(15, 23, 42, 0.06)',
               }}
             >
               {pillars.map((pillar, index) => {
@@ -128,10 +198,16 @@ export function RoadmapTimeline({
                     quarters={quarters}
                     onSelectItem={setSelectedItem}
                     laneClassName={laneBgClass}
-                  laneBodyClassName={[
-                    getLaneClassesByIndex(index, theme),
-                    'bg-[linear-gradient(to_right,rgba(15,23,42,0.06)_1px,transparent_1px)] bg-[length:calc(100%/var(--quarter-count))_100%]',
-                  ].join(' ')}
+                    laneBodyClassName={[
+                      getLaneClassesByIndex(index, theme),
+                      displayOptions.showMonths && displayOptions.showQuarters
+                        ? 'bg-[repeating-linear-gradient(to_right,var(--quarter-divider)_0,var(--quarter-divider)_1px,transparent_1px,transparent_calc(100%/var(--quarter-count))),repeating-linear-gradient(to_right,var(--month-divider)_0,var(--month-divider)_1px,transparent_1px,transparent_calc(100%/var(--month-count)))]'
+                        : displayOptions.showMonths
+                          ? 'bg-[repeating-linear-gradient(to_right,var(--month-divider)_0,var(--month-divider)_1px,transparent_1px,transparent_calc(100%/var(--month-count)))]'
+                          : displayOptions.showQuarters
+                            ? 'bg-[repeating-linear-gradient(to_right,var(--quarter-divider)_0,var(--quarter-divider)_1px,transparent_1px,transparent_calc(100%/var(--quarter-count)))]'
+                            : '',
+                    ].join(' ')}
                   laneSpacerClassName={getLaneClassesByIndex(index, theme)}
                   timelinePadding={timelinePadding}
                   todayLeftPercent={todayLeft}
