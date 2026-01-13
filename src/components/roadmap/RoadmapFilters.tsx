@@ -156,6 +156,37 @@ export function RoadmapFilters({
     </div>
   );
 
+  const chips = [
+    ...selectedPillars.map((value) => ({
+      key: `pillar-${value}`,
+      label: `Pillar: ${value}`,
+      onRemove: () =>
+        setSelectedPillars(selectedPillars.filter((item) => item !== value)),
+    })),
+    ...selectedRegions.map((value) => ({
+      key: `region-${value}`,
+      label: `Region: ${value}`,
+      onRemove: () =>
+        setSelectedRegions(selectedRegions.filter((item) => item !== value)),
+    })),
+    ...selectedCriticalities.map((value) => ({
+      key: `criticality-${value}`,
+      label: `Criticality: ${value}`,
+      onRemove: () =>
+        setSelectedCriticalities(
+          selectedCriticalities.filter((item) => item !== value),
+        ),
+    })),
+    ...selectedImpactedStakeholders.map((value) => ({
+      key: `stakeholder-${value}`,
+      label: `Stakeholder: ${value}`,
+      onRemove: () =>
+        setSelectedImpactedStakeholders(
+          selectedImpactedStakeholders.filter((item) => item !== value),
+        ),
+    })),
+  ];
+
   return (
     <section className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -182,6 +213,23 @@ export function RoadmapFilters({
             <option value="region">Region</option>
           </select>
         </div>
+        {chips.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {chips.map((chip) => (
+              <button
+                key={chip.key}
+                type="button"
+                onClick={chip.onRemove}
+                className="group inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-100"
+              >
+                <span>{chip.label}</span>
+                <span className="text-slate-400 group-hover:text-slate-600">
+                  ×
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : null}
         <button
           type="button"
           onClick={() => setIsCollapsed((prev) => !prev)}
