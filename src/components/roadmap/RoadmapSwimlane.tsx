@@ -232,7 +232,7 @@ export function RoadmapSwimlane({
             );
           })}
           {lineRows.map((row) => {
-            const lineTitleHeight = 16;
+            const lineTitleHeight = displayOptions.showRegionEmojis ? 16 : 12;
             const lineButtonHeight = 8;
             const lineThickness = 4;
             const lineTop =

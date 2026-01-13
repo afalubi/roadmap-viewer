@@ -55,6 +55,7 @@ export default function HomePage() {
   const [isHydrated, setIsHydrated] = useState(false);
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
+  const [isDraggingCsv, setIsDraggingCsv] = useState(false);
 
   useEffect(() => {
     loadRoadmap().then((data) => {
@@ -78,6 +79,32 @@ export default function HomePage() {
     link.download = 'roadmap.csv';
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleCsvUploadText = (text: string) => {
+    const parsedItems = parseRoadmapCsv(text);
+    setItems(parsedItems);
+    setFilteredItems(parsedItems);
+    setSelectedPillars([]);
+    setSelectedRegions([]);
+    setSelectedCriticalities([]);
+    setSelectedImpactedStakeholders([]);
+    setCurrentCsvText(text);
+  };
+
+  const handleCsvFile = async (file?: File | null) => {
+    if (!file) return;
+    const text = await file.text();
+    handleCsvUploadText(text);
+  };
+
+  const handleCsvDrop = async (event: React.DragEvent<HTMLLabelElement>) => {
+    event.preventDefault();
+    setIsDraggingCsv(false);
+    const file = event.dataTransfer.files?.[0];
+    if (file) {
+      await handleCsvFile(file);
+    }
   };
 
   const handleExportImage = async () => {
@@ -109,26 +136,20 @@ export default function HomePage() {
     region: 'Region',
   }[selectedGroupBy];
 
-  const summaryFilters = [
-    `Pillars: ${selectedPillars.length ? selectedPillars.join(', ') : 'All'}`,
-    `Regions: ${selectedRegions.length ? selectedRegions.join(', ') : 'All'}`,
-    `Criticality: ${
-      selectedCriticalities.length ? selectedCriticalities.join(', ') : 'All'
-    }`,
-    `Stakeholders: ${
-      selectedImpactedStakeholders.length
-        ? selectedImpactedStakeholders.join(', ')
-        : 'All'
-    }`,
-  ].join(' · ');
-
-  const summaryDisplay = [
-    `Theme: ${selectedTheme}`,
-    `Style: ${displayOptions.itemStyle}`,
-    `Start: ${startDate}`,
-    `Quarters: ${displayOptions.showQuarters ? quartersToShow : 'Off'}`,
-    `Months: ${displayOptions.showMonths ? 'On' : 'Off'}`,
-  ].join(' · ');
+  const appliedFilters = [
+    selectedPillars.length
+      ? `Pillars: ${selectedPillars.join(', ')}`
+      : null,
+    selectedRegions.length
+      ? `Regions: ${selectedRegions.join(', ')}`
+      : null,
+    selectedCriticalities.length
+      ? `Criticality: ${selectedCriticalities.join(', ')}`
+      : null,
+    selectedImpactedStakeholders.length
+      ? `Stakeholders: ${selectedImpactedStakeholders.join(', ')}`
+      : null,
+  ].filter(Boolean) as string[];
 
   useEffect(() => {
     const raw = localStorage.getItem(settingsKey);
@@ -269,6 +290,47 @@ export default function HomePage() {
           </p>
         </header>
 
+        <div className="flex flex-wrap items-center gap-3">
+          <label
+            className={[
+              'relative flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-slate-700',
+              isDraggingCsv
+                ? 'border-sky-400 bg-sky-50'
+                : 'border-slate-200 bg-white hover:border-slate-300',
+            ].join(' ')}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setIsDraggingCsv(true);
+            }}
+            onDragLeave={() => setIsDraggingCsv(false)}
+            onDrop={handleCsvDrop}
+          >
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              className="sr-only"
+              onChange={(event) => handleCsvFile(event.target.files?.[0])}
+            />
+            <span>Upload CSV</span>
+            <span className="text-slate-400">or drop</span>
+          </label>
+          <button
+            type="button"
+            onClick={handleCsvDownload}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+          >
+            Download CSV
+          </button>
+          <button
+            type="button"
+            onClick={handleExportImage}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+            disabled={isExporting}
+          >
+            {isExporting ? 'Exporting...' : 'Export Image'}
+          </button>
+        </div>
+
         <RoadmapFilters
           items={items}
           selectedPillars={selectedPillars}
@@ -289,19 +351,6 @@ export default function HomePage() {
           setStartDate={setStartDate}
           quartersToShow={quartersToShow}
           setQuartersToShow={setQuartersToShow}
-          onCsvUpload={(text) => {
-            const parsedItems = parseRoadmapCsv(text);
-            setItems(parsedItems);
-            setFilteredItems(parsedItems);
-            setSelectedPillars([]);
-            setSelectedRegions([]);
-            setSelectedCriticalities([]);
-            setSelectedImpactedStakeholders([]);
-            setCurrentCsvText(text);
-          }}
-          onCsvDownload={handleCsvDownload}
-          onExportImage={handleExportImage}
-          isExporting={isExporting}
           isHeaderCollapsed={isHeaderCollapsed}
           setIsHeaderCollapsed={setIsHeaderCollapsed}
         />
@@ -315,8 +364,7 @@ export default function HomePage() {
           quartersToShow={quartersToShow}
           exportSummary={{
             viewBy: summaryViewBy,
-            filters: summaryFilters,
-            display: summaryDisplay,
+            filters: appliedFilters,
           }}
           isExporting={isExporting}
         />
