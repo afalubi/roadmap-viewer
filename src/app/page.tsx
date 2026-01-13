@@ -40,6 +40,8 @@ export default function HomePage() {
     | 'mist'
     | 'mono'
     | 'forest'
+    | 'metro'
+    | 'metro-dark'
   >('coastal');
   const [startDate, setStartDate] = useState(() =>
     formatDateInput(getQuarterStartDate(new Date())),

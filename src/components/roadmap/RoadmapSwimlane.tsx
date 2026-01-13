@@ -16,6 +16,8 @@ interface Props {
   onSelectItem: (item: RoadmapItem) => void;
   laneClassName: string;
   laneBodyClassName?: string;
+  timelinePadding?: number;
+  laneSpacerClassName?: string;
   displayOptions: {
     showRegionEmojis: boolean;
     showShortDescription: boolean;
@@ -32,7 +34,9 @@ interface Props {
     | 'sand'
     | 'mist'
     | 'mono'
-    | 'forest';
+    | 'forest'
+    | 'metro'
+    | 'metro-dark';
   laneIndex: number;
 }
 
@@ -43,6 +47,8 @@ export function RoadmapSwimlane({
   onSelectItem,
   laneClassName,
   laneBodyClassName,
+  timelinePadding = 12,
+  laneSpacerClassName,
   displayOptions,
   theme,
   laneIndex,
@@ -91,7 +97,7 @@ export function RoadmapSwimlane({
     <div
       className="grid"
       style={{
-        gridTemplateColumns: `160px repeat(${quarters.length}, minmax(0, 1fr))`,
+        gridTemplateColumns: `160px ${timelinePadding}px repeat(${quarters.length}, minmax(0, 1fr))`,
       }}
     >
       <div
@@ -102,10 +108,11 @@ export function RoadmapSwimlane({
       >
         {pillar}
       </div>
+      <div className={laneSpacerClassName || laneBodyClasses} />
 
       <div
         className={['relative', laneBodyClasses].join(' ')}
-        style={{ gridColumn: '2 / -1', minHeight: laneHeight }}
+        style={{ gridColumn: '3 / -1', minHeight: laneHeight }}
       >
         <div
           className="relative h-full isolate"

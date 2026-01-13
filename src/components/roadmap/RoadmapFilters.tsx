@@ -46,7 +46,9 @@ interface Props {
     | 'sand'
     | 'mist'
     | 'mono'
-    | 'forest';
+    | 'forest'
+    | 'metro'
+    | 'metro-dark';
   setSelectedTheme: (
     value:
       | 'coastal'
@@ -56,7 +58,9 @@ interface Props {
       | 'sand'
       | 'mist'
       | 'mono'
-      | 'forest',
+      | 'forest'
+      | 'metro'
+      | 'metro-dark',
   ) => void;
   startDate: string;
   setStartDate: (value: string) => void;
@@ -258,7 +262,9 @@ export function RoadmapFilters({
                       | 'sand'
                       | 'mist'
                       | 'mono'
-                      | 'forest',
+                      | 'forest'
+                      | 'metro'
+                      | 'metro-dark',
                   )
                 }
               >
@@ -270,6 +276,8 @@ export function RoadmapFilters({
                 <option value="mist">Mist</option>
                 <option value="mono">Mono</option>
                 <option value="forest">Forest</option>
+                <option value="metro">Metro</option>
+                <option value="metro-dark">Metro Dark</option>
               </select>
             </div>
             <div className="flex flex-wrap gap-3">

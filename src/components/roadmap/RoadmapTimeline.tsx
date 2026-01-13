@@ -3,7 +3,11 @@
 import { useState } from 'react';
 import type { RoadmapItem } from '@/types/roadmap';
 import { buildQuarterBuckets } from '@/lib/timeScale';
-import { getLaneClassesByIndex } from '@/lib/color';
+import {
+  getItemClassesByIndex,
+  getLaneBackgroundClassFromItem,
+  getLaneClassesByIndex,
+} from '@/lib/color';
 import { RoadmapSwimlane } from './RoadmapSwimlane';
 import { RoadmapItemDetailDialog } from './RoadmapItemDetailDialog';
 
@@ -27,7 +31,9 @@ interface Props {
     | 'sand'
     | 'mist'
     | 'mono'
-    | 'forest';
+    | 'forest'
+    | 'metro'
+    | 'metro-dark';
   startDate: string;
   quartersToShow: number;
 }
@@ -83,12 +89,13 @@ export function RoadmapTimeline({
           <div
             className="grid border-b border-slate-200"
             style={{
-              gridTemplateColumns: `160px repeat(${quarters.length}, minmax(0, 1fr))`,
+              gridTemplateColumns: `160px 8px repeat(${quarters.length}, minmax(0, 1fr))`,
             }}
           >
             <div className="py-2 text-xs font-semibold text-slate-700 px-2">
               {GROUP_LABELS[groupBy]}
             </div>
+            <div className="bg-white" />
             {quarters.map((q) => (
               <div
                 key={q.label}
@@ -106,23 +113,29 @@ export function RoadmapTimeline({
               ['--lane-divider' as string]: `rgba(15, 23, 42, ${displayOptions.laneDividerOpacity})`,
             }}
           >
-            {pillars.map((pillar, index) => (
+            {pillars.map((pillar, index) => {
+              const itemClasses = getItemClassesByIndex(index, theme);
+              const laneBgClass = getLaneBackgroundClassFromItem(itemClasses);
+              return (
               <RoadmapSwimlane
                 key={pillar}
                 pillar={pillar}
                 items={pillarsMap.get(pillar)!}
                 quarters={quarters}
                 onSelectItem={setSelectedItem}
-                laneClassName={getLaneClassesByIndex(index, theme)}
+                laneClassName={laneBgClass}
                 laneBodyClassName={[
                   getLaneClassesByIndex(index, theme),
                   'bg-[linear-gradient(to_right,rgba(15,23,42,0.06)_1px,transparent_1px)] bg-[length:calc(100%/var(--quarter-count))_100%]',
                 ].join(' ')}
+                laneSpacerClassName={getLaneClassesByIndex(index, theme)}
+                  timelinePadding={8}
                 displayOptions={displayOptions}
                 theme={theme}
                 laneIndex={index}
               />
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
