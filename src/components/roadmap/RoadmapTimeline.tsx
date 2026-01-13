@@ -16,6 +16,8 @@ interface Props {
     titleAbove: boolean;
     itemVerticalPadding: number;
     laneDividerOpacity: number;
+    itemStyle: 'tile' | 'line';
+    lineTitleGap: number;
   };
   theme:
     | 'coastal'

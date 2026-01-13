@@ -21,6 +21,8 @@ interface Props {
     showShortDescription: boolean;
     titleAbove: boolean;
     itemVerticalPadding: number;
+    itemStyle: 'tile' | 'line';
+    lineTitleGap: number;
   };
   theme:
     | 'coastal'
@@ -53,12 +55,19 @@ export function RoadmapSwimlane({
     rect: DOMRect;
     regionBadges: ReactNode;
   } | null>(null);
-  const lanePaddingTop = displayOptions.titleAbove ? 20 : 8;
+  const titleAbove =
+    displayOptions.titleAbove || displayOptions.itemStyle === 'line';
+  const lanePaddingTop = titleAbove ? 20 : 8;
   const lanePaddingX = 8;
   const lanePaddingBottom = 8;
   const firstItemOffset = 4;
-  const rowHeight = displayOptions.showShortDescription ? 34 : 24;
-  const labelHeight = displayOptions.titleAbove ? 12 : 0;
+  const rowHeight =
+    displayOptions.itemStyle === 'line'
+      ? 18
+      : displayOptions.showShortDescription
+        ? 34
+        : 24;
+  const labelHeight = titleAbove ? 12 : 0;
   const rowGap = displayOptions.itemVerticalPadding;
   const laneRowHeight = rowHeight + rowGap + labelHeight;
   const timelineStart = quarters[0]?.start.getTime() ?? 0;
@@ -121,16 +130,37 @@ export function RoadmapSwimlane({
               </span>
             ) : null;
 
-            const itemTop = firstItemOffset + row * laneRowHeight;
+            const hasInlineTitle = !titleAbove && item.title;
+            const hasInlineShort =
+              displayOptions.showShortDescription &&
+              item.shortDescription &&
+              displayOptions.itemStyle !== 'line';
+            const hasInlineText = Boolean(hasInlineTitle || hasInlineShort);
+            const lineHeight = displayOptions.itemStyle === 'line' ? 6 : 8;
+            const itemTop =
+              firstItemOffset +
+              row * laneRowHeight +
+              (hasInlineText ? 0 : Math.max(0, (rowHeight - lineHeight) / 2));
+
+            const stackGap = titleAbove
+              ? displayOptions.itemStyle === 'line'
+                ? displayOptions.lineTitleGap
+                : 4
+              : 0;
 
             return (
               <div
                 key={item.id}
-                className="absolute"
-                style={{ left: `${pos.leftPercent}%`, width: `${pos.widthPercent}%`, top: itemTop }}
+                className="absolute flex flex-col"
+                style={{
+                  left: `${pos.leftPercent}%`,
+                  width: `${pos.widthPercent}%`,
+                  top: itemTop,
+                  gap: `${stackGap}px`,
+                }}
               >
-                {displayOptions.titleAbove ? (
-                  <div className="mb-1 text-[0.65rem] font-semibold text-slate-800 truncate">
+                {titleAbove ? (
+                  <div className="text-[0.65rem] font-semibold leading-none text-slate-800 truncate">
                     {regionBadges}
                     {item.title}
                   </div>
@@ -138,8 +168,13 @@ export function RoadmapSwimlane({
                 <button
                   type="button"
                   className={[
-                    'group w-full text-left text-xs px-2 py-1 rounded-md border shadow-sm cursor-pointer transition-colors',
+                    'group relative w-full text-left text-xs px-2 py-1 rounded-md border shadow-sm cursor-pointer transition-colors',
                     itemColorClasses,
+                    displayOptions.itemStyle === 'line'
+                      ? 'h-1.5 py-0 rounded-full brightness-90 contrast-125'
+                      : hasInlineText
+                        ? ''
+                        : 'h-2 py-0 rounded-full',
                   ].join(' ')}
                   onClick={() => onSelectItem(item)}
                   onMouseEnter={(event) =>
@@ -151,13 +186,19 @@ export function RoadmapSwimlane({
                   }
                   onMouseLeave={() => setTooltip(null)}
                 >
-                  {displayOptions.titleAbove ? null : (
+                  {displayOptions.itemStyle === 'line' ? (
+                    <>
+                      <span className="absolute -left-1 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full border border-slate-400 bg-slate-200" />
+                      <span className="absolute -right-1 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full border border-slate-400 bg-slate-200" />
+                    </>
+                  ) : null}
+                  {hasInlineText && !titleAbove ? (
                     <div className="font-semibold truncate">
                       {regionBadges}
                       {item.title}
                     </div>
-                  )}
-                  {displayOptions.showShortDescription ? (
+                  ) : null}
+                  {hasInlineText && displayOptions.showShortDescription ? (
                     <div className="text-[0.65rem] text-slate-700 truncate">
                       {item.shortDescription}
                     </div>

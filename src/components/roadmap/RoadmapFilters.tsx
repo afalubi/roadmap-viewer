@@ -26,6 +26,8 @@ interface Props {
     titleAbove: boolean;
     itemVerticalPadding: number;
     laneDividerOpacity: number;
+    itemStyle: 'tile' | 'line';
+    lineTitleGap: number;
   };
   setDisplayOptions: (value: {
     showRegionEmojis: boolean;
@@ -33,6 +35,8 @@ interface Props {
     titleAbove: boolean;
     itemVerticalPadding: number;
     laneDividerOpacity: number;
+    itemStyle: 'tile' | 'line';
+    lineTitleGap: number;
   }) => void;
   selectedTheme:
     | 'coastal'
@@ -379,6 +383,81 @@ export function RoadmapFilters({
             Item display options
           </div>
           <div className="space-y-3 rounded-lg bg-slate-50/70 p-3 border border-slate-200">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-2">
+                Item style
+              </label>
+              <div className="flex items-center gap-3 text-xs text-slate-700">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="item-style"
+                    value="tile"
+                    checked={displayOptions.itemStyle === 'tile'}
+                    onChange={() =>
+                      setDisplayOptions({
+                        ...displayOptions,
+                        itemStyle: 'tile',
+                      })
+                    }
+                  />
+                  Tile
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="item-style"
+                    value="line"
+                    checked={displayOptions.itemStyle === 'line'}
+                    onChange={() =>
+                      setDisplayOptions({
+                        ...displayOptions,
+                        itemStyle: 'line',
+                      })
+                    }
+                  />
+                  Line
+                </label>
+              </div>
+            </div>
+            {displayOptions.itemStyle === 'line' ? (
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">
+                  Line title gap
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min={0}
+                    max={12}
+                    step={1}
+                    value={displayOptions.lineTitleGap}
+                    onChange={(e) =>
+                      setDisplayOptions({
+                        ...displayOptions,
+                        lineTitleGap: Number(e.target.value),
+                      })
+                    }
+                    className="w-28"
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    max={12}
+                    step={1}
+                    value={displayOptions.lineTitleGap}
+                    onChange={(e) =>
+                      setDisplayOptions({
+                        ...displayOptions,
+                        lineTitleGap: Number(e.target.value),
+                      })
+                    }
+                    className="w-14 rounded-md border border-slate-300 px-2 py-1 text-xs"
+                  />
+                  <span className="text-[0.7rem] text-slate-500">px</span>
+                </div>
+              </div>
+            ) : null}
             <label className="flex items-center gap-2 text-xs text-slate-700">
               <input
                 type="checkbox"

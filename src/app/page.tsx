@@ -28,6 +28,8 @@ export default function HomePage() {
     titleAbove: false,
     itemVerticalPadding: 6,
     laneDividerOpacity: 0.12,
+    itemStyle: 'tile' as 'tile' | 'line',
+    lineTitleGap: 2,
   });
   const [selectedTheme, setSelectedTheme] = useState<
     | 'coastal'
