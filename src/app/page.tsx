@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useAuth } from '@clerk/nextjs';
 import type { RoadmapItem } from '@/types/roadmap';
 import { loadRoadmap } from '@/lib/loadRoadmap';
 import { parseRegions, type Region } from '@/lib/region';
@@ -9,9 +11,20 @@ import { parseStakeholders } from '@/lib/stakeholders';
 import { parseRoadmapCsv } from '@/lib/loadRoadmapFromCsv';
 import { RoadmapFilters } from '@/components/roadmap/RoadmapFilters';
 import { RoadmapTimeline } from '@/components/roadmap/RoadmapTimeline';
+import { SavedViewsPanel } from '@/components/roadmap/SavedViewsPanel';
+import type {
+  DisplayOptions,
+  GroupByOption,
+  SavedView,
+  ThemeOption,
+  ViewPayload,
+  ViewScope,
+} from '@/types/views';
 
 export default function HomePage() {
   const settingsKey = 'roadmap-viewer-settings';
+  const { isLoaded, isSignedIn } = useAuth();
+  const searchParams = useSearchParams();
   const [items, setItems] = useState<RoadmapItem[]>([]);
   const [filteredItems, setFilteredItems] = useState<RoadmapItem[]>([]);
   const [currentCsvText, setCurrentCsvText] = useState('');
@@ -22,10 +35,9 @@ export default function HomePage() {
   );
   const [selectedImpactedStakeholders, setSelectedImpactedStakeholders] =
     useState<string[]>([]);
-  const [selectedGroupBy, setSelectedGroupBy] = useState<
-    'pillar' | 'stakeholder' | 'criticality' | 'region'
-  >('pillar');
-  const [displayOptions, setDisplayOptions] = useState({
+  const [selectedGroupBy, setSelectedGroupBy] =
+    useState<GroupByOption>('pillar');
+  const defaultDisplayOptions: DisplayOptions = {
     showRegionEmojis: true,
     showShortDescription: true,
     titleAbove: false,
@@ -35,19 +47,12 @@ export default function HomePage() {
     lineTitleGap: 2,
     showQuarters: true,
     showMonths: false,
-  });
-  const [selectedTheme, setSelectedTheme] = useState<
-    | 'coastal'
-    | 'orchard'
-    | 'sunset'
-    | 'slate'
-    | 'sand'
-    | 'mist'
-    | 'mono'
-    | 'forest'
-    | 'metro'
-    | 'metro-dark'
-  >('coastal');
+  };
+  const [displayOptions, setDisplayOptions] = useState<DisplayOptions>(
+    defaultDisplayOptions,
+  );
+  const [selectedTheme, setSelectedTheme] =
+    useState<ThemeOption>('coastal');
   const [startDate, setStartDate] = useState(() =>
     formatDateInput(getQuarterStartDate(new Date())),
   );
@@ -56,6 +61,11 @@ export default function HomePage() {
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const [isDraggingCsv, setIsDraggingCsv] = useState(false);
+  const [personalViews, setPersonalViews] = useState<SavedView[]>([]);
+  const [sharedViews, setSharedViews] = useState<SavedView[]>([]);
+  const [isLoadingViews, setIsLoadingViews] = useState(false);
+  const [shareBaseUrl, setShareBaseUrl] = useState('');
+  const [loadedSharedSlug, setLoadedSharedSlug] = useState('');
 
   useEffect(() => {
     loadRoadmap().then((data) => {
@@ -67,8 +77,157 @@ export default function HomePage() {
       .then((text) => setCurrentCsvText(text))
       .catch(() => {
         setCurrentCsvText('');
-      });
+    });
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setShareBaseUrl(window.location.origin);
+  }, []);
+
+  const buildViewPayload = (): ViewPayload => ({
+    filters: {
+      pillars: selectedPillars,
+      regions: selectedRegions,
+      criticalities: selectedCriticalities,
+      impactedStakeholders: selectedImpactedStakeholders,
+    },
+    display: {
+      groupBy: selectedGroupBy,
+      theme: selectedTheme,
+      options: displayOptions,
+    },
+    timeline: {
+      startDate,
+      quartersToShow,
+    },
+  });
+
+  const applyViewPayload = (payload: ViewPayload) => {
+    setSelectedPillars(payload.filters?.pillars ?? []);
+    setSelectedRegions(payload.filters?.regions ?? []);
+    setSelectedCriticalities(payload.filters?.criticalities ?? []);
+    setSelectedImpactedStakeholders(
+      payload.filters?.impactedStakeholders ?? [],
+    );
+    if (payload.display?.groupBy) {
+      setSelectedGroupBy(payload.display.groupBy);
+    }
+    if (payload.display?.theme) {
+      setSelectedTheme(payload.display.theme);
+    }
+    if (payload.display?.options) {
+      setDisplayOptions({
+        ...defaultDisplayOptions,
+        ...payload.display.options,
+      });
+    }
+    if (payload.timeline?.startDate) {
+      setStartDate(payload.timeline.startDate);
+    }
+    if (payload.timeline?.quartersToShow) {
+      setQuartersToShow(payload.timeline.quartersToShow);
+    }
+  };
+
+  const fetchViews = async () => {
+    if (!isSignedIn) {
+      setPersonalViews([]);
+      setSharedViews([]);
+      return;
+    }
+    setIsLoadingViews(true);
+    try {
+      const [personalRes, sharedRes] = await Promise.all([
+        fetch('/api/views?scope=personal'),
+        fetch('/api/views?scope=shared'),
+      ]);
+      const personalData = await personalRes.json();
+      const sharedData = await sharedRes.json();
+      setPersonalViews(personalData.views ?? []);
+      setSharedViews(sharedData.views ?? []);
+    } catch {
+      setPersonalViews([]);
+      setSharedViews([]);
+    } finally {
+      setIsLoadingViews(false);
+    }
+  };
+
+  const handleSaveView = async (name: string, scope: ViewScope) => {
+    if (!isSignedIn) return;
+    const payload = buildViewPayload();
+    await fetch('/api/views', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, scope, payload }),
+    });
+    await fetchViews();
+  };
+
+  const handleRenameView = async (
+    id: string,
+    _scope: ViewScope,
+    name: string,
+  ) => {
+    if (!isSignedIn) return;
+    await fetch(`/api/views/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    await fetchViews();
+  };
+
+  const handleDeleteView = async (id: string, _scope: ViewScope) => {
+    if (!isSignedIn) return;
+    await fetch(`/api/views/${id}`, { method: 'DELETE' });
+    await fetchViews();
+  };
+
+  const handleGenerateLink = async (id: string) => {
+    if (!isSignedIn) return;
+    await fetch(`/api/views/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ generateSlug: true }),
+    });
+    await fetchViews();
+  };
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (!isSignedIn) {
+      setPersonalViews([]);
+      setSharedViews([]);
+      return;
+    }
+    fetchViews();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded, isSignedIn]);
+
+  useEffect(() => {
+    if (!isSignedIn) return;
+    const slug = searchParams.get('view') ?? '';
+    if (!slug || slug === loadedSharedSlug) return;
+    const fetchSharedView = async () => {
+      try {
+        const res = await fetch(`/api/views/slug/${slug}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.view?.payload) {
+          applyViewPayload(data.view.payload as ViewPayload);
+          setLoadedSharedSlug(slug);
+          const nextUrl = new URL(window.location.href);
+          nextUrl.searchParams.delete('view');
+          window.history.replaceState(null, '', nextUrl.toString());
+        }
+      } catch {
+        // Ignore fetch errors for shared views.
+      }
+    };
+    fetchSharedView();
+  }, [isSignedIn, loadedSharedSlug, searchParams]);
 
   const handleCsvDownload = () => {
     const csv = currentCsvText || buildCsvFromItems(items);
@@ -117,11 +276,43 @@ export default function HomePage() {
       setIsExporting(false);
       return;
     }
+    const scrollContainer = exportNode.querySelector<HTMLElement>(
+      '[data-roadmap-scroll]',
+    );
+    const maxWidthContainer = exportNode.closest<HTMLElement>('.max-w-7xl');
+    const computedMaxWidth = maxWidthContainer
+      ? parseFloat(window.getComputedStyle(maxWidthContainer).maxWidth)
+      : NaN;
+    const previousExportWidth = exportNode.style.width;
+    const previousExportMaxWidth = exportNode.style.maxWidth;
+    const previousScrollWidth = scrollContainer?.style.width;
+    const previousScrollOverflow = scrollContainer?.style.overflowX;
+    const fullWidth =
+      scrollContainer?.scrollWidth ||
+      exportNode.scrollWidth ||
+      exportNode.clientWidth;
+    const targetWidth =
+      Number.isFinite(computedMaxWidth) && computedMaxWidth > 0
+        ? computedMaxWidth
+        : fullWidth;
+
+    exportNode.style.width = `${targetWidth}px`;
+    exportNode.style.maxWidth = 'none';
+    if (scrollContainer) {
+      scrollContainer.style.width = `${targetWidth}px`;
+      scrollContainer.style.overflowX = 'visible';
+    }
     const { toPng } = await import('html-to-image');
     const dataUrl = await toPng(exportNode, {
       backgroundColor: '#ffffff',
       pixelRatio: 2,
     });
+    exportNode.style.width = previousExportWidth;
+    exportNode.style.maxWidth = previousExportMaxWidth;
+    if (scrollContainer) {
+      scrollContainer.style.width = previousScrollWidth ?? '';
+      scrollContainer.style.overflowX = previousScrollOverflow ?? '';
+    }
     const link = document.createElement('a');
     link.href = dataUrl;
     link.download = 'roadmap.png';
@@ -183,6 +374,8 @@ export default function HomePage() {
           laneDividerOpacity: number;
           itemStyle: 'tile' | 'line';
           lineTitleGap: number;
+          showQuarters: boolean;
+          showMonths: boolean;
         };
         startDate: string;
         quartersToShow: number;
@@ -283,7 +476,7 @@ export default function HomePage() {
       <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
         <header className="space-y-1">
           <h1 className="text-3xl font-semibold tracking-tight">
-            Technology Roadmap
+            Technology Roadmap By {summaryViewBy}
           </h1>
           <p className="text-sm text-slate-600">
             Visualize roadmap ideas across pillars, time, and regions.
@@ -330,6 +523,18 @@ export default function HomePage() {
             {isExporting ? 'Exporting...' : 'Export Image'}
           </button>
         </div>
+
+        <SavedViewsPanel
+          isLoading={isLoadingViews}
+          personalViews={personalViews}
+          sharedViews={sharedViews}
+          shareBaseUrl={shareBaseUrl}
+          onSaveView={handleSaveView}
+          onLoadView={applyViewPayload}
+          onRenameView={handleRenameView}
+          onDeleteView={handleDeleteView}
+          onGenerateLink={handleGenerateLink}
+        />
 
         <RoadmapFilters
           items={items}

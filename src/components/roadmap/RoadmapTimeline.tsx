@@ -117,7 +117,10 @@ export function RoadmapTimeline({
           </div>
         </div>
       ) : null}
-      <div className="overflow-x-auto overflow-y-visible">
+      <div
+        className="overflow-x-auto overflow-y-visible"
+        data-roadmap-scroll
+      >
         <div className="min-w-full">
           <div className="relative space-y-1">
             {displayOptions.showQuarters ? (
