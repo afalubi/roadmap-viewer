@@ -201,3 +201,75 @@ export function getLaneClassesByIndex(
   const palette = PALETTES[theme];
   return palette.lane[index % palette.lane.length];
 }
+
+const LINE_BG_CLASS_MAP: Record<
+  string,
+  { fill: string; hover: string }
+> = {
+  'border-sky-200': { fill: 'bg-sky-200', hover: 'hover:bg-sky-200' },
+  'border-sky-300': { fill: 'bg-sky-300', hover: 'hover:bg-sky-300' },
+  'border-emerald-300': {
+    fill: 'bg-emerald-300',
+    hover: 'hover:bg-emerald-300',
+  },
+  'border-amber-200': { fill: 'bg-amber-200', hover: 'hover:bg-amber-200' },
+  'border-amber-300': { fill: 'bg-amber-300', hover: 'hover:bg-amber-300' },
+  'border-rose-200': { fill: 'bg-rose-200', hover: 'hover:bg-rose-200' },
+  'border-rose-300': { fill: 'bg-rose-300', hover: 'hover:bg-rose-300' },
+  'border-indigo-200': { fill: 'bg-indigo-200', hover: 'hover:bg-indigo-200' },
+  'border-indigo-300': { fill: 'bg-indigo-300', hover: 'hover:bg-indigo-300' },
+  'border-lime-300': { fill: 'bg-lime-300', hover: 'hover:bg-lime-300' },
+  'border-orange-200': {
+    fill: 'bg-orange-200',
+    hover: 'hover:bg-orange-200',
+  },
+  'border-orange-300': {
+    fill: 'bg-orange-300',
+    hover: 'hover:bg-orange-300',
+  },
+  'border-teal-300': { fill: 'bg-teal-300', hover: 'hover:bg-teal-300' },
+  'border-fuchsia-300': {
+    fill: 'bg-fuchsia-300',
+    hover: 'hover:bg-fuchsia-300',
+  },
+  'border-violet-200': {
+    fill: 'bg-violet-200',
+    hover: 'hover:bg-violet-200',
+  },
+  'border-violet-300': {
+    fill: 'bg-violet-300',
+    hover: 'hover:bg-violet-300',
+  },
+  'border-slate-200': { fill: 'bg-slate-200', hover: 'hover:bg-slate-200' },
+  'border-slate-300': { fill: 'bg-slate-300', hover: 'hover:bg-slate-300' },
+  'border-gray-200': { fill: 'bg-gray-200', hover: 'hover:bg-gray-200' },
+  'border-gray-300': { fill: 'bg-gray-300', hover: 'hover:bg-gray-300' },
+  'border-zinc-200': { fill: 'bg-zinc-200', hover: 'hover:bg-zinc-200' },
+  'border-zinc-300': { fill: 'bg-zinc-300', hover: 'hover:bg-zinc-300' },
+  'border-stone-300': {
+    fill: 'bg-stone-300',
+    hover: 'hover:bg-stone-300',
+  },
+  'border-neutral-300': {
+    fill: 'bg-neutral-300',
+    hover: 'hover:bg-neutral-300',
+  },
+  'border-yellow-200': {
+    fill: 'bg-yellow-200',
+    hover: 'hover:bg-yellow-200',
+  },
+  'border-cyan-200': { fill: 'bg-cyan-200', hover: 'hover:bg-cyan-200' },
+  'border-cyan-300': { fill: 'bg-cyan-300', hover: 'hover:bg-cyan-300' },
+  'border-blue-200': { fill: 'bg-blue-200', hover: 'hover:bg-blue-200' },
+  'border-green-300': { fill: 'bg-green-300', hover: 'hover:bg-green-300' },
+};
+
+export function getLineFillClasses(itemClasses: string): {
+  fill: string;
+  hover: string;
+} {
+  const borderClass = itemClasses
+    .split(' ')
+    .find((cls) => cls.startsWith('border-'));
+  return borderClass ? LINE_BG_CLASS_MAP[borderClass] ?? { fill: '', hover: '' } : { fill: '', hover: '' };
+}

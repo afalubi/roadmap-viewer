@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom';
 import type { RoadmapItem } from '@/types/roadmap';
 import type { QuarterBucket } from '@/lib/timeScale';
 import { getTimelinePosition } from '@/lib/timeScale';
-import { getItemClassesByIndex } from '@/lib/color';
+import { getItemClassesByIndex, getLineFillClasses } from '@/lib/color';
 import { getRegionEmojiList } from '@/lib/region';
 
 interface Props {
@@ -48,6 +48,8 @@ export function RoadmapSwimlane({
   laneIndex,
 }: Props) {
   const itemColorClasses = getItemClassesByIndex(laneIndex, theme);
+  const lineFillClasses = getLineFillClasses(itemColorClasses);
+  const lineBorderClasses = stripBgClasses(itemColorClasses);
   const laneClasses = laneClassName || 'bg-slate-50';
   const laneBodyClasses = laneBodyClassName || laneClasses;
   const [tooltip, setTooltip] = useState<{
@@ -174,9 +176,15 @@ export function RoadmapSwimlane({
                   type="button"
                   className={[
                     'group relative z-20 w-full text-left text-xs px-2 py-1 rounded-md border shadow-sm cursor-pointer transition-colors',
-                    itemColorClasses,
                     displayOptions.itemStyle === 'line'
-                      ? 'h-1.5 py-0 rounded-full'
+                      ? lineBorderClasses
+                      : itemColorClasses,
+                    displayOptions.itemStyle === 'line'
+                      ? [
+                          'h-1.5 py-0 rounded-full',
+                          lineFillClasses.fill,
+                          lineFillClasses.hover,
+                        ].join(' ')
                       : hasInlineText
                         ? ''
                         : 'h-2 py-0 rounded-full',
@@ -258,6 +266,13 @@ export function RoadmapSwimlane({
         : null}
     </div>
   );
+}
+
+function stripBgClasses(classes: string): string {
+  return classes
+    .split(' ')
+    .filter((cls) => !cls.startsWith('bg-') && !cls.startsWith('hover:bg-'))
+    .join(' ');
 }
 
 function buildLaneRows(
