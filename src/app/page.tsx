@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import type { RoadmapItem } from '@/types/roadmap';
 import { loadRoadmap } from '@/lib/loadRoadmap';
 import { parseRegions, type Region } from '@/lib/region';
+import { getQuarterStartDate } from '@/lib/timeScale';
 import { parseStakeholders } from '@/lib/stakeholders';
 import { RoadmapFilters } from '@/components/roadmap/RoadmapFilters';
 import { RoadmapTimeline } from '@/components/roadmap/RoadmapTimeline';
@@ -29,6 +30,9 @@ export default function HomePage() {
   const [selectedTheme, setSelectedTheme] = useState<
     'coastal' | 'orchard' | 'sunset'
   >('coastal');
+  const [startDate, setStartDate] = useState(() =>
+    formatDateInput(getQuarterStartDate(new Date())),
+  );
   const [quartersToShow, setQuartersToShow] = useState(5);
 
   useEffect(() => {
@@ -99,6 +103,8 @@ export default function HomePage() {
           setDisplayOptions={setDisplayOptions}
           selectedTheme={selectedTheme}
           setSelectedTheme={setSelectedTheme}
+          startDate={startDate}
+          setStartDate={setStartDate}
           quartersToShow={quartersToShow}
           setQuartersToShow={setQuartersToShow}
         />
@@ -108,9 +114,17 @@ export default function HomePage() {
           groupBy={selectedGroupBy}
           displayOptions={displayOptions}
           theme={selectedTheme}
+          startDate={startDate}
           quartersToShow={quartersToShow}
         />
       </div>
     </main>
   );
+}
+
+function formatDateInput(date: Date): string {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }

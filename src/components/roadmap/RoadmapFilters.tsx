@@ -29,6 +29,8 @@ interface Props {
   }) => void;
   selectedTheme: 'coastal' | 'orchard' | 'sunset';
   setSelectedTheme: (value: 'coastal' | 'orchard' | 'sunset') => void;
+  startDate: string;
+  setStartDate: (value: string) => void;
   quartersToShow: number;
   setQuartersToShow: (value: number) => void;
 }
@@ -49,6 +51,8 @@ export function RoadmapFilters({
   setDisplayOptions,
   selectedTheme,
   setSelectedTheme,
+  startDate,
+  setStartDate,
   quartersToShow,
   setQuartersToShow,
 }: Props) {
@@ -72,205 +76,220 @@ export function RoadmapFilters({
     setSelectedImpactedStakeholders([]);
   };
 
-  const selectClasses =
-    'border border-slate-300 rounded-md px-2 py-1 text-sm bg-white min-h-[5.5rem]';
+  const compactSelectClasses =
+    'border border-slate-300 rounded-md px-2 py-1 text-sm bg-white';
 
   const getSelectedOptions = (event: React.ChangeEvent<HTMLSelectElement>) =>
     Array.from(event.target.selectedOptions, (option) => option.value);
 
   const checkboxClasses =
     'h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500';
+  const toggleValue = (list: string[], value: string) =>
+    list.includes(value)
+      ? list.filter((item) => item !== value)
+      : [...list, value];
+
+  const renderCheckboxDropdown = (
+    label: string,
+    options: string[],
+    selected: string[],
+    onChange: (next: string[]) => void,
+    placeholder: string,
+  ) => (
+    <div className="space-y-1">
+      <label className="block text-xs font-medium text-slate-600">{label}</label>
+      <details className="rounded-md border border-slate-200 bg-white text-xs">
+        <summary className="cursor-pointer list-none px-2 py-1 text-slate-700">
+          {selected.length > 0 ? `${selected.length} selected` : placeholder}
+        </summary>
+        <div className="border-t border-slate-200 px-2 py-2 space-y-2">
+          {options.map((option) => (
+            <label
+              key={option}
+              className="flex items-center gap-2 text-slate-700"
+            >
+              <input
+                type="checkbox"
+                className={checkboxClasses}
+                checked={selected.includes(option)}
+                onChange={() => onChange(toggleValue(selected, option))}
+              />
+              {option}
+            </label>
+          ))}
+        </div>
+      </details>
+    </div>
+  );
 
   return (
-    <section className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-3">
-      <div className="flex flex-wrap gap-4 items-center">
-        <div className="space-y-1">
-          <label className="block text-xs font-medium text-slate-600">
-            View by
-          </label>
-          <select
-            className={selectClasses}
-            value={selectedGroupBy}
-            onChange={(e) =>
-              setSelectedGroupBy(
-                e.target.value as 'pillar' | 'stakeholder' | 'criticality',
-              )
-            }
-          >
-            <option value="pillar">Pillar</option>
-            <option value="stakeholder">Primary stakeholder</option>
-            <option value="criticality">Criticality</option>
-          </select>
-        </div>
-
-        <div className="space-y-1">
-          <label className="block text-xs font-medium text-slate-600">
-            Pillar
-          </label>
-          <select
-            className={selectClasses}
-            multiple
-            value={selectedPillars}
-            onChange={(e) => setSelectedPillars(getSelectedOptions(e))}
-          >
-            {pillars.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="space-y-1">
-          <label className="block text-xs font-medium text-slate-600">
-            Region
-          </label>
-          <select
-            className={selectClasses}
-            multiple
-            value={selectedRegions}
-            onChange={(e) =>
-              setSelectedRegions(getSelectedOptions(e) as Region[])
-            }
-          >
-            {regions.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="space-y-1">
-          <label className="block text-xs font-medium text-slate-600">
-            Criticality
-          </label>
-          <select
-            className={selectClasses}
-            multiple
-            value={selectedCriticalities}
-            onChange={(e) => setSelectedCriticalities(getSelectedOptions(e))}
-          >
-            {criticalities.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="space-y-1">
-          <label className="block text-xs font-medium text-slate-600">
-            Impacted stakeholders
-          </label>
-          <select
-            className={selectClasses}
-            multiple
-            value={selectedImpactedStakeholders}
-            onChange={(e) =>
-              setSelectedImpactedStakeholders(getSelectedOptions(e))
-            }
-          >
-            {impactedStakeholders.map((stakeholder) => (
-              <option key={stakeholder} value={stakeholder}>
-                {stakeholder}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="space-y-2">
-          <div className="text-xs font-medium text-slate-600">
-            Display options
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
-              Theme
+    <section className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
+      <div className="grid gap-6 grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <label className="block text-xs font-medium text-slate-600">
+              View by
             </label>
             <select
-              className="border border-slate-300 rounded-md px-2 py-1 text-sm bg-white"
-              value={selectedTheme}
+              className={compactSelectClasses}
+              value={selectedGroupBy}
               onChange={(e) =>
-                setSelectedTheme(
-                  e.target.value as 'coastal' | 'orchard' | 'sunset',
+                setSelectedGroupBy(
+                  e.target.value as 'pillar' | 'stakeholder' | 'criticality',
                 )
               }
             >
-              <option value="coastal">Coastal</option>
-              <option value="orchard">Orchard</option>
-              <option value="sunset">Sunset</option>
+              <option value="pillar">Pillar</option>
+              <option value="stakeholder">Primary stakeholder</option>
+              <option value="criticality">Criticality</option>
             </select>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
-              Quarters shown
-            </label>
-            <select
-              className="border border-slate-300 rounded-md px-2 py-1 text-sm bg-white"
-              value={quartersToShow}
-              onChange={(e) => setQuartersToShow(Number(e.target.value))}
+
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Filters
+          </div>
+          <div className="flex flex-wrap gap-4 items-start">
+            {renderCheckboxDropdown(
+              'Pillar',
+              pillars,
+              selectedPillars,
+              setSelectedPillars,
+              'Select pillar',
+            )}
+
+            {renderCheckboxDropdown(
+              'Region',
+              regions,
+              selectedRegions,
+              (next) => setSelectedRegions(next as Region[]),
+              'Select region',
+            )}
+
+            {renderCheckboxDropdown(
+              'Criticality',
+              criticalities,
+              selectedCriticalities,
+              setSelectedCriticalities,
+              'Select criticality',
+            )}
+
+            {renderCheckboxDropdown(
+              'Impacted stakeholders',
+              impactedStakeholders,
+              selectedImpactedStakeholders,
+              setSelectedImpactedStakeholders,
+              'Select stakeholders',
+            )}
+
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="self-end text-xs px-3 py-1 rounded-full border border-slate-300 text-slate-700 hover:bg-slate-100"
             >
-              {Array.from({ length: 12 }, (_, index) => {
-                const count = index + 1;
-                return (
-                  <option key={count} value={count}>
-                    {count}
-                  </option>
-                );
-              })}
-            </select>
+              Clear filters
+            </button>
           </div>
-          <label className="flex items-center gap-2 text-xs text-slate-700">
-            <input
-              type="checkbox"
-              className={checkboxClasses}
-              checked={displayOptions.showRegionEmojis}
-              onChange={(e) =>
-                setDisplayOptions({
-                  ...displayOptions,
-                  showRegionEmojis: e.target.checked,
-                })
-              }
-            />
-            Show region flags
-          </label>
-          <label className="flex items-center gap-2 text-xs text-slate-700">
-            <input
-              type="checkbox"
-              className={checkboxClasses}
-              checked={displayOptions.showShortDescription}
-              onChange={(e) =>
-                setDisplayOptions({
-                  ...displayOptions,
-                  showShortDescription: e.target.checked,
-                })
-              }
-            />
-            Show short description
-          </label>
-          <label className="flex items-center gap-2 text-xs text-slate-700">
-            <input
-              type="checkbox"
-              className={checkboxClasses}
-              checked={displayOptions.titleAbove}
-              onChange={(e) =>
-                setDisplayOptions({
-                  ...displayOptions,
-                  titleAbove: e.target.checked,
-                })
-              }
-            />
-            Title above item
-          </label>
         </div>
 
-        <button
-          type="button"
-          onClick={clearFilters}
-          className="ml-auto text-xs px-3 py-1 rounded-full border border-slate-300 text-slate-700 hover:bg-slate-100"
-        >
-          Clear filters
-        </button>
+        <div className="space-y-3 border-l border-slate-200 pl-6">
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Display
+          </div>
+          <div className="space-y-3 rounded-lg bg-slate-50/70 p-3 border border-slate-200">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Theme
+              </label>
+              <select
+                className={compactSelectClasses}
+                value={selectedTheme}
+                onChange={(e) =>
+                  setSelectedTheme(
+                    e.target.value as 'coastal' | 'orchard' | 'sunset',
+                  )
+                }
+              >
+                <option value="coastal">Coastal</option>
+                <option value="orchard">Orchard</option>
+                <option value="sunset">Sunset</option>
+              </select>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Start date
+              </label>
+              <input
+                type="date"
+                className={compactSelectClasses}
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+              <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Quarters shown
+              </label>
+              <select
+                className={compactSelectClasses}
+                value={quartersToShow}
+                onChange={(e) => setQuartersToShow(Number(e.target.value))}
+              >
+                {Array.from({ length: 12 }, (_, index) => {
+                  const count = index + 1;
+                  return (
+                    <option key={count} value={count}>
+                      {count}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+            </div>
+            <label className="flex items-center gap-2 text-xs text-slate-700">
+              <input
+                type="checkbox"
+                className={checkboxClasses}
+                checked={displayOptions.showRegionEmojis}
+                onChange={(e) =>
+                  setDisplayOptions({
+                    ...displayOptions,
+                    showRegionEmojis: e.target.checked,
+                  })
+                }
+              />
+              Show region flags
+            </label>
+            <label className="flex items-center gap-2 text-xs text-slate-700">
+              <input
+                type="checkbox"
+                className={checkboxClasses}
+                checked={displayOptions.showShortDescription}
+                onChange={(e) =>
+                  setDisplayOptions({
+                    ...displayOptions,
+                    showShortDescription: e.target.checked,
+                  })
+                }
+              />
+              Show short description
+            </label>
+            <label className="flex items-center gap-2 text-xs text-slate-700">
+              <input
+                type="checkbox"
+                className={checkboxClasses}
+                checked={displayOptions.titleAbove}
+                onChange={(e) =>
+                  setDisplayOptions({
+                    ...displayOptions,
+                    titleAbove: e.target.checked,
+                  })
+                }
+              />
+              Title above item
+            </label>
+          </div>
+        </div>
       </div>
     </section>
   );

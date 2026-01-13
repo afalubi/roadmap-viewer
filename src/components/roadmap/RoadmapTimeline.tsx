@@ -16,6 +16,7 @@ interface Props {
     titleAbove: boolean;
   };
   theme: 'coastal' | 'orchard' | 'sunset';
+  startDate: string;
   quartersToShow: number;
 }
 
@@ -40,11 +41,12 @@ export function RoadmapTimeline({
   groupBy,
   displayOptions,
   theme,
+  startDate,
   quartersToShow,
 }: Props) {
   const [selectedItem, setSelectedItem] = useState<RoadmapItem | null>(null);
 
-  const quarters = buildQuarterBuckets(items, quartersToShow);
+  const quarters = buildQuarterBuckets(items, quartersToShow, startDate);
 
   const pillarsMap = new Map<string, RoadmapItem[]>();
   for (const item of items) {

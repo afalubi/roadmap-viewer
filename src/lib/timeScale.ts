@@ -7,7 +7,7 @@ export interface QuarterBucket {
 }
 
 function getQuarter(date: Date): 1 | 2 | 3 | 4 {
-  const month = date.getMonth();
+  const month = date.getUTCMonth();
   return (Math.floor(month / 3) + 1) as 1 | 2 | 3 | 4;
 }
 
@@ -21,27 +21,22 @@ function getQuarterEnd(year: number, quarter: 1 | 2 | 3 | 4): Date {
   return new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
 }
 
+export function getQuarterStartDate(date: Date): Date {
+  const year = date.getUTCFullYear();
+  const quarter = getQuarter(date);
+  return getQuarterStart(year, quarter);
+}
+
 export function buildQuarterBuckets(
   items: RoadmapItem[],
   totalQuarters = 5,
+  startDate?: string,
 ): QuarterBucket[] {
   const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentQuarter = getQuarter(now);
-
-  let minStart = getQuarterStart(currentYear, currentQuarter);
-  let maxEnd = getQuarterEnd(currentYear, currentQuarter);
-
-  for (const item of items) {
-    if (item.startDate) {
-      const d = new Date(item.startDate);
-      if (d < minStart) minStart = d;
-    }
-    if (item.endDate) {
-      const d = new Date(item.endDate);
-      if (d > maxEnd) maxEnd = d;
-    }
-  }
+  const anchorDate = startDate ? parseDateInput(startDate) : now;
+  const anchorStart = getQuarterStartDate(anchorDate);
+  const currentYear = anchorStart.getUTCFullYear();
+  const currentQuarter = getQuarter(anchorStart);
 
   const quarters: QuarterBucket[] = [];
   let year = currentYear;
@@ -61,6 +56,14 @@ export function buildQuarterBuckets(
   }
 
   return quarters;
+}
+
+function parseDateInput(value: string): Date {
+  const [year, month, day] = value.split('-').map(Number);
+  if (!year || !month || !day) {
+    return new Date(value);
+  }
+  return new Date(Date.UTC(year, month - 1, day));
 }
 
 export interface TimelinePosition {
