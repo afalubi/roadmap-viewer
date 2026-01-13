@@ -72,8 +72,11 @@ export function RoadmapSwimlane({
   const laneRowHeight = rowHeight + rowGap + labelHeight;
   const timelineStart = quarters[0]?.start.getTime() ?? 0;
   const timelineEnd = quarters[quarters.length - 1]?.end.getTime() ?? 0;
-
   const positionedItems = buildLaneRows(items, timelineStart, timelineEnd);
+  const lineRows =
+    displayOptions.itemStyle === 'line'
+      ? Array.from(new Set(positionedItems.items.map((entry) => entry.row)))
+      : [];
   const laneHeight =
     positionedItems.maxRow >= 0
       ? lanePaddingTop +
@@ -103,7 +106,7 @@ export function RoadmapSwimlane({
         style={{ gridColumn: '2 / -1', minHeight: laneHeight }}
       >
         <div
-          className="relative h-full"
+          className="relative h-full isolate"
           style={{
             paddingTop: lanePaddingTop,
             paddingBottom: lanePaddingBottom,
@@ -138,9 +141,11 @@ export function RoadmapSwimlane({
             const hasInlineText = Boolean(hasInlineTitle || hasInlineShort);
             const lineHeight = displayOptions.itemStyle === 'line' ? 6 : 8;
             const itemTop =
-              firstItemOffset +
-              row * laneRowHeight +
-              (hasInlineText ? 0 : Math.max(0, (rowHeight - lineHeight) / 2));
+              displayOptions.itemStyle === 'line'
+                ? firstItemOffset + row * laneRowHeight
+                : firstItemOffset +
+                  row * laneRowHeight +
+                  (hasInlineText ? 0 : Math.max(0, (rowHeight - lineHeight) / 2));
 
             const stackGap = titleAbove
               ? displayOptions.itemStyle === 'line'
@@ -151,7 +156,7 @@ export function RoadmapSwimlane({
             return (
               <div
                 key={item.id}
-                className="absolute flex flex-col"
+                className="absolute z-20 flex flex-col"
                 style={{
                   left: `${pos.leftPercent}%`,
                   width: `${pos.widthPercent}%`,
@@ -168,10 +173,10 @@ export function RoadmapSwimlane({
                 <button
                   type="button"
                   className={[
-                    'group relative w-full text-left text-xs px-2 py-1 rounded-md border shadow-sm cursor-pointer transition-colors',
+                    'group relative z-20 w-full text-left text-xs px-2 py-1 rounded-md border shadow-sm cursor-pointer transition-colors',
                     itemColorClasses,
                     displayOptions.itemStyle === 'line'
-                      ? 'h-1.5 py-0 rounded-full brightness-90 contrast-125'
+                      ? 'h-1.5 py-0 rounded-full'
                       : hasInlineText
                         ? ''
                         : 'h-2 py-0 rounded-full',
@@ -186,12 +191,6 @@ export function RoadmapSwimlane({
                   }
                   onMouseLeave={() => setTooltip(null)}
                 >
-                  {displayOptions.itemStyle === 'line' ? (
-                    <>
-                      <span className="absolute -left-1 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full border border-slate-400 bg-slate-200" />
-                      <span className="absolute -right-1 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full border border-slate-400 bg-slate-200" />
-                    </>
-                  ) : null}
                   {hasInlineText && !titleAbove ? (
                     <div className="font-semibold truncate">
                       {regionBadges}
@@ -205,6 +204,25 @@ export function RoadmapSwimlane({
                   ) : null}
                 </button>
               </div>
+            );
+          })}
+          {lineRows.map((row) => {
+            const lineTitleHeight = 16;
+            const lineButtonHeight = 8;
+            const lineThickness = 4;
+            const lineTop =
+              firstItemOffset +
+              row * laneRowHeight +
+              lineTitleHeight +
+              displayOptions.lineTitleGap +
+              (lineButtonHeight - lineThickness) / 2;
+
+            return (
+              <div
+                key={`line-row-${row}`}
+                className="absolute left-0 right-0 h-1 bg-slate-300 z-0 pointer-events-none"
+                style={{ top: lineTop }}
+              />
             );
           })}
         </div>
