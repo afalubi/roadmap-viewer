@@ -205,11 +205,11 @@ const PALETTES: Record<
   },
   'metro-dark': {
     item: [
-      'bg-indigo-500/70 hover:bg-indigo-500/80 border-indigo-600',
-      'bg-teal-500/70 hover:bg-teal-500/80 border-teal-600',
-      'bg-emerald-500/70 hover:bg-emerald-500/80 border-emerald-600',
-      'bg-amber-500/70 hover:bg-amber-500/80 border-amber-600',
-      'bg-rose-500/70 hover:bg-rose-500/80 border-rose-600',
+      'bg-indigo-600/60 hover:bg-indigo-600/70 border-indigo-700',
+      'bg-teal-600/60 hover:bg-teal-600/70 border-teal-700',
+      'bg-emerald-600/60 hover:bg-emerald-600/70 border-emerald-700',
+      'bg-amber-600/60 hover:bg-amber-600/70 border-amber-700',
+      'bg-rose-600/60 hover:bg-rose-600/70 border-rose-700',
     ],
     lane: [
       'bg-indigo-100/50',
@@ -253,6 +253,7 @@ export function getLaneBackgroundClassFromItem(itemClasses: string): string {
   return bgClass || 'bg-slate-50';
 }
 
+
 const LINE_BG_CLASS_MAP: Record<
   string,
   { fill: string; hover: string }
@@ -267,15 +268,22 @@ const LINE_BG_CLASS_MAP: Record<
     fill: 'bg-emerald-600',
     hover: 'hover:bg-emerald-600',
   },
+  'border-emerald-700': {
+    fill: 'bg-emerald-700',
+    hover: 'hover:bg-emerald-700',
+  },
   'border-amber-200': { fill: 'bg-amber-200', hover: 'hover:bg-amber-200' },
   'border-amber-300': { fill: 'bg-amber-300', hover: 'hover:bg-amber-300' },
   'border-amber-600': { fill: 'bg-amber-600', hover: 'hover:bg-amber-600' },
+  'border-amber-700': { fill: 'bg-amber-700', hover: 'hover:bg-amber-700' },
   'border-rose-200': { fill: 'bg-rose-200', hover: 'hover:bg-rose-200' },
   'border-rose-300': { fill: 'bg-rose-300', hover: 'hover:bg-rose-300' },
   'border-rose-600': { fill: 'bg-rose-600', hover: 'hover:bg-rose-600' },
+  'border-rose-700': { fill: 'bg-rose-700', hover: 'hover:bg-rose-700' },
   'border-indigo-200': { fill: 'bg-indigo-200', hover: 'hover:bg-indigo-200' },
   'border-indigo-300': { fill: 'bg-indigo-300', hover: 'hover:bg-indigo-300' },
   'border-indigo-600': { fill: 'bg-indigo-600', hover: 'hover:bg-indigo-600' },
+  'border-indigo-700': { fill: 'bg-indigo-700', hover: 'hover:bg-indigo-700' },
   'border-lime-300': { fill: 'bg-lime-300', hover: 'hover:bg-lime-300' },
   'border-orange-200': {
     fill: 'bg-orange-200',
@@ -287,6 +295,7 @@ const LINE_BG_CLASS_MAP: Record<
   },
   'border-teal-300': { fill: 'bg-teal-300', hover: 'hover:bg-teal-300' },
   'border-teal-600': { fill: 'bg-teal-600', hover: 'hover:bg-teal-600' },
+  'border-teal-700': { fill: 'bg-teal-700', hover: 'hover:bg-teal-700' },
   'border-fuchsia-300': {
     fill: 'bg-fuchsia-300',
     hover: 'hover:bg-fuchsia-300',

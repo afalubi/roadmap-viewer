@@ -130,7 +130,7 @@ export function RoadmapSwimlane({
               ? getRegionEmojiList(item.region)
               : [];
             const regionBadges = regionEmojis.length ? (
-              <span className="mr-1 inline-flex items-center gap-0.5">
+              <span className="mr-1 inline-flex items-center gap-0.5 text-slate-800">
                 {regionEmojis.map((emoji) => (
                   <span
                     key={`${item.id}-${emoji}`}

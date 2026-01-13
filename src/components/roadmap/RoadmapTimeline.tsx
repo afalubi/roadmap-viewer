@@ -99,7 +99,7 @@ export function RoadmapTimeline({
             {quarters.map((q) => (
               <div
                 key={q.label}
-                className="py-2 text-xs font-medium text-slate-700 text-center"
+                className="py-2 text-xs font-semibold text-slate-700 text-center"
               >
                 {q.label}
               </div>
