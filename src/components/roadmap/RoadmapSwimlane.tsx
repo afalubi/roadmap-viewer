@@ -18,6 +18,7 @@ interface Props {
   laneBodyClassName?: string;
   timelinePadding?: number;
   laneSpacerClassName?: string;
+  todayLeftPercent?: number | null;
   displayOptions: {
     showRegionEmojis: boolean;
     showShortDescription: boolean;
@@ -49,6 +50,7 @@ export function RoadmapSwimlane({
   laneBodyClassName,
   timelinePadding = 12,
   laneSpacerClassName,
+  todayLeftPercent = null,
   displayOptions,
   theme,
   laneIndex,
@@ -123,6 +125,12 @@ export function RoadmapSwimlane({
             paddingRight: lanePaddingX,
           }}
         >
+          {typeof todayLeftPercent === 'number' ? (
+            <div
+              className="absolute top-0 bottom-0 w-px bg-rose-300/50 z-10 pointer-events-none"
+              style={{ left: `${todayLeftPercent}%` }}
+            />
+          ) : null}
           {positionedItems.items.map(({ item, row }) => {
             const pos = getTimelinePosition(item, quarters);
             if (pos.widthPercent <= 0) return null;
@@ -165,7 +173,7 @@ export function RoadmapSwimlane({
             return (
               <div
                 key={item.id}
-                className="absolute z-20 flex flex-col"
+                className="absolute z-40 flex flex-col"
                 style={{
                   left: `${pos.leftPercent}%`,
                   width: `${pos.widthPercent}%`,
@@ -182,7 +190,7 @@ export function RoadmapSwimlane({
                 <button
                   type="button"
                   className={[
-                    'group relative z-20 w-full text-left text-xs px-2 py-1 rounded-md border shadow-sm cursor-pointer transition-colors',
+                    'group relative z-40 w-full text-left text-xs px-2 py-1 rounded-md border shadow-sm cursor-pointer transition-colors',
                     displayOptions.itemStyle === 'line'
                       ? lineBorderClasses
                       : itemColorClasses,

@@ -69,9 +69,12 @@ export function RoadmapTimeline({
   startDate,
   quartersToShow,
 }: Props) {
+  const labelWidth = 160;
+  const timelinePadding = 8;
   const [selectedItem, setSelectedItem] = useState<RoadmapItem | null>(null);
 
   const quarters = buildQuarterBuckets(items, quartersToShow, startDate);
+  const todayLeft = getTodayLeftPercent(quarters);
 
   const pillarsMap = new Map<string, RoadmapItem[]>();
   for (const item of items) {
@@ -86,56 +89,59 @@ export function RoadmapTimeline({
     <section className="bg-white border border-slate-200 rounded-lg shadow-sm p-4 space-y-4">
       <div className="overflow-x-auto overflow-y-visible">
         <div className="min-w-full">
-          <div
-            className="grid border-b border-slate-200"
-            style={{
-              gridTemplateColumns: `160px 8px repeat(${quarters.length}, minmax(0, 1fr))`,
-            }}
-          >
-            <div className="py-2 text-xs font-semibold text-slate-700 px-2">
-              {GROUP_LABELS[groupBy]}
-            </div>
-            <div className="bg-white" />
-            {quarters.map((q) => (
-              <div
-                key={q.label}
-                className="py-2 text-xs font-semibold text-slate-700 text-center"
-              >
-                {q.label}
+          <div className="relative">
+            <div
+              className="grid border-b border-slate-200"
+              style={{
+                gridTemplateColumns: `${labelWidth}px ${timelinePadding}px repeat(${quarters.length}, minmax(0, 1fr))`,
+              }}
+            >
+              <div className="py-2 text-xs font-semibold text-slate-700 px-2">
+                {GROUP_LABELS[groupBy]}
               </div>
-            ))}
-          </div>
+              <div className="bg-white" />
+              {quarters.map((q) => (
+                <div
+                  key={q.label}
+                  className="py-2 text-xs font-semibold text-slate-700 text-center"
+                >
+                  {q.label}
+                </div>
+              ))}
+            </div>
 
-          <div
-            className="divide-y divide-[color:var(--lane-divider)]"
-            style={{
-              ['--quarter-count' as string]: quarters.length,
-              ['--lane-divider' as string]: `rgba(15, 23, 42, ${displayOptions.laneDividerOpacity})`,
-            }}
-          >
-            {pillars.map((pillar, index) => {
-              const itemClasses = getItemClassesByIndex(index, theme);
-              const laneBgClass = getLaneBackgroundClassFromItem(itemClasses);
-              return (
-              <RoadmapSwimlane
-                key={pillar}
-                pillar={pillar}
-                items={pillarsMap.get(pillar)!}
-                quarters={quarters}
-                onSelectItem={setSelectedItem}
-                laneClassName={laneBgClass}
-                laneBodyClassName={[
-                  getLaneClassesByIndex(index, theme),
-                  'bg-[linear-gradient(to_right,rgba(15,23,42,0.06)_1px,transparent_1px)] bg-[length:calc(100%/var(--quarter-count))_100%]',
-                ].join(' ')}
-                laneSpacerClassName={getLaneClassesByIndex(index, theme)}
-                  timelinePadding={8}
-                displayOptions={displayOptions}
-                theme={theme}
-                laneIndex={index}
-              />
-              );
-            })}
+            <div
+              className="divide-y divide-[color:var(--lane-divider)]"
+              style={{
+                ['--quarter-count' as string]: quarters.length,
+                ['--lane-divider' as string]: `rgba(15, 23, 42, ${displayOptions.laneDividerOpacity})`,
+              }}
+            >
+              {pillars.map((pillar, index) => {
+                const itemClasses = getItemClassesByIndex(index, theme);
+                const laneBgClass = getLaneBackgroundClassFromItem(itemClasses);
+                return (
+                  <RoadmapSwimlane
+                    key={pillar}
+                    pillar={pillar}
+                    items={pillarsMap.get(pillar)!}
+                    quarters={quarters}
+                    onSelectItem={setSelectedItem}
+                    laneClassName={laneBgClass}
+                  laneBodyClassName={[
+                    getLaneClassesByIndex(index, theme),
+                    'bg-[linear-gradient(to_right,rgba(15,23,42,0.06)_1px,transparent_1px)] bg-[length:calc(100%/var(--quarter-count))_100%]',
+                  ].join(' ')}
+                  laneSpacerClassName={getLaneClassesByIndex(index, theme)}
+                  timelinePadding={timelinePadding}
+                  todayLeftPercent={todayLeft}
+                  displayOptions={displayOptions}
+                  theme={theme}
+                  laneIndex={index}
+                />
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
@@ -146,4 +152,14 @@ export function RoadmapTimeline({
       />
     </section>
   );
+}
+
+function getTodayLeftPercent(quarters: Array<{ start: Date; end: Date }>): number | null {
+  if (quarters.length === 0) return null;
+  const timelineStart = quarters[0].start.getTime();
+  const timelineEnd = quarters[quarters.length - 1].end.getTime();
+  const now = Date.now();
+  if (now < timelineStart || now > timelineEnd) return null;
+  const totalDuration = timelineEnd - timelineStart || 1;
+  return ((now - timelineStart) / totalDuration) * 100;
 }
