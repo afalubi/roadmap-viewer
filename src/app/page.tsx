@@ -20,16 +20,24 @@ export default function HomePage() {
   const [selectedImpactedStakeholders, setSelectedImpactedStakeholders] =
     useState<string[]>([]);
   const [selectedGroupBy, setSelectedGroupBy] = useState<
-    'pillar' | 'stakeholder' | 'criticality'
+    'pillar' | 'stakeholder' | 'criticality' | 'region'
   >('pillar');
   const [displayOptions, setDisplayOptions] = useState({
     showRegionEmojis: true,
     showShortDescription: true,
     titleAbove: false,
     itemVerticalPadding: 6,
+    laneDividerOpacity: 0.12,
   });
   const [selectedTheme, setSelectedTheme] = useState<
-    'coastal' | 'orchard' | 'sunset'
+    | 'coastal'
+    | 'orchard'
+    | 'sunset'
+    | 'slate'
+    | 'sand'
+    | 'mist'
+    | 'mono'
+    | 'forest'
   >('coastal');
   const [startDate, setStartDate] = useState(() =>
     formatDateInput(getQuarterStartDate(new Date())),

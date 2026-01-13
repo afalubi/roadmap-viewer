@@ -9,22 +9,35 @@ import { RoadmapItemDetailDialog } from './RoadmapItemDetailDialog';
 
 interface Props {
   items: RoadmapItem[];
-  groupBy: 'pillar' | 'stakeholder' | 'criticality';
+  groupBy: 'pillar' | 'stakeholder' | 'criticality' | 'region';
   displayOptions: {
     showRegionEmojis: boolean;
     showShortDescription: boolean;
     titleAbove: boolean;
     itemVerticalPadding: number;
+    laneDividerOpacity: number;
   };
-  theme: 'coastal' | 'orchard' | 'sunset';
+  theme:
+    | 'coastal'
+    | 'orchard'
+    | 'sunset'
+    | 'slate'
+    | 'sand'
+    | 'mist'
+    | 'mono'
+    | 'forest';
   startDate: string;
   quartersToShow: number;
 }
 
-const GROUP_LABELS: Record<'pillar' | 'stakeholder' | 'criticality', string> = {
+const GROUP_LABELS: Record<
+  'pillar' | 'stakeholder' | 'criticality' | 'region',
+  string
+> = {
   pillar: 'Pillar',
   stakeholder: 'Primary stakeholder',
   criticality: 'Criticality',
+  region: 'Region',
 };
 
 function getGroupKey(item: RoadmapItem, groupBy: Props['groupBy']): string {
@@ -33,6 +46,9 @@ function getGroupKey(item: RoadmapItem, groupBy: Props['groupBy']): string {
   }
   if (groupBy === 'criticality') {
     return item.criticality || '';
+  }
+  if (groupBy === 'region') {
+    return item.region || '';
   }
   return item.pillar || '';
 }
@@ -82,8 +98,11 @@ export function RoadmapTimeline({
           </div>
 
           <div
-            className="divide-y divide-slate-100"
-            style={{ ['--quarter-count' as string]: quarters.length }}
+            className="divide-y divide-[color:var(--lane-divider)]"
+            style={{
+              ['--quarter-count' as string]: quarters.length,
+              ['--lane-divider' as string]: `rgba(15, 23, 42, ${displayOptions.laneDividerOpacity})`,
+            }}
           >
             {pillars.map((pillar, index) => (
               <RoadmapSwimlane

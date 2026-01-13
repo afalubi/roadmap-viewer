@@ -22,7 +22,15 @@ interface Props {
     titleAbove: boolean;
     itemVerticalPadding: number;
   };
-  theme: 'coastal' | 'orchard' | 'sunset';
+  theme:
+    | 'coastal'
+    | 'orchard'
+    | 'sunset'
+    | 'slate'
+    | 'sand'
+    | 'mist'
+    | 'mono'
+    | 'forest';
   laneIndex: number;
 }
 
@@ -48,6 +56,7 @@ export function RoadmapSwimlane({
   const lanePaddingTop = displayOptions.titleAbove ? 20 : 8;
   const lanePaddingX = 8;
   const lanePaddingBottom = 8;
+  const firstItemOffset = 4;
   const rowHeight = displayOptions.showShortDescription ? 34 : 24;
   const labelHeight = displayOptions.titleAbove ? 12 : 0;
   const rowGap = displayOptions.itemVerticalPadding;
@@ -60,8 +69,9 @@ export function RoadmapSwimlane({
     positionedItems.maxRow >= 0
       ? lanePaddingTop +
         lanePaddingBottom +
+        firstItemOffset +
         (positionedItems.maxRow + 1) * laneRowHeight
-      : lanePaddingTop + lanePaddingBottom + rowHeight;
+      : lanePaddingTop + lanePaddingBottom + firstItemOffset + rowHeight;
 
   return (
     <div
@@ -111,7 +121,7 @@ export function RoadmapSwimlane({
               </span>
             ) : null;
 
-            const itemTop = row * laneRowHeight;
+            const itemTop = firstItemOffset + row * laneRowHeight;
 
             return (
               <div

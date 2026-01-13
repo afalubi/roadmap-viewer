@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import type React from 'react';
 import type { RoadmapItem } from '@/types/roadmap';
 import type { Region } from '@/lib/region';
@@ -15,22 +16,44 @@ interface Props {
   setSelectedCriticalities: (value: string[]) => void;
   selectedImpactedStakeholders: string[];
   setSelectedImpactedStakeholders: (value: string[]) => void;
-  selectedGroupBy: 'pillar' | 'stakeholder' | 'criticality';
-  setSelectedGroupBy: (value: 'pillar' | 'stakeholder' | 'criticality') => void;
+  selectedGroupBy: 'pillar' | 'stakeholder' | 'criticality' | 'region';
+  setSelectedGroupBy: (
+    value: 'pillar' | 'stakeholder' | 'criticality' | 'region',
+  ) => void;
   displayOptions: {
     showRegionEmojis: boolean;
     showShortDescription: boolean;
     titleAbove: boolean;
     itemVerticalPadding: number;
+    laneDividerOpacity: number;
   };
   setDisplayOptions: (value: {
     showRegionEmojis: boolean;
     showShortDescription: boolean;
     titleAbove: boolean;
     itemVerticalPadding: number;
+    laneDividerOpacity: number;
   }) => void;
-  selectedTheme: 'coastal' | 'orchard' | 'sunset';
-  setSelectedTheme: (value: 'coastal' | 'orchard' | 'sunset') => void;
+  selectedTheme:
+    | 'coastal'
+    | 'orchard'
+    | 'sunset'
+    | 'slate'
+    | 'sand'
+    | 'mist'
+    | 'mono'
+    | 'forest';
+  setSelectedTheme: (
+    value:
+      | 'coastal'
+      | 'orchard'
+      | 'sunset'
+      | 'slate'
+      | 'sand'
+      | 'mist'
+      | 'mono'
+      | 'forest',
+  ) => void;
   startDate: string;
   setStartDate: (value: string) => void;
   quartersToShow: number;
@@ -58,6 +81,7 @@ export function RoadmapFilters({
   quartersToShow,
   setQuartersToShow,
 }: Props) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const pillars = Array.from(
     new Set(items.map((i) => i.pillar).filter(Boolean)),
   ).sort();
@@ -125,32 +149,47 @@ export function RoadmapFilters({
   );
 
   return (
-    <section className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
-      <div className="grid gap-6 grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <label className="block text-xs font-medium text-slate-600">
-              View by
-            </label>
-            <select
-              className={compactSelectClasses}
-              value={selectedGroupBy}
-              onChange={(e) =>
-                setSelectedGroupBy(
-                  e.target.value as 'pillar' | 'stakeholder' | 'criticality',
-                )
-              }
-            >
-              <option value="pillar">Pillar</option>
-              <option value="stakeholder">Primary stakeholder</option>
-              <option value="criticality">Criticality</option>
-            </select>
-          </div>
+    <section className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="space-y-1">
+          <label className="block text-xs font-medium text-slate-600">
+            View by
+          </label>
+          <select
+            className={compactSelectClasses}
+            value={selectedGroupBy}
+            onChange={(e) =>
+              setSelectedGroupBy(
+                e.target.value as
+                  | 'pillar'
+                  | 'stakeholder'
+                  | 'criticality'
+                  | 'region',
+              )
+            }
+          >
+            <option value="pillar">Pillar</option>
+            <option value="stakeholder">Primary stakeholder</option>
+            <option value="criticality">Criticality</option>
+            <option value="region">Region</option>
+          </select>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsCollapsed((prev) => !prev)}
+          className="text-xs px-3 py-1 rounded-full border border-slate-300 text-slate-700 hover:bg-slate-100"
+        >
+          {isCollapsed ? 'Show options' : 'Hide options'}
+        </button>
+      </div>
 
+      {isCollapsed ? null : (
+        <div className="grid gap-6 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="space-y-3">
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             Filters
           </div>
-          <div className="flex flex-wrap gap-4 items-start">
+          <div className="flex flex-wrap gap-4 items-start rounded-lg bg-slate-50/70 p-3 border border-slate-200">
             {renderCheckboxDropdown(
               'Pillar',
               pillars,
@@ -195,7 +234,7 @@ export function RoadmapFilters({
 
         <div className="space-y-3 border-l border-slate-200 pl-6">
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Display
+            Board display options
           </div>
           <div className="space-y-3 rounded-lg bg-slate-50/70 p-3 border border-slate-200">
             <div>
@@ -207,47 +246,139 @@ export function RoadmapFilters({
                 value={selectedTheme}
                 onChange={(e) =>
                   setSelectedTheme(
-                    e.target.value as 'coastal' | 'orchard' | 'sunset',
+                    e.target.value as
+                      | 'coastal'
+                      | 'orchard'
+                      | 'sunset'
+                      | 'slate'
+                      | 'sand'
+                      | 'mist'
+                      | 'mono'
+                      | 'forest',
                   )
                 }
               >
                 <option value="coastal">Coastal</option>
                 <option value="orchard">Orchard</option>
                 <option value="sunset">Sunset</option>
+                <option value="slate">Slate</option>
+                <option value="sand">Sand</option>
+                <option value="mist">Mist</option>
+                <option value="mono">Mono</option>
+                <option value="forest">Forest</option>
               </select>
             </div>
             <div className="flex flex-wrap gap-3">
               <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">
-                Start date
-              </label>
-              <input
-                type="date"
-                className={compactSelectClasses}
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-            </div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">
+                  Start date
+                </label>
+                <input
+                  type="date"
+                  className={compactSelectClasses}
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
               <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">
+                  Quarters shown
+                </label>
+                <select
+                  className={compactSelectClasses}
+                  value={quartersToShow}
+                  onChange={(e) => setQuartersToShow(Number(e.target.value))}
+                >
+                  {Array.from({ length: 12 }, (_, index) => {
+                    const count = index + 1;
+                    return (
+                      <option key={count} value={count}>
+                        {count}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            </div>
+            <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">
-                Quarters shown
+                Item spacing
               </label>
-              <select
-                className={compactSelectClasses}
-                value={quartersToShow}
-                onChange={(e) => setQuartersToShow(Number(e.target.value))}
-              >
-                {Array.from({ length: 12 }, (_, index) => {
-                  const count = index + 1;
-                  return (
-                    <option key={count} value={count}>
-                      {count}
-                    </option>
-                  );
-                })}
-              </select>
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  min={0}
+                  max={16}
+                  step={1}
+                  value={displayOptions.itemVerticalPadding}
+                  onChange={(e) =>
+                    setDisplayOptions({
+                      ...displayOptions,
+                      itemVerticalPadding: Number(e.target.value),
+                    })
+                  }
+                  className="w-28"
+                />
+                <input
+                  type="number"
+                  min={0}
+                  max={16}
+                  step={1}
+                  value={displayOptions.itemVerticalPadding}
+                  onChange={(e) =>
+                    setDisplayOptions({
+                      ...displayOptions,
+                      itemVerticalPadding: Number(e.target.value),
+                    })
+                  }
+                  className="w-14 rounded-md border border-slate-300 px-2 py-1 text-xs"
+                />
+                <span className="text-[0.7rem] text-slate-500">px</span>
+              </div>
             </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Lane divider darkness
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  min={0}
+                  max={0.4}
+                  step={0.02}
+                  value={displayOptions.laneDividerOpacity}
+                  onChange={(e) =>
+                    setDisplayOptions({
+                      ...displayOptions,
+                      laneDividerOpacity: Number(e.target.value),
+                    })
+                  }
+                  className="w-28"
+                />
+                <input
+                  type="number"
+                  min={0}
+                  max={0.4}
+                  step={0.02}
+                  value={displayOptions.laneDividerOpacity}
+                  onChange={(e) =>
+                    setDisplayOptions({
+                      ...displayOptions,
+                      laneDividerOpacity: Number(e.target.value),
+                    })
+                  }
+                  className="w-14 rounded-md border border-slate-300 px-2 py-1 text-xs"
+                />
+              </div>
             </div>
+          </div>
+        </div>
+
+        <div className="space-y-3 border-l border-slate-200 pl-6">
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Item display options
+          </div>
+          <div className="space-y-3 rounded-lg bg-slate-50/70 p-3 border border-slate-200">
             <label className="flex items-center gap-2 text-xs text-slate-700">
               <input
                 type="checkbox"
@@ -290,45 +421,10 @@ export function RoadmapFilters({
               />
               Title above item
             </label>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">
-                Item vertical padding
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="range"
-                  min={0}
-                  max={16}
-                  step={1}
-                  value={displayOptions.itemVerticalPadding}
-                  onChange={(e) =>
-                    setDisplayOptions({
-                      ...displayOptions,
-                      itemVerticalPadding: Number(e.target.value),
-                    })
-                  }
-                  className="w-28"
-                />
-                <input
-                  type="number"
-                  min={0}
-                  max={16}
-                  step={1}
-                  value={displayOptions.itemVerticalPadding}
-                  onChange={(e) =>
-                    setDisplayOptions({
-                      ...displayOptions,
-                      itemVerticalPadding: Number(e.target.value),
-                    })
-                  }
-                  className="w-14 rounded-md border border-slate-300 px-2 py-1 text-xs"
-                />
-                <span className="text-[0.7rem] text-slate-500">px</span>
-              </div>
-            </div>
           </div>
         </div>
       </div>
+      )}
     </section>
   );
 }
