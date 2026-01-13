@@ -17,6 +17,10 @@ export async function loadRoadmapFromCsv(): Promise<RoadmapItem[]> {
   const res = await fetch('/data/roadmap.csv');
   const text = await res.text();
 
+  return parseRoadmapCsv(text);
+}
+
+export function parseRoadmapCsv(text: string): RoadmapItem[] {
   const parsed = Papa.parse(text, {
     header: true,
     skipEmptyLines: true,

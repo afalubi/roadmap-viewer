@@ -6,6 +6,7 @@ import { loadRoadmap } from '@/lib/loadRoadmap';
 import { parseRegions, type Region } from '@/lib/region';
 import { getQuarterStartDate } from '@/lib/timeScale';
 import { parseStakeholders } from '@/lib/stakeholders';
+import { parseRoadmapCsv } from '@/lib/loadRoadmapFromCsv';
 import { RoadmapFilters } from '@/components/roadmap/RoadmapFilters';
 import { RoadmapTimeline } from '@/components/roadmap/RoadmapTimeline';
 
@@ -13,6 +14,7 @@ export default function HomePage() {
   const settingsKey = 'roadmap-viewer-settings';
   const [items, setItems] = useState<RoadmapItem[]>([]);
   const [filteredItems, setFilteredItems] = useState<RoadmapItem[]>([]);
+  const [currentCsvText, setCurrentCsvText] = useState('');
   const [selectedPillars, setSelectedPillars] = useState<string[]>([]);
   const [selectedRegions, setSelectedRegions] = useState<Region[]>([]);
   const [selectedCriticalities, setSelectedCriticalities] = useState<string[]>(
@@ -55,7 +57,24 @@ export default function HomePage() {
       setItems(data);
       setFilteredItems(data);
     });
+    fetch('/data/roadmap.csv')
+      .then((res) => res.text())
+      .then((text) => setCurrentCsvText(text))
+      .catch(() => {
+        setCurrentCsvText('');
+      });
   }, []);
+
+  const handleCsvDownload = () => {
+    const csv = currentCsvText || buildCsvFromItems(items);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'roadmap.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   useEffect(() => {
     const raw = localStorage.getItem(settingsKey);
@@ -205,6 +224,17 @@ export default function HomePage() {
           setStartDate={setStartDate}
           quartersToShow={quartersToShow}
           setQuartersToShow={setQuartersToShow}
+          onCsvUpload={(text) => {
+            const parsedItems = parseRoadmapCsv(text);
+            setItems(parsedItems);
+            setFilteredItems(parsedItems);
+            setSelectedPillars([]);
+            setSelectedRegions([]);
+            setSelectedCriticalities([]);
+            setSelectedImpactedStakeholders([]);
+            setCurrentCsvText(text);
+          }}
+          onCsvDownload={handleCsvDownload}
         />
 
         <RoadmapTimeline
@@ -225,4 +255,61 @@ function formatDateInput(date: Date): string {
   const month = String(date.getUTCMonth() + 1).padStart(2, '0');
   const day = String(date.getUTCDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function buildCsvFromItems(items: RoadmapItem[]): string {
+  const headers = [
+    'id',
+    'title',
+    'url',
+    'impactedStakeholders',
+    'submitterName',
+    'submitterDepartment',
+    'submitterPriority',
+    'shortDescription',
+    'longDescription',
+    'criticality',
+    'executiveSponsor',
+    'startDate',
+    'endDate',
+    'tShirtSize',
+    'pillar',
+    'region',
+    'expenseType',
+    'pointOfContact',
+    'lead',
+  ];
+  const escapeValue = (value: string) => {
+    const safe = value ?? '';
+    if (/[",\n]/.test(safe)) {
+      return `"${safe.replace(/"/g, '""')}"`;
+    }
+    return safe;
+  };
+  const rows = items.map((item) =>
+    [
+      item.id,
+      item.title,
+      item.url,
+      item.impactedStakeholders,
+      item.submitterName,
+      item.submitterDepartment,
+      item.submitterPriority,
+      item.shortDescription,
+      item.longDescription,
+      item.criticality,
+      item.executiveSponsor,
+      item.startDate,
+      item.endDate,
+      item.tShirtSize,
+      item.pillar,
+      item.region,
+      item.expenseType,
+      item.pointOfContact,
+      item.lead,
+    ]
+      .map(escapeValue)
+      .join(','),
+  );
+  return [headers.join(','), ...rows].join('\n');
 }

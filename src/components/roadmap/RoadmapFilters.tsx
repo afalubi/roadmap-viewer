@@ -66,6 +66,8 @@ interface Props {
   setStartDate: (value: string) => void;
   quartersToShow: number;
   setQuartersToShow: (value: number) => void;
+  onCsvUpload: (text: string) => void;
+  onCsvDownload: () => void;
 }
 
 export function RoadmapFilters({
@@ -88,8 +90,11 @@ export function RoadmapFilters({
   setStartDate,
   quartersToShow,
   setQuartersToShow,
+  onCsvUpload,
+  onCsvDownload,
 }: Props) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const pillars = Array.from(
     new Set(items.map((i) => i.pillar).filter(Boolean)),
   ).sort();
@@ -156,6 +161,21 @@ export function RoadmapFilters({
     </div>
   );
 
+  const handleFile = async (file?: File | null) => {
+    if (!file) return;
+    const text = await file.text();
+    onCsvUpload(text);
+  };
+
+  const handleDrop = async (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDragging(false);
+    const file = event.dataTransfer.files?.[0];
+    if (file) {
+      await handleFile(file);
+    }
+  };
+
   const chips = [
     ...selectedPillars.map((value) => ({
       key: `pillar-${value}`,
@@ -213,23 +233,55 @@ export function RoadmapFilters({
             <option value="region">Region</option>
           </select>
         </div>
-        {chips.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {chips.map((chip) => (
-              <button
-                key={chip.key}
-                type="button"
-                onClick={chip.onRemove}
-                className="group inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-100"
-              >
-                <span>{chip.label}</span>
-                <span className="text-slate-400 group-hover:text-slate-600">
-                  ×
-                </span>
-              </button>
-            ))}
-          </div>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-3">
+          {chips.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {chips.map((chip) => (
+                <button
+                  key={chip.key}
+                  type="button"
+                  onClick={chip.onRemove}
+                  className="group inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-100"
+                >
+                  <span>{chip.label}</span>
+                  <span className="text-slate-400 group-hover:text-slate-600">
+                    ×
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+          <label
+            className={[
+              'relative flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-slate-700',
+              isDragging
+                ? 'border-sky-400 bg-sky-50'
+                : 'border-slate-200 bg-white hover:border-slate-300',
+            ].join(' ')}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setIsDragging(true);
+            }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={handleDrop}
+          >
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              className="sr-only"
+              onChange={(event) => handleFile(event.target.files?.[0])}
+            />
+            <span>Upload CSV</span>
+            <span className="text-slate-400">or drop</span>
+          </label>
+          <button
+            type="button"
+            onClick={onCsvDownload}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+          >
+            Download CSV
+          </button>
+        </div>
         <button
           type="button"
           onClick={() => setIsCollapsed((prev) => !prev)}
