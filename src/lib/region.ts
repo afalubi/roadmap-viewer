@@ -1,17 +1,19 @@
-const REGION_ALIASES: Record<string, 'US' | 'Canada'> = {
+export type Region = 'US' | 'Canada';
+
+const REGION_ALIASES: Record<string, Region> = {
   us: 'US',
   usa: 'US',
   'united states': 'US',
   canada: 'Canada',
 };
 
-const REGION_ORDER: Array<'US' | 'Canada'> = ['US', 'Canada'];
-const REGION_EMOJIS: Record<'US' | 'Canada', string> = {
+const REGION_ORDER: Region[] = ['US', 'Canada'];
+const REGION_EMOJIS: Record<Region, string> = {
   US: '🇺🇸',
   Canada: '🇨🇦',
 };
 
-export function parseRegions(value: string): Array<'US' | 'Canada'> {
+export function parseRegions(value: string): Region[] {
   if (!value) return [];
   const parts = value
     .split(/[;,|]/)
@@ -20,7 +22,7 @@ export function parseRegions(value: string): Array<'US' | 'Canada'> {
 
   const normalized = parts
     .map((part) => REGION_ALIASES[part])
-    .filter((region): region is 'US' | 'Canada' => Boolean(region));
+    .filter((region): region is Region => Boolean(region));
 
   return REGION_ORDER.filter((region) => normalized.includes(region));
 }

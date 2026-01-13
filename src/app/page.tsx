@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { RoadmapItem } from '@/types/roadmap';
 import { loadRoadmap } from '@/lib/loadRoadmap';
-import { parseRegions } from '@/lib/region';
+import { parseRegions, type Region } from '@/lib/region';
 import { parseStakeholders } from '@/lib/stakeholders';
 import { RoadmapFilters } from '@/components/roadmap/RoadmapFilters';
 import { RoadmapTimeline } from '@/components/roadmap/RoadmapTimeline';
@@ -12,7 +12,7 @@ export default function HomePage() {
   const [items, setItems] = useState<RoadmapItem[]>([]);
   const [filteredItems, setFilteredItems] = useState<RoadmapItem[]>([]);
   const [selectedPillars, setSelectedPillars] = useState<string[]>([]);
-  const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
+  const [selectedRegions, setSelectedRegions] = useState<Region[]>([]);
   const [selectedCriticalities, setSelectedCriticalities] = useState<string[]>(
     [],
   );

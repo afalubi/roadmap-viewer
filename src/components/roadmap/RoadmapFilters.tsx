@@ -2,14 +2,15 @@
 
 import type React from 'react';
 import type { RoadmapItem } from '@/types/roadmap';
+import type { Region } from '@/lib/region';
 import { parseStakeholders } from '@/lib/stakeholders';
 
 interface Props {
   items: RoadmapItem[];
   selectedPillars: string[];
   setSelectedPillars: (value: string[]) => void;
-  selectedRegions: string[];
-  setSelectedRegions: (value: string[]) => void;
+  selectedRegions: Region[];
+  setSelectedRegions: (value: Region[]) => void;
   selectedCriticalities: string[];
   setSelectedCriticalities: (value: string[]) => void;
   selectedImpactedStakeholders: string[];
@@ -54,7 +55,7 @@ export function RoadmapFilters({
   const pillars = Array.from(
     new Set(items.map((i) => i.pillar).filter(Boolean)),
   ).sort();
-  const regions = ['US', 'Canada'];
+  const regions: Region[] = ['US', 'Canada'];
   const criticalities = Array.from(
     new Set(items.map((i) => i.criticality).filter(Boolean)),
   ).sort();
@@ -128,7 +129,9 @@ export function RoadmapFilters({
             className={selectClasses}
             multiple
             value={selectedRegions}
-            onChange={(e) => setSelectedRegions(getSelectedOptions(e))}
+            onChange={(e) =>
+              setSelectedRegions(getSelectedOptions(e) as Region[])
+            }
           >
             {regions.map((r) => (
               <option key={r} value={r}>
