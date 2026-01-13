@@ -40,6 +40,7 @@ interface Props {
   quartersToShow: number;
   exportSummary: {
     viewBy: string;
+    titlePrefix: string;
     filters: string[];
   };
   isExporting: boolean;
@@ -108,7 +109,7 @@ export function RoadmapTimeline({
       {isExporting ? (
         <div className="space-y-1 border border-slate-200 rounded-md bg-slate-50 px-3 py-2">
           <div className="text-sm font-semibold text-slate-800">
-            {`Technology Roadmap By ${exportSummary.viewBy}`}
+            {`${exportSummary.titlePrefix} By ${exportSummary.viewBy}`}
           </div>
           <div className="text-[0.7rem] text-slate-600">
             {exportSummary.filters.length > 0

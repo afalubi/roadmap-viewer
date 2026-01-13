@@ -1,12 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  SignedIn,
-  SignedOut,
-  SignInButton,
-  UserButton,
-} from '@clerk/nextjs';
+import { SignedIn, SignedOut, SignInButton } from '@clerk/nextjs';
 import type { SavedView, ViewPayload, ViewScope } from '@/types/views';
 
 interface Props {
@@ -75,9 +70,6 @@ export function SavedViewsPanel({
             Save combinations of filters and display options.
           </p>
         </div>
-        <SignedIn>
-          <UserButton />
-        </SignedIn>
       </div>
 
       <SignedOut>

@@ -12,6 +12,7 @@ export interface DisplayOptions {
   lineTitleGap: number;
   showQuarters: boolean;
   showMonths: boolean;
+  showDynamicHeader: boolean;
 }
 
 export type ThemeOption =
@@ -38,6 +39,7 @@ export interface ViewPayload {
   display: {
     groupBy: GroupByOption;
     theme: ThemeOption;
+    titlePrefix: string;
     options: DisplayOptions;
   };
   timeline: {
