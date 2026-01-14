@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getDb } from '@/lib/db';
+import { sql } from '@/lib/neon';
+import { ensureViewsSchema } from '@/lib/viewsDb';
 
 export async function GET(
   _request: NextRequest,
@@ -16,15 +17,14 @@ export async function GET(
     return NextResponse.json({ error: 'Invalid slug' }, { status: 400 });
   }
 
-  const db = getDb();
-  const row = db
-    .prepare(
-      `SELECT id, name, scope, payload, shared_slug, created_at, updated_at
-       FROM views
-       WHERE scope = 'shared' AND shared_slug = ?
-       LIMIT 1`,
-    )
-    .get(slug) as
+  await ensureViewsSchema();
+  const rows = await sql`
+    SELECT id, name, scope, payload, shared_slug, created_at, updated_at
+    FROM views
+    WHERE scope = 'shared' AND shared_slug = ${slug}
+    LIMIT 1
+  `;
+  const row = (rows[0] as
     | {
         id: string;
         name: string;
@@ -34,7 +34,7 @@ export async function GET(
         created_at: string;
         updated_at: string;
       }
-    | undefined;
+    | undefined);
 
   if (!row) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });

@@ -568,6 +568,13 @@ export default function HomePage() {
           </div>
         </header>
 
+        <SignedOut>
+          <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
+            Please sign in to view the roadmap.
+          </div>
+        </SignedOut>
+
+        <SignedIn>
         <div className="flex gap-6">
           <aside
             className={[
@@ -789,6 +796,7 @@ export default function HomePage() {
             />
           </div>
         </div>
+        </SignedIn>
       </div>
     </main>
   );

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getDb } from '@/lib/db';
+import { sql } from '@/lib/neon';
+import { ensureViewsSchema } from '@/lib/viewsDb';
 
 const generateSlug = () =>
   Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
@@ -28,18 +29,20 @@ export async function PUT(
     return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
   }
 
-  const db = getDb();
-  const existing = db
-    .prepare(
-      `SELECT id, scope, owner_user_id, shared_slug FROM views WHERE id = ? LIMIT 1`,
-    )
-    .get(id) as
+  await ensureViewsSchema();
+  const existingRows = await sql`
+    SELECT id, scope, owner_user_id, shared_slug
+    FROM views
+    WHERE id = ${id}
+    LIMIT 1
+  `;
+  const existing = (existingRows[0] as
     | {
         scope: 'personal' | 'shared';
         owner_user_id: string | null;
         shared_slug: string | null;
       }
-    | undefined;
+    | undefined);
 
   if (!existing) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -59,10 +62,10 @@ export async function PUT(
     } else {
       for (let attempt = 0; attempt < 5; attempt += 1) {
         const candidate = generateSlug();
-        const collision = db
-          .prepare(`SELECT id FROM views WHERE shared_slug = ? LIMIT 1`)
-          .get(candidate);
-        if (!collision) {
+        const collision = await sql`
+          SELECT id FROM views WHERE shared_slug = ${candidate} LIMIT 1
+        `;
+        if (collision.length === 0) {
           sharedSlug = candidate;
           break;
         }
@@ -76,15 +79,15 @@ export async function PUT(
     }
   }
 
-  db.prepare(
-    `UPDATE views
-     SET name = COALESCE(?, name),
-         payload = COALESCE(?, payload),
-         shared_slug = COALESCE(?, shared_slug),
-         updated_by = ?,
-         updated_at = ?
-     WHERE id = ?`,
-  ).run(name ?? null, payloadJson, sharedSlug, userId, now, id);
+  await sql`
+    UPDATE views
+    SET name = COALESCE(${name ?? null}, name),
+        payload = COALESCE(${payloadJson}, payload),
+        shared_slug = COALESCE(${sharedSlug}, shared_slug),
+        updated_by = ${userId},
+        updated_at = ${now}
+    WHERE id = ${id}
+  `;
 
   return NextResponse.json({ success: true, updatedAt: now, sharedSlug });
 }
@@ -99,12 +102,16 @@ export async function DELETE(
   }
 
   const { id } = await context.params;
-  const db = getDb();
-  const existing = db
-    .prepare(
-      `SELECT id, scope, owner_user_id FROM views WHERE id = ? LIMIT 1`,
-    )
-    .get(id) as { scope: 'personal' | 'shared'; owner_user_id: string | null } | undefined;
+  await ensureViewsSchema();
+  const existingRows = await sql`
+    SELECT id, scope, owner_user_id
+    FROM views
+    WHERE id = ${id}
+    LIMIT 1
+  `;
+  const existing = (existingRows[0] as
+    | { scope: 'personal' | 'shared'; owner_user_id: string | null }
+    | undefined);
 
   if (!existing) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -114,7 +121,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  db.prepare(`DELETE FROM views WHERE id = ?`).run(id);
+  await sql`DELETE FROM views WHERE id = ${id}`;
 
   return NextResponse.json({ success: true });
 }

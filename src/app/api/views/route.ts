@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getDb } from '@/lib/db';
+import { sql } from '@/lib/neon';
+import { ensureViewsSchema } from '@/lib/viewsDb';
 
 const VALID_SCOPES = new Set(['personal', 'shared']);
 
@@ -19,25 +20,21 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Invalid scope' }, { status: 400 });
   }
 
-  const db = getDb();
+  await ensureViewsSchema();
   const rows =
     scope === 'personal'
-      ? db
-          .prepare(
-            `SELECT id, name, scope, payload, shared_slug, created_at, updated_at
-             FROM views
-             WHERE scope = 'personal' AND owner_user_id = ?
-             ORDER BY updated_at DESC`,
-          )
-          .all(userId)
-      : db
-          .prepare(
-            `SELECT id, name, scope, payload, shared_slug, created_at, updated_at
-             FROM views
-             WHERE scope = 'shared'
-             ORDER BY updated_at DESC`,
-          )
-          .all();
+      ? await sql`
+          SELECT id, name, scope, payload, shared_slug, created_at, updated_at
+          FROM views
+          WHERE scope = 'personal' AND owner_user_id = ${userId}
+          ORDER BY updated_at DESC
+        `
+      : await sql`
+          SELECT id, name, scope, payload, shared_slug, created_at, updated_at
+          FROM views
+          WHERE scope = 'shared'
+          ORDER BY updated_at DESC
+        `;
 
   const views = rows.map((row: any) => ({
     id: row.id,
@@ -78,16 +75,16 @@ export async function POST(request: Request) {
 
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
-  const db = getDb();
+  await ensureViewsSchema();
   let sharedSlug: string | null = null;
 
   if (scope === 'shared') {
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const candidate = generateSlug();
-      const existing = db
-        .prepare(`SELECT id FROM views WHERE shared_slug = ? LIMIT 1`)
-        .get(candidate);
-      if (!existing) {
+      const existing = await sql`
+        SELECT id FROM views WHERE shared_slug = ${candidate} LIMIT 1
+      `;
+      if (existing.length === 0) {
         sharedSlug = candidate;
         break;
       }
@@ -100,22 +97,13 @@ export async function POST(request: Request) {
     }
   }
 
-  db.prepare(
-    `INSERT INTO views
+  await sql`
+    INSERT INTO views
       (id, name, scope, owner_user_id, created_by, updated_by, payload, shared_slug, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    id,
-    name,
-    scope,
-    scope === 'personal' ? userId : null,
-    userId,
-    userId,
-    JSON.stringify(body.payload),
-    sharedSlug,
-    now,
-    now,
-  );
+    VALUES
+      (${id}, ${name}, ${scope}, ${scope === 'personal' ? userId : null}, ${userId}, ${userId},
+       ${JSON.stringify(body.payload)}, ${sharedSlug}, ${now}, ${now})
+  `;
 
   return NextResponse.json({
     view: {

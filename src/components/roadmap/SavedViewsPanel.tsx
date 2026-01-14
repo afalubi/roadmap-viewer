@@ -103,6 +103,145 @@ export function SavedViewsPanel({
     setPendingDelete(null);
   };
 
+  const renderViewRow = (view: SavedView, showShare: boolean) => (
+    <div
+      key={view.id}
+      className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs"
+    >
+      <div className="flex items-center gap-2">
+        {editingId === view.id ? (
+          <input
+            type="text"
+            value={editingName}
+            onChange={(event) => setEditingName(event.target.value)}
+            maxLength={MAX_VIEW_NAME}
+            onBlur={() => commitRename(view)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                commitRename(view);
+              }
+              if (event.key === 'Escape') {
+                cancelRename();
+              }
+            }}
+            className="w-40 rounded-md border border-slate-300 px-2 py-0.5 text-xs"
+            autoFocus
+          />
+        ) : (
+          <button
+            type="button"
+            className="font-medium text-slate-700 hover:text-slate-900"
+            onClick={() => handleRename(view)}
+            aria-label={`Rename ${view.name}`}
+            title="Rename"
+          >
+            {view.name}
+          </button>
+        )}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            className="rounded-full border border-slate-200 p-1 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+            onClick={() => handleLoad(view)}
+            aria-label={`Load ${view.name}`}
+            title={loadingId === view.id ? 'Loading' : 'Load'}
+          >
+            {loadingId === view.id ? (
+              <svg
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                className="h-3.5 w-3.5 animate-spin text-slate-500"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              >
+                <path d="M12 3a9 9 0 1 0 9 9" />
+              </svg>
+            ) : (
+              <svg
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                className="h-3.5 w-3.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M6 4h8l4 4v12H6z" />
+                <path d="M14 4v4h4" />
+              </svg>
+            )}
+          </button>
+          {showShare ? (
+            view.sharedSlug ? (
+              <button
+                type="button"
+                className="rounded-full border border-slate-200 p-1 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                onClick={() => handleShare(view)}
+                aria-label={`Share ${view.name}`}
+                title="Share"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  className="h-3.5 w-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="18" cy="5" r="2" />
+                  <circle cx="6" cy="12" r="2" />
+                  <circle cx="18" cy="19" r="2" />
+                  <path d="M8 12l8-6" />
+                  <path d="M8 12l8 6" />
+                </svg>
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="rounded-full border border-slate-200 px-2 py-0.5 text-[0.7rem] text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                onClick={() => onGenerateLink(view.id)}
+                title="Create link"
+              >
+                Create link
+              </button>
+            )
+          ) : null}
+          <button
+            type="button"
+            className="rounded-full border border-rose-200 p-1 text-rose-600 hover:border-rose-300 hover:bg-rose-50"
+            onClick={() => handleDelete(view)}
+            aria-label={`Delete ${view.name}`}
+            title="Delete"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              className="h-3.5 w-3.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M3 6h18" />
+              <path d="M8 6V4h8v2" />
+              <path d="M6 6l1 14h10l1-14" />
+              <path d="M10 11v6" />
+              <path d="M14 11v6" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   const handleLoad = (view: SavedView) => {
     if (loadTimer) {
       window.clearTimeout(loadTimer);
@@ -203,7 +342,6 @@ export function SavedViewsPanel({
           {isLoading ? (
             <div className="text-xs text-slate-400">Loading...</div>
           ) : null}
-
           <div className="space-y-2">
             <div className="space-y-1">
               <div className="text-[0.65rem] font-semibold uppercase tracking-wide text-slate-500">
@@ -214,142 +352,7 @@ export function SavedViewsPanel({
                   No shared views yet.
                 </div>
               ) : (
-                sharedList.map((view) => (
-                  <div
-                    key={view.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs"
-                  >
-                    <div className="flex items-center gap-2">
-                      {editingId === view.id ? (
-                        <input
-                          type="text"
-                          value={editingName}
-                          onChange={(event) => setEditingName(event.target.value)}
-                          maxLength={MAX_VIEW_NAME}
-                          onBlur={() => commitRename(view)}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter') {
-                              commitRename(view);
-                            }
-                            if (event.key === 'Escape') {
-                              cancelRename();
-                            }
-                          }}
-                          className="w-40 rounded-md border border-slate-300 px-2 py-0.5 text-xs"
-                          autoFocus
-                        />
-                      ) : (
-                        <button
-                          type="button"
-                          className="font-medium text-slate-700 hover:text-slate-900"
-                          onClick={() => handleRename(view)}
-                          aria-label={`Rename ${view.name}`}
-                          title="Rename"
-                        >
-                          {view.name}
-                        </button>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          className="rounded-full border border-slate-200 p-1 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
-                          onClick={() => handleLoad(view)}
-                          aria-label={`Load ${view.name}`}
-                          title={loadingId === view.id ? 'Loading' : 'Load'}
-                        >
-                          {loadingId === view.id ? (
-                            <svg
-                              viewBox="0 0 24 24"
-                              aria-hidden="true"
-                              className="h-3.5 w-3.5 animate-spin text-slate-500"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                            >
-                              <path d="M12 3a9 9 0 1 0 9 9" />
-                            </svg>
-                          ) : (
-                            <svg
-                              viewBox="0 0 24 24"
-                              aria-hidden="true"
-                              className="h-3.5 w-3.5"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.6"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="M6 4h8l4 4v12H6z" />
-                              <path d="M14 4v4h4" />
-                            </svg>
-                          )}
-                        </button>
-                        {view.sharedSlug ? (
-                          <button
-                            type="button"
-                            className="rounded-full border border-slate-200 p-1 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
-                            onClick={() => handleShare(view)}
-                            aria-label={`Share ${view.name}`}
-                            title="Share"
-                          >
-                            <svg
-                              viewBox="0 0 24 24"
-                              aria-hidden="true"
-                              className="h-3.5 w-3.5"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.6"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <circle cx="18" cy="5" r="2" />
-                              <circle cx="6" cy="12" r="2" />
-                              <circle cx="18" cy="19" r="2" />
-                              <path d="M8 12l8-6" />
-                              <path d="M8 12l8 6" />
-                            </svg>
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            className="rounded-full border border-slate-200 px-2 py-0.5 text-[0.7rem] text-slate-600 hover:border-slate-300 hover:bg-slate-50"
-                            onClick={() => onGenerateLink(view.id)}
-                            title="Create link"
-                          >
-                            Create link
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          className="rounded-full border border-rose-200 p-1 text-rose-600 hover:border-rose-300 hover:bg-rose-50"
-                          onClick={() => handleDelete(view)}
-                          aria-label={`Delete ${view.name}`}
-                          title="Delete"
-                        >
-                          <svg
-                            viewBox="0 0 24 24"
-                            aria-hidden="true"
-                            className="h-3.5 w-3.5"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.6"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M3 6h18" />
-                            <path d="M8 6V4h8v2" />
-                            <path d="M6 6l1 14h10l1-14" />
-                            <path d="M10 11v6" />
-                            <path d="M14 11v6" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))
+                sharedList.map((view) => renderViewRow(view, true))
               )}
             </div>
             <div className="space-y-1">
@@ -361,107 +364,7 @@ export function SavedViewsPanel({
                   No personal views yet.
                 </div>
               ) : (
-                personalList.map((view) => (
-                  <div
-                    key={view.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs"
-                  >
-                    <div className="flex items-center gap-2">
-                      {editingId === view.id ? (
-                        <input
-                          type="text"
-                          value={editingName}
-                          onChange={(event) => setEditingName(event.target.value)}
-                          maxLength={MAX_VIEW_NAME}
-                          onBlur={() => commitRename(view)}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter') {
-                              commitRename(view);
-                            }
-                            if (event.key === 'Escape') {
-                              cancelRename();
-                            }
-                          }}
-                          className="w-40 rounded-md border border-slate-300 px-2 py-0.5 text-xs"
-                          autoFocus
-                        />
-                      ) : (
-                        <button
-                          type="button"
-                          className="font-medium text-slate-700 hover:text-slate-900"
-                          onClick={() => handleRename(view)}
-                          aria-label={`Rename ${view.name}`}
-                          title="Rename"
-                        >
-                          {view.name}
-                        </button>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          className="rounded-full border border-slate-200 p-1 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
-                          onClick={() => handleLoad(view)}
-                          aria-label={`Load ${view.name}`}
-                          title={loadingId === view.id ? 'Loading' : 'Load'}
-                        >
-                          {loadingId === view.id ? (
-                            <svg
-                              viewBox="0 0 24 24"
-                              aria-hidden="true"
-                              className="h-3.5 w-3.5 animate-spin text-slate-500"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                            >
-                              <path d="M12 3a9 9 0 1 0 9 9" />
-                            </svg>
-                          ) : (
-                            <svg
-                              viewBox="0 0 24 24"
-                              aria-hidden="true"
-                              className="h-3.5 w-3.5"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.6"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="M6 4h8l4 4v12H6z" />
-                              <path d="M14 4v4h4" />
-                            </svg>
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          className="rounded-full border border-rose-200 p-1 text-rose-600 hover:border-rose-300 hover:bg-rose-50"
-                          onClick={() => handleDelete(view)}
-                          aria-label={`Delete ${view.name}`}
-                          title="Delete"
-                        >
-                          <svg
-                            viewBox="0 0 24 24"
-                            aria-hidden="true"
-                            className="h-3.5 w-3.5"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.6"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M3 6h18" />
-                            <path d="M8 6V4h8v2" />
-                            <path d="M6 6l1 14h10l1-14" />
-                            <path d="M10 11v6" />
-                            <path d="M14 11v6" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))
+                personalList.map((view) => renderViewRow(view, false))
               )}
             </div>
           </div>
