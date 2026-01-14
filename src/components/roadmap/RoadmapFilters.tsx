@@ -30,6 +30,7 @@ interface Props {
     showQuarters: boolean;
     showMonths: boolean;
     showDynamicHeader: boolean;
+    darkMode: boolean;
   };
   setDisplayOptions: (value: {
     showRegionEmojis: boolean;
@@ -42,6 +43,7 @@ interface Props {
     showQuarters: boolean;
     showMonths: boolean;
     showDynamicHeader: boolean;
+    darkMode: boolean;
   }) => void;
   selectedTheme:
     | 'coastal'
@@ -123,13 +125,13 @@ export function RoadmapFilters({
   };
 
   const compactSelectClasses =
-    'border border-slate-300 rounded-md px-2 py-1 text-sm bg-white';
+    'border border-slate-300 rounded-md px-2 py-1 text-sm bg-white dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200';
 
   const getSelectedOptions = (event: React.ChangeEvent<HTMLSelectElement>) =>
     Array.from(event.target.selectedOptions, (option) => option.value);
 
   const checkboxClasses =
-    'h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500';
+    'h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500 dark:border-slate-500 dark:bg-slate-900 dark:text-sky-400 dark:focus:ring-sky-400';
   const toggleValue = (list: string[], value: string) =>
     list.includes(value)
       ? list.filter((item) => item !== value)
@@ -144,9 +146,9 @@ export function RoadmapFilters({
     countLabels: { singular: string; plural: string },
   ) => (
     <div className="space-y-1">
-      <details className="rounded-md border border-slate-200 bg-white text-xs">
+      <details className="rounded-md border border-slate-200 bg-white text-xs dark:border-slate-600 dark:bg-slate-900">
         <summary
-          className="cursor-pointer list-none px-2 py-1 text-slate-700"
+          className="cursor-pointer list-none px-2 py-1 text-slate-700 dark:text-slate-200"
           aria-label={label}
         >
           {selected.length > 0
@@ -157,11 +159,11 @@ export function RoadmapFilters({
               } selected`
             : placeholder}
         </summary>
-        <div className="border-t border-slate-200 px-2 py-2 space-y-2">
+        <div className="border-t border-slate-200 px-2 py-2 space-y-2 dark:border-slate-700">
           {options.map((option) => (
             <label
               key={option}
-              className="flex items-center gap-2 text-slate-700"
+              className="flex items-center gap-2 text-slate-700 dark:text-slate-200"
             >
               <input
                 type="checkbox"
@@ -180,7 +182,7 @@ export function RoadmapFilters({
   return (
     <section className="space-y-4">
       <div className="flex items-center gap-3">
-        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
           View by
         </div>
         <select
@@ -203,15 +205,15 @@ export function RoadmapFilters({
         </select>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-3">
+      <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-3 dark:bg-slate-900 dark:border-slate-700">
         <div className="flex items-center justify-between gap-3">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
             Filters
           </div>
           <button
             type="button"
             onClick={clearFilters}
-            className="text-xs px-3 py-1 rounded-full border border-slate-300 text-slate-700 hover:bg-slate-100"
+            className="text-xs px-3 py-1 rounded-full border border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
           >
             Clear filters
           </button>
@@ -258,13 +260,13 @@ export function RoadmapFilters({
 
       {savedViewsPanel}
 
-      <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-3">
-        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-3 dark:bg-slate-900 dark:border-slate-700">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
           Board options
         </div>
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
+            <label className="block text-xs font-medium text-slate-600 mb-1 dark:text-slate-300">
               Title prefix
             </label>
             <div className="flex items-center gap-3">
@@ -275,7 +277,7 @@ export function RoadmapFilters({
                 onChange={(e) => setTitlePrefix(e.target.value)}
                 placeholder="Technology Roadmap"
               />
-              <label className="flex items-center gap-2 text-xs text-slate-700">
+              <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
                 <input
                   type="checkbox"
                   className={checkboxClasses}
@@ -292,45 +294,61 @@ export function RoadmapFilters({
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
+            <label className="block text-xs font-medium text-slate-600 mb-1 dark:text-slate-300">
               Theme
             </label>
-            <select
-              className={compactSelectClasses}
-              value={selectedTheme}
-              onChange={(e) =>
-                setSelectedTheme(
-                  e.target.value as
-                    | 'coastal'
-                    | 'orchard'
-                    | 'sunset'
-                    | 'slate'
-                    | 'sand'
-                    | 'mist'
-                    | 'mono'
-                    | 'forest'
-                    | 'metro'
-                    | 'metro-dark'
-                    | 'executive',
-                )
-              }
-            >
-              <option value="executive">Executive</option>
-              <option value="coastal">Coastal</option>
-              <option value="orchard">Orchard</option>
-              <option value="sunset">Sunset</option>
-              <option value="slate">Slate</option>
-              <option value="sand">Sand</option>
-              <option value="mist">Mist</option>
-              <option value="mono">Mono</option>
-              <option value="forest">Forest</option>
-              <option value="metro">Metro</option>
-              <option value="metro-dark">Metro Dark</option>
-            </select>
+            <div className="flex flex-wrap items-center gap-3">
+              <select
+                className={compactSelectClasses}
+                value={selectedTheme}
+                onChange={(e) =>
+                  setSelectedTheme(
+                    e.target.value as
+                      | 'coastal'
+                      | 'orchard'
+                      | 'sunset'
+                      | 'slate'
+                      | 'sand'
+                      | 'mist'
+                      | 'mono'
+                      | 'forest'
+                      | 'metro'
+                      | 'metro-dark'
+                      | 'executive',
+                  )
+                }
+              >
+                <option value="executive">Executive</option>
+                <option value="coastal">Coastal</option>
+                <option value="orchard">Orchard</option>
+                <option value="sunset">Sunset</option>
+                <option value="slate">Slate</option>
+                <option value="sand">Sand</option>
+                <option value="mist">Mist</option>
+                <option value="mono">Mono</option>
+                <option value="forest">Forest</option>
+                <option value="metro">Metro</option>
+                <option value="metro-dark">Metro Dark</option>
+              </select>
+              <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
+                <input
+                  type="checkbox"
+                  className={checkboxClasses}
+                  checked={displayOptions.darkMode}
+                  onChange={(e) =>
+                    setDisplayOptions({
+                      ...displayOptions,
+                      darkMode: e.target.checked,
+                    })
+                  }
+                />
+                Dark mode
+              </label>
+            </div>
           </div>
           <div className="flex flex-wrap gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">
+              <label className="block text-xs font-medium text-slate-600 mb-1 dark:text-slate-300">
                 Start date
               </label>
               <input
@@ -341,7 +359,7 @@ export function RoadmapFilters({
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">
+              <label className="block text-xs font-medium text-slate-600 mb-1 dark:text-slate-300">
                 Quarters shown
               </label>
               <select
@@ -361,7 +379,7 @@ export function RoadmapFilters({
             </div>
           </div>
           <div className="flex flex-wrap gap-3">
-            <label className="flex items-center gap-2 text-xs text-slate-700">
+            <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
               <input
                 type="checkbox"
                 className={checkboxClasses}
@@ -375,7 +393,7 @@ export function RoadmapFilters({
               />
               Show quarters
             </label>
-            <label className="flex items-center gap-2 text-xs text-slate-700">
+            <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
               <input
                 type="checkbox"
                 className={checkboxClasses}
@@ -391,7 +409,7 @@ export function RoadmapFilters({
             </label>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
+            <label className="block text-xs font-medium text-slate-600 mb-1 dark:text-slate-300">
               Item spacing
             </label>
             <div className="flex items-center gap-2">
@@ -421,13 +439,13 @@ export function RoadmapFilters({
                     itemVerticalPadding: Number(e.target.value),
                   })
                 }
-                className="w-14 rounded-md border border-slate-300 px-2 py-1 text-xs"
+                className="w-14 rounded-md border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
               />
-              <span className="text-[0.7rem] text-slate-500">px</span>
+              <span className="text-[0.7rem] text-slate-500 dark:text-slate-400">px</span>
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
+            <label className="block text-xs font-medium text-slate-600 mb-1 dark:text-slate-300">
               Lane divider darkness
             </label>
             <div className="flex items-center gap-2">
@@ -457,23 +475,23 @@ export function RoadmapFilters({
                     laneDividerOpacity: Number(e.target.value),
                   })
                 }
-                className="w-14 rounded-md border border-slate-300 px-2 py-1 text-xs"
+                className="w-14 rounded-md border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
               />
             </div>
           </div>
         </div>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-3">
-        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-3 dark:bg-slate-900 dark:border-slate-700">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
           Item options
         </div>
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-2">
+            <label className="block text-xs font-medium text-slate-600 mb-2 dark:text-slate-300">
               Item style
             </label>
-            <div className="flex items-center gap-3 text-xs text-slate-700">
+            <div className="flex items-center gap-3 text-xs text-slate-700 dark:text-slate-200">
               <label className="flex items-center gap-2">
                 <input
                   type="radio"
@@ -508,7 +526,7 @@ export function RoadmapFilters({
           </div>
           {displayOptions.itemStyle === 'line' ? (
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">
+              <label className="block text-xs font-medium text-slate-600 mb-1 dark:text-slate-300">
                 Line title gap
               </label>
               <div className="flex items-center gap-2">
@@ -538,13 +556,13 @@ export function RoadmapFilters({
                       lineTitleGap: Number(e.target.value),
                     })
                   }
-                  className="w-14 rounded-md border border-slate-300 px-2 py-1 text-xs"
+                  className="w-14 rounded-md border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
                 />
-                <span className="text-[0.7rem] text-slate-500">px</span>
+                <span className="text-[0.7rem] text-slate-500 dark:text-slate-400">px</span>
               </div>
             </div>
           ) : null}
-          <label className="flex items-center gap-2 text-xs text-slate-700">
+          <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
             <input
               type="checkbox"
               className={checkboxClasses}
@@ -558,7 +576,7 @@ export function RoadmapFilters({
             />
             Show region flags
           </label>
-          <label className="flex items-center gap-2 text-xs text-slate-700">
+          <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
             <input
               type="checkbox"
               className={checkboxClasses}
@@ -572,7 +590,7 @@ export function RoadmapFilters({
             />
             Show short description
           </label>
-          <label className="flex items-center gap-2 text-xs text-slate-700">
+          <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
             <input
               type="checkbox"
               className={checkboxClasses}

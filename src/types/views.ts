@@ -13,6 +13,7 @@ export interface DisplayOptions {
   showQuarters: boolean;
   showMonths: boolean;
   showDynamicHeader: boolean;
+  darkMode: boolean;
 }
 
 export type ThemeOption =

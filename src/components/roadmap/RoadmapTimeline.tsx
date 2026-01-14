@@ -25,6 +25,7 @@ interface Props {
     lineTitleGap: number;
     showQuarters: boolean;
     showMonths: boolean;
+    darkMode: boolean;
   };
   theme:
     | 'coastal'
@@ -93,6 +94,17 @@ export function RoadmapTimeline({
       ? buildMonthBuckets(timelineStart, timelineEnd)
       : [];
   const todayLeft = getTodayLeftPercent(quarters);
+  const dividerPalette = displayOptions.darkMode
+    ? {
+        lane: `rgba(148, 163, 184, ${displayOptions.laneDividerOpacity})`,
+        quarter: 'rgba(148, 163, 184, 0.3)',
+        month: 'rgba(148, 163, 184, 0.18)',
+      }
+    : {
+        lane: `rgba(15, 23, 42, ${displayOptions.laneDividerOpacity})`,
+        quarter: 'rgba(15, 23, 42, 0.12)',
+        month: 'rgba(15, 23, 42, 0.06)',
+      };
 
   const pillarsMap = new Map<string, RoadmapItem[]>();
   for (const item of items) {
@@ -106,14 +118,14 @@ export function RoadmapTimeline({
   return (
     <section
       id="roadmap-export"
-      className="bg-white border border-slate-200 rounded-lg shadow-sm p-4 space-y-4"
+      className="bg-white border border-slate-200 rounded-lg shadow-sm p-4 space-y-4 dark:bg-slate-900 dark:border-slate-700"
     >
       {isExporting ? (
-        <div className="space-y-1 border border-slate-200 rounded-md bg-slate-50 px-3 py-2">
-          <div className="text-sm font-semibold text-slate-800">
+        <div className="space-y-1 border border-slate-200 rounded-md bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+          <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
             {`${exportSummary.titlePrefix} By ${exportSummary.viewBy}`}
           </div>
-          <div className="text-[0.7rem] text-slate-600">
+          <div className="text-[0.7rem] text-slate-600 dark:text-slate-300">
             {exportSummary.filters.length > 0
               ? exportSummary.filters.join(' · ')
               : ''}
@@ -128,19 +140,19 @@ export function RoadmapTimeline({
           <div className="relative space-y-1">
             {displayOptions.showQuarters ? (
               <div
-                className="grid border-b border-slate-200"
+                className="grid border-b border-slate-200 dark:border-slate-700"
                 style={{
                   gridTemplateColumns: `${labelWidth}px ${timelinePadding}px repeat(${quarters.length}, minmax(0, 1fr))`,
                 }}
               >
-                <div className="py-2 text-xs font-semibold text-slate-700 px-2">
+                <div className="py-2 text-xs font-semibold text-slate-700 px-2 dark:text-slate-200">
                   {GROUP_LABELS[groupBy]}
                 </div>
-                <div className="bg-white" />
+                <div className="bg-white dark:bg-slate-900" />
                 {quarters.map((q) => (
                   <div
                     key={q.label}
-                    className="py-2 text-xs font-semibold text-slate-700 text-center"
+                    className="py-2 text-xs font-semibold text-slate-700 text-center dark:text-slate-200"
                   >
                     {q.label}
                   </div>
@@ -167,7 +179,7 @@ export function RoadmapTimeline({
                     return (
                       <div
                         key={month.label}
-                        className="absolute text-[10px] text-slate-500"
+                        className="absolute text-[10px] text-slate-500 dark:text-slate-400"
                         style={{ left: `${left}%`, transform: 'translateX(-50%)' }}
                       >
                         {month.label}
@@ -183,9 +195,9 @@ export function RoadmapTimeline({
               style={{
                 ['--quarter-count' as string]: quarters.length,
                 ['--month-count' as string]: months.length || 1,
-                ['--lane-divider' as string]: `rgba(15, 23, 42, ${displayOptions.laneDividerOpacity})`,
-                ['--quarter-divider' as string]: 'rgba(15, 23, 42, 0.12)',
-                ['--month-divider' as string]: 'rgba(15, 23, 42, 0.06)',
+                ['--lane-divider' as string]: dividerPalette.lane,
+                ['--quarter-divider' as string]: dividerPalette.quarter,
+                ['--month-divider' as string]: dividerPalette.month,
               }}
             >
               {pillars.map((pillar, index) => {

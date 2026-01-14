@@ -106,7 +106,7 @@ export function SavedViewsPanel({
   const renderViewRow = (view: SavedView, showShare: boolean) => (
     <div
       key={view.id}
-      className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs"
+      className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-900"
     >
       <div className="flex items-center gap-2">
         {editingId === view.id ? (
@@ -124,13 +124,13 @@ export function SavedViewsPanel({
                 cancelRename();
               }
             }}
-            className="w-40 rounded-md border border-slate-300 px-2 py-0.5 text-xs"
+            className="w-40 rounded-md border border-slate-300 px-2 py-0.5 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
             autoFocus
           />
         ) : (
           <button
             type="button"
-            className="font-medium text-slate-700 hover:text-slate-900"
+            className="font-medium text-slate-700 hover:text-slate-900 dark:text-slate-200 dark:hover:text-slate-100"
             onClick={() => handleRename(view)}
             aria-label={`Rename ${view.name}`}
             title="Rename"
@@ -143,7 +143,7 @@ export function SavedViewsPanel({
         <div className="flex items-center gap-1">
           <button
             type="button"
-            className="rounded-full border border-slate-200 p-1 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+            className="rounded-full border border-slate-200 p-1 text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
             onClick={() => handleLoad(view)}
             aria-label={`Load ${view.name}`}
             title={loadingId === view.id ? 'Loading' : 'Load'}
@@ -180,7 +180,7 @@ export function SavedViewsPanel({
             view.sharedSlug ? (
               <button
                 type="button"
-                className="rounded-full border border-slate-200 p-1 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                className="rounded-full border border-slate-200 p-1 text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
                 onClick={() => handleShare(view)}
                 aria-label={`Share ${view.name}`}
                 title="Share"
@@ -205,7 +205,7 @@ export function SavedViewsPanel({
             ) : (
               <button
                 type="button"
-                className="rounded-full border border-slate-200 px-2 py-0.5 text-[0.7rem] text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                className="rounded-full border border-slate-200 px-2 py-0.5 text-[0.7rem] text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
                 onClick={() => onGenerateLink(view.id)}
                 title="Create link"
               >
@@ -215,7 +215,7 @@ export function SavedViewsPanel({
           ) : null}
           <button
             type="button"
-            className="rounded-full border border-rose-200 p-1 text-rose-600 hover:border-rose-300 hover:bg-rose-50"
+            className="rounded-full border border-rose-200 p-1 text-rose-600 hover:border-rose-300 hover:bg-rose-50 dark:border-rose-700/60 dark:text-rose-300 dark:hover:border-rose-600 dark:hover:bg-rose-900/40"
             onClick={() => handleDelete(view)}
             aria-label={`Delete ${view.name}`}
             title="Delete"
@@ -255,18 +255,18 @@ export function SavedViewsPanel({
   };
 
   return (
-    <section className="bg-white border border-slate-200 rounded-lg p-3 shadow-sm space-y-2">
+    <section className="bg-white border border-slate-200 rounded-lg p-3 shadow-sm space-y-2 dark:bg-slate-900 dark:border-slate-700">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-slate-800">Saved Views</h2>
+        <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Saved Views</h2>
       </div>
 
       <SignedOut>
-        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs text-slate-600">
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
           <span>Sign in to save and load views.</span>
           <SignInButton mode="modal">
             <button
               type="button"
-              className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 hover:bg-slate-100"
+              className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
             >
               Sign in
             </button>
@@ -279,25 +279,25 @@ export function SavedViewsPanel({
           {pendingDelete && typeof document !== 'undefined'
             ? createPortal(
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 px-4">
-                  <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-4 shadow-lg space-y-3">
-                    <div className="text-sm font-semibold text-slate-800">
+                  <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-4 shadow-lg space-y-3 dark:border-slate-700 dark:bg-slate-900">
+                    <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
                       Delete saved view?
                     </div>
-                    <p className="text-xs text-slate-600">
+                    <p className="text-xs text-slate-600 dark:text-slate-300">
                       This will delete “{pendingDelete.name}” and cannot be
                       undone.
                     </p>
                     <div className="flex justify-end gap-2">
                       <button
                         type="button"
-                        className="rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-100"
+                        className="rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
                         onClick={() => setPendingDelete(null)}
                       >
                         Cancel
                       </button>
                       <button
                         type="button"
-                        className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs text-rose-700 hover:border-rose-300 hover:bg-rose-100"
+                        className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs text-rose-700 hover:border-rose-300 hover:bg-rose-100 dark:border-rose-700/60 dark:bg-rose-900/30 dark:text-rose-200 dark:hover:border-rose-600 dark:hover:bg-rose-900/40"
                         onClick={confirmDelete}
                       >
                         Delete
@@ -311,24 +311,24 @@ export function SavedViewsPanel({
           {shareView && typeof document !== 'undefined'
             ? createPortal(
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 px-4">
-                  <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-4 shadow-lg space-y-3">
-                    <div className="text-sm font-semibold text-slate-800">
+                  <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-4 shadow-lg space-y-3 dark:border-slate-700 dark:bg-slate-900">
+                    <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
                       Share link
                     </div>
-                    <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-700 break-all">
+                    <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-700 break-all dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
                       {buildShareUrl(shareView)}
                     </div>
                     <div className="flex justify-end gap-2">
                       <button
                         type="button"
-                        className="rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-100"
+                        className="rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
                         onClick={() => setShareView(null)}
                       >
                         Close
                       </button>
                       <button
                         type="button"
-                        className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 hover:bg-slate-100"
+                        className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
                         onClick={handleShareCopy}
                       >
                         {shareCopied ? 'Copied' : 'Copy'}
@@ -340,15 +340,15 @@ export function SavedViewsPanel({
               )
             : null}
           {isLoading ? (
-            <div className="text-xs text-slate-400">Loading...</div>
+            <div className="text-xs text-slate-400 dark:text-slate-500">Loading...</div>
           ) : null}
           <div className="space-y-2">
             <div className="space-y-1">
-              <div className="text-[0.65rem] font-semibold uppercase tracking-wide text-slate-500">
+              <div className="text-[0.65rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 Shared
               </div>
               {sharedList.length === 0 ? (
-                <div className="rounded-md border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-500">
+                <div className="rounded-md border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
                   No shared views yet.
                 </div>
               ) : (
@@ -356,11 +356,11 @@ export function SavedViewsPanel({
               )}
             </div>
             <div className="space-y-1">
-              <div className="text-[0.65rem] font-semibold uppercase tracking-wide text-slate-500">
+              <div className="text-[0.65rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 Personal
               </div>
               {personalList.length === 0 ? (
-                <div className="rounded-md border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-500">
+                <div className="rounded-md border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
                   No personal views yet.
                 </div>
               ) : (
@@ -369,8 +369,8 @@ export function SavedViewsPanel({
             </div>
           </div>
 
-          <div className="rounded-md border border-slate-200 bg-slate-50/70 p-2 space-y-2">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <div className="rounded-md border border-slate-200 bg-slate-50/70 p-2 space-y-2 dark:border-slate-700 dark:bg-slate-800">
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               Save current view
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -382,10 +382,10 @@ export function SavedViewsPanel({
                 }
                 maxLength={MAX_VIEW_NAME}
                 placeholder="View name"
-                className="w-48 rounded-md border border-slate-300 px-2 py-1 text-xs"
+                className="w-48 rounded-md border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
               />
               <select
-                className="rounded-md border border-slate-300 px-2 py-1 text-xs bg-white"
+                className="rounded-md border border-slate-300 px-2 py-1 text-xs bg-white dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
                 value={scope}
                 onChange={(event) =>
                   setScope(event.target.value as ViewScope)
@@ -396,7 +396,7 @@ export function SavedViewsPanel({
               </select>
               <button
                 type="button"
-                className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
                 onClick={() => {
                   const trimmed = name.trim();
                   if (!trimmed) return;

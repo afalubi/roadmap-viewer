@@ -11,12 +11,12 @@ export function RoadmapItemDetailDialog({ item, onClose }: Props) {
   if (!item) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-xl shadow-2xl max-w-xl w-full p-6 space-y-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60">
+      <div className="bg-white rounded-xl shadow-2xl max-w-xl w-full p-6 space-y-4 dark:bg-slate-900">
         <div className="flex justify-between items-start gap-4">
           <div className="space-y-1">
-            <h2 className="text-lg font-semibold">{item.title}</h2>
-            <p className="text-xs text-slate-600">
+            <h2 className="text-lg font-semibold dark:text-slate-100">{item.title}</h2>
+            <p className="text-xs text-slate-600 dark:text-slate-300">
               Pillar: <span className="font-medium">{item.pillar}</span> ·
               Region: <span className="font-medium">{item.region}</span> ·
               Expense: <span className="font-medium">{item.expenseType}</span>
@@ -25,7 +25,7 @@ export function RoadmapItemDetailDialog({ item, onClose }: Props) {
           <button
             type="button"
             onClick={onClose}
-            className="text-xs px-2 py-1 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-100"
+            className="text-xs px-2 py-1 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
           >
             Close
           </button>
@@ -38,13 +38,13 @@ export function RoadmapItemDetailDialog({ item, onClose }: Props) {
             <DetailField label="T-shirt size" value={item.tShirtSize} />
             <DetailField label="Criticality" value={item.criticality} />
             {item.url ? (
-              <p className="text-slate-700">
-                <span className="font-semibold text-slate-600 mr-1">
+              <p className="text-slate-700 dark:text-slate-200">
+                <span className="font-semibold text-slate-600 mr-1 dark:text-slate-300">
                   Work item:
                 </span>
                 <a
                   href={item.url}
-                  className="text-sky-700 hover:text-sky-900 underline underline-offset-2"
+                  className="text-sky-700 hover:text-sky-900 underline underline-offset-2 dark:text-sky-300 dark:hover:text-sky-200"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -92,8 +92,8 @@ function DetailField({
 }) {
   if (!value) return null;
   return (
-    <p className="text-slate-700">
-      <span className="font-semibold text-slate-600 mr-1">{label}:</span>
+    <p className="text-slate-700 dark:text-slate-200">
+      <span className="font-semibold text-slate-600 mr-1 dark:text-slate-300">{label}:</span>
       <span>{value}</span>
     </p>
   );
@@ -103,8 +103,8 @@ function DetailBlock({ label, value }: { label: string; value: string }) {
   if (!value) return null;
   return (
     <div>
-      <div className="font-semibold text-slate-600 mb-0.5">{label}</div>
-      <p className="text-slate-800 text-xs leading-relaxed whitespace-pre-line">
+      <div className="font-semibold text-slate-600 mb-0.5 dark:text-slate-300">{label}</div>
+      <p className="text-slate-800 text-xs leading-relaxed whitespace-pre-line dark:text-slate-100">
         {value}
       </p>
     </div>

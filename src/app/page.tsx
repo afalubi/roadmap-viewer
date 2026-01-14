@@ -56,6 +56,7 @@ export default function HomePage() {
     showQuarters: true,
     showMonths: false,
     showDynamicHeader: true,
+    darkMode: false,
   };
   const [displayOptions, setDisplayOptions] = useState<DisplayOptions>(
     defaultDisplayOptions
@@ -111,6 +112,14 @@ export default function HomePage() {
     if (typeof window === "undefined") return;
     setShareBaseUrl(window.location.origin);
   }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.documentElement.classList.toggle(
+      "dark",
+      displayOptions.darkMode
+    );
+  }, [displayOptions.darkMode]);
 
   const buildViewPayload = (): ViewPayload => ({
     filters: {
@@ -448,6 +457,7 @@ export default function HomePage() {
           showQuarters: boolean;
           showMonths: boolean;
           showDynamicHeader: boolean;
+          darkMode: boolean;
         };
         startDate: string;
         quartersToShow: number;
@@ -547,16 +557,16 @@ export default function HomePage() {
   ]);
 
   return (
-    <main className="min-h-screen">
+    <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <div className="max-w-screen-2xl mx-auto px-4 py-8 space-y-6">
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-1">
             <h1 className="text-3xl font-semibold tracking-tight">
               <span className="text-blue-700">Roadmap</span>{" "}
-              <span className="text-slate-900">to</span>{" "}
+              <span className="text-slate-900 dark:text-slate-100">to</span>{" "}
               <span className="text-red-600">Liberty</span>
             </h1>
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
               Visualize roadmap ideas across pillars, time, and regions.
             </p>
           </div>
@@ -565,7 +575,7 @@ export default function HomePage() {
               <SignInButton mode="modal">
                 <button
                   type="button"
-                  className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 hover:bg-slate-100"
+                  className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
                 >
                   Sign in
                 </button>
@@ -578,7 +588,7 @@ export default function HomePage() {
         </header>
 
         <SignedOut>
-          <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
+          <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
             Please sign in to view the roadmap.
           </div>
         </SignedOut>
@@ -599,6 +609,7 @@ export default function HomePage() {
                   onClick={() => setIsHeaderCollapsed(!isHeaderCollapsed)}
                   className={[
                     "absolute top-6 right-0 translate-x-1/2 rounded-full border bg-white p-2 text-slate-700 shadow-sm hover:bg-slate-100",
+                    "dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800",
                   ].join(" ")}
                 >
                   {isHeaderCollapsed ? (
@@ -665,7 +676,7 @@ export default function HomePage() {
                 ].join(" ")}
               >
                 {displayOptions.showDynamicHeader ? (
-                  <h2 className="text-xl font-semibold text-slate-900">
+                  <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
                     {titlePrefix} By {summaryViewBy}
                   </h2>
                 ) : null}
@@ -674,8 +685,8 @@ export default function HomePage() {
                     className={[
                       "relative flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-slate-700",
                       isDraggingCsv
-                        ? "border-sky-400 bg-sky-50"
-                        : "border-slate-200 bg-white hover:border-slate-300",
+                        ? "border-sky-400 bg-sky-50 dark:border-sky-500/70 dark:bg-sky-950/40"
+                        : "border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600",
                     ].join(" ")}
                     onDragOver={(event) => {
                       event.preventDefault();
@@ -709,12 +720,12 @@ export default function HomePage() {
                       </svg>
                     </span>
                     <span>Upload CSV</span>
-                    <span className="text-slate-400">or drop</span>
+                    <span className="text-slate-400 dark:text-slate-500">or drop</span>
                   </label>
                   <button
                     type="button"
                     onClick={handleCsvDownload}
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
                   >
                     <span className="inline-flex h-4 w-4 items-center justify-center text-emerald-600">
                       <svg
@@ -737,7 +748,7 @@ export default function HomePage() {
                   <button
                     type="button"
                     onClick={handleExportImage}
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
                     disabled={isExporting}
                   >
                     <span className="inline-flex h-4 w-4 items-center justify-center text-amber-600">
@@ -763,12 +774,12 @@ export default function HomePage() {
 
               <div className="flex flex-wrap items-center gap-2">
                 {loadedViewName ? (
-                  <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700">
-                    <span className="text-slate-500">Loaded view:</span>
+                  <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                    <span className="text-slate-500 dark:text-slate-400">Loaded view:</span>
                     <span className="font-medium">{loadedViewName}</span>
                     <button
                       type="button"
-                      className="text-slate-400 hover:text-slate-600"
+                      className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
                       onClick={() => setLoadedViewName("")}
                       aria-label="Dismiss loaded view"
                     >
@@ -783,10 +794,10 @@ export default function HomePage() {
                         key={chip.key}
                         type="button"
                         onClick={chip.onRemove}
-                        className="group inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-100"
+                        className="group inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
                       >
                         <span>{chip.label}</span>
-                        <span className="text-slate-400 group-hover:text-slate-600">
+                        <span className="text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300">
                           ×
                         </span>
                       </button>

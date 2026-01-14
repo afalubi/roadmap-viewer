@@ -107,7 +107,7 @@ export function RoadmapSwimlane({
     >
       <div
         className={[
-          'border-r border-slate-200 py-3 px-2 text-xs font-semibold text-slate-900',
+          'border-r border-slate-200 py-3 px-2 text-xs font-semibold text-slate-900 dark:border-slate-700 dark:text-slate-100',
           laneClasses,
         ].join(' ')}
       >
@@ -141,7 +141,7 @@ export function RoadmapSwimlane({
               ? getRegionEmojiList(item.region)
               : [];
             const regionBadges = regionEmojis.length ? (
-              <span className="mr-1 inline-flex items-center gap-0.5 text-slate-800">
+              <span className="mr-1 inline-flex items-center gap-0.5 text-slate-800 dark:text-slate-100">
                 {regionEmojis.map((emoji) => (
                   <span
                     key={`${item.id}-${emoji}`}
@@ -185,7 +185,7 @@ export function RoadmapSwimlane({
                 }}
               >
                 {titleAbove ? (
-                  <div className="text-[0.65rem] font-semibold leading-none text-slate-800 truncate">
+                  <div className="text-[0.65rem] font-semibold leading-none text-slate-800 truncate dark:text-slate-100">
                     {regionBadges}
                     {item.title}
                   </div>
@@ -224,7 +224,7 @@ export function RoadmapSwimlane({
                     </div>
                   ) : null}
                   {hasInlineText && displayOptions.showShortDescription ? (
-                    <div className="text-[0.65rem] text-slate-700 truncate">
+                    <div className="text-[0.65rem] text-slate-700 truncate dark:text-slate-200">
                       {item.shortDescription}
                     </div>
                   ) : null}
@@ -246,7 +246,7 @@ export function RoadmapSwimlane({
             return (
               <div
                 key={`line-row-${row}`}
-                className="absolute left-0 right-0 h-1 bg-slate-300 z-0 pointer-events-none"
+                className="absolute left-0 right-0 h-1 bg-slate-300 z-0 pointer-events-none dark:bg-slate-600"
                 style={{ top: lineTop }}
               />
             );
@@ -258,7 +258,7 @@ export function RoadmapSwimlane({
             const showAbove = tooltip.rect.top > 120;
             return createPortal(
               <div
-                className="pointer-events-none fixed z-50 w-56 rounded-md border border-slate-300 bg-white p-2 text-[0.7rem] text-slate-800 shadow-lg"
+                className="pointer-events-none fixed z-50 w-56 rounded-md border border-slate-300 bg-white p-2 text-[0.7rem] text-slate-800 shadow-lg dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 style={{
                   left: Math.min(
                     tooltip.rect.left,
@@ -270,11 +270,11 @@ export function RoadmapSwimlane({
                     : 'translateY(8px)',
                 }}
               >
-                <div className="font-semibold text-slate-900">
+                <div className="font-semibold text-slate-900 dark:text-slate-100">
                   {tooltip.regionBadges}
                   {tooltip.item.title}
                 </div>
-                <div className="text-slate-600">
+                <div className="text-slate-600 dark:text-slate-300">
                   {tooltip.item.shortDescription}
                 </div>
               </div>,
