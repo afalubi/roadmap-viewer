@@ -8,7 +8,10 @@ import {
   UserButton,
   useAuth,
 } from "@clerk/nextjs";
-import { BiLeftIndent, BiRightIndent } from "react-icons/bi";
+import {
+  RxHamburgerMenu as LeftDrawer,
+  RxHamburgerMenu as RightDrawer,
+} from "react-icons/rx";
 import type { RoadmapItem } from "@/types/roadmap";
 import { loadRoadmap } from "@/lib/loadRoadmap";
 import { parseRegions, type Region } from "@/lib/region";
@@ -598,9 +601,9 @@ export default function HomePage() {
                   ].join(" ")}
                 >
                   {isHeaderCollapsed ? (
-                    <BiRightIndent className="h-5 w-5" aria-hidden="true" />
+                    <RightDrawer className="h-5 w-5" aria-hidden="true" />
                   ) : (
-                    <BiLeftIndent className="h-5 w-5" aria-hidden="true" />
+                    <LeftDrawer className="h-5 w-5" aria-hidden="true" />
                   )}
                 </button>
 
