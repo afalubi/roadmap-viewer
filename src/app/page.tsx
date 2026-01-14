@@ -21,8 +21,8 @@ import type {
 } from '@/types/views';
 
 export default function HomePage() {
-  const settingsKey = 'roadmap-viewer-settings';
   const { isLoaded, isSignedIn } = useAuth();
+  const [settingsKey, setSettingsKey] = useState<string | null>(null);
   const [items, setItems] = useState<RoadmapItem[]>([]);
   const [filteredItems, setFilteredItems] = useState<RoadmapItem[]>([]);
   const [currentCsvText, setCurrentCsvText] = useState('');
@@ -66,6 +66,7 @@ export default function HomePage() {
   const [isLoadingViews, setIsLoadingViews] = useState(false);
   const [shareBaseUrl, setShareBaseUrl] = useState('');
   const [loadedSharedSlug, setLoadedSharedSlug] = useState('');
+  const [loadedViewName, setLoadedViewName] = useState('');
 
   useEffect(() => {
     loadRoadmap().then((data) => {
@@ -78,6 +79,20 @@ export default function HomePage() {
       .catch(() => {
         setCurrentCsvText('');
     });
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const storage = window.sessionStorage;
+    let tabId = storage.getItem('roadmap-tab-id');
+    if (!tabId) {
+      const fallback = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      tabId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : fallback;
+      storage.setItem('roadmap-tab-id', tabId);
+    }
+    setSettingsKey(`roadmap-viewer-settings:${tabId}`);
   }, []);
 
   useEffect(() => {
@@ -132,6 +147,11 @@ export default function HomePage() {
     if (payload.timeline?.quartersToShow) {
       setQuartersToShow(payload.timeline.quartersToShow);
     }
+  };
+
+  const handleLoadView = (payload: ViewPayload, name: string) => {
+    applyViewPayload(payload);
+    setLoadedViewName(name);
   };
 
   const fetchViews = async () => {
@@ -223,6 +243,9 @@ export default function HomePage() {
         const data = await res.json();
         if (data.view?.payload) {
           applyViewPayload(data.view.payload as ViewPayload);
+          if (data.view?.name) {
+            setLoadedViewName(data.view.name);
+          }
           setLoadedSharedSlug(slug);
           const nextUrl = new URL(window.location.href);
           nextUrl.searchParams.delete('view');
@@ -380,6 +403,7 @@ export default function HomePage() {
   ];
 
   useEffect(() => {
+    if (!settingsKey) return;
     const raw = localStorage.getItem(settingsKey);
     if (!raw) {
       setIsHydrated(true);
@@ -449,7 +473,7 @@ export default function HomePage() {
   }, [settingsKey]);
 
   useEffect(() => {
-    if (!isHydrated) return;
+    if (!isHydrated || !settingsKey) return;
     const payload = {
       selectedPillars,
       selectedRegions,
@@ -519,7 +543,9 @@ export default function HomePage() {
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-1">
             <h1 className="text-3xl font-semibold tracking-tight">
-              Roadmap to Liberty
+              <span className="text-blue-700">Roadmap</span>{' '}
+              <span className="text-slate-900">to</span>{' '}
+              <span className="text-red-600">Liberty</span>
             </h1>
             <p className="text-sm text-slate-600">
               Visualize roadmap ideas across pillars, time, and regions.
@@ -597,7 +623,7 @@ export default function HomePage() {
                         sharedViews={sharedViews}
                         shareBaseUrl={shareBaseUrl}
                         onSaveView={handleSaveView}
-                        onLoadView={applyViewPayload}
+                        onLoadView={handleLoadView}
                         onRenameView={handleRenameView}
                         onDeleteView={handleDeleteView}
                         onGenerateLink={handleGenerateLink}
@@ -713,23 +739,39 @@ export default function HomePage() {
               </div>
             </div>
 
-            {filterChips.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {filterChips.map((chip) => (
+            <div className="flex flex-wrap items-center gap-2">
+              {loadedViewName ? (
+                <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700">
+                  <span className="text-slate-500">Loaded view:</span>
+                  <span className="font-medium">{loadedViewName}</span>
                   <button
-                    key={chip.key}
                     type="button"
-                    onClick={chip.onRemove}
-                    className="group inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-100"
+                    className="text-slate-400 hover:text-slate-600"
+                    onClick={() => setLoadedViewName('')}
+                    aria-label="Dismiss loaded view"
                   >
-                    <span>{chip.label}</span>
-                    <span className="text-slate-400 group-hover:text-slate-600">
-                      ×
-                    </span>
+                    ×
                   </button>
-                ))}
-              </div>
-            ) : null}
+                </div>
+              ) : null}
+              {filterChips.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {filterChips.map((chip) => (
+                    <button
+                      key={chip.key}
+                      type="button"
+                      onClick={chip.onRemove}
+                      className="group inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-100"
+                    >
+                      <span>{chip.label}</span>
+                      <span className="text-slate-400 group-hover:text-slate-600">
+                        ×
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
 
             <RoadmapTimeline
               items={filteredItems}

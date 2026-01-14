@@ -177,30 +177,28 @@ export function RoadmapFilters({
 
   return (
     <section className="space-y-4">
-      <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-2">
-        <div className="flex items-center gap-3">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            View by
-          </div>
-          <select
-            className={compactSelectClasses}
-            value={selectedGroupBy}
-            onChange={(e) =>
-              setSelectedGroupBy(
-                e.target.value as
-                  | 'pillar'
-                  | 'stakeholder'
-                  | 'criticality'
-                  | 'region',
-              )
-            }
-          >
-            <option value="pillar">Pillar</option>
-            <option value="stakeholder">Primary stakeholder</option>
-            <option value="criticality">Criticality</option>
-            <option value="region">Region</option>
-          </select>
+      <div className="flex items-center gap-3">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          View by
         </div>
+        <select
+          className={compactSelectClasses}
+          value={selectedGroupBy}
+          onChange={(e) =>
+            setSelectedGroupBy(
+              e.target.value as
+                | 'pillar'
+                | 'stakeholder'
+                | 'criticality'
+                | 'region',
+            )
+          }
+        >
+          <option value="pillar">Pillar</option>
+          <option value="stakeholder">Primary stakeholder</option>
+          <option value="criticality">Criticality</option>
+          <option value="region">Region</option>
+        </select>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-3">
