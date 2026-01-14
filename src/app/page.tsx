@@ -1,16 +1,23 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { SignedIn, SignedOut, SignInButton, UserButton, useAuth } from '@clerk/nextjs';
-import type { RoadmapItem } from '@/types/roadmap';
-import { loadRoadmap } from '@/lib/loadRoadmap';
-import { parseRegions, type Region } from '@/lib/region';
-import { getQuarterStartDate } from '@/lib/timeScale';
-import { parseStakeholders } from '@/lib/stakeholders';
-import { parseRoadmapCsv } from '@/lib/loadRoadmapFromCsv';
-import { RoadmapFilters } from '@/components/roadmap/RoadmapFilters';
-import { RoadmapTimeline } from '@/components/roadmap/RoadmapTimeline';
-import { SavedViewsPanel } from '@/components/roadmap/SavedViewsPanel';
+import { useEffect, useState } from "react";
+import {
+  SignedIn,
+  SignedOut,
+  SignInButton,
+  UserButton,
+  useAuth,
+} from "@clerk/nextjs";
+import { BiLeftIndent, BiRightIndent } from "react-icons/bi";
+import type { RoadmapItem } from "@/types/roadmap";
+import { loadRoadmap } from "@/lib/loadRoadmap";
+import { parseRegions, type Region } from "@/lib/region";
+import { getQuarterStartDate } from "@/lib/timeScale";
+import { parseStakeholders } from "@/lib/stakeholders";
+import { parseRoadmapCsv } from "@/lib/loadRoadmapFromCsv";
+import { RoadmapFilters } from "@/components/roadmap/RoadmapFilters";
+import { RoadmapTimeline } from "@/components/roadmap/RoadmapTimeline";
+import { SavedViewsPanel } from "@/components/roadmap/SavedViewsPanel";
 import type {
   DisplayOptions,
   GroupByOption,
@@ -18,43 +25,42 @@ import type {
   ThemeOption,
   ViewPayload,
   ViewScope,
-} from '@/types/views';
+} from "@/types/views";
 
 export default function HomePage() {
   const { isLoaded, isSignedIn } = useAuth();
   const [settingsKey, setSettingsKey] = useState<string | null>(null);
   const [items, setItems] = useState<RoadmapItem[]>([]);
   const [filteredItems, setFilteredItems] = useState<RoadmapItem[]>([]);
-  const [currentCsvText, setCurrentCsvText] = useState('');
+  const [currentCsvText, setCurrentCsvText] = useState("");
   const [selectedPillars, setSelectedPillars] = useState<string[]>([]);
   const [selectedRegions, setSelectedRegions] = useState<Region[]>([]);
   const [selectedCriticalities, setSelectedCriticalities] = useState<string[]>(
-    [],
+    []
   );
   const [selectedImpactedStakeholders, setSelectedImpactedStakeholders] =
     useState<string[]>([]);
   const [selectedGroupBy, setSelectedGroupBy] =
-    useState<GroupByOption>('pillar');
+    useState<GroupByOption>("pillar");
   const defaultDisplayOptions: DisplayOptions = {
     showRegionEmojis: true,
     showShortDescription: true,
     titleAbove: false,
     itemVerticalPadding: 6,
     laneDividerOpacity: 0.12,
-    itemStyle: 'tile' as 'tile' | 'line',
+    itemStyle: "tile" as "tile" | "line",
     lineTitleGap: 2,
     showQuarters: true,
     showMonths: false,
     showDynamicHeader: true,
   };
   const [displayOptions, setDisplayOptions] = useState<DisplayOptions>(
-    defaultDisplayOptions,
+    defaultDisplayOptions
   );
-  const [selectedTheme, setSelectedTheme] =
-    useState<ThemeOption>('coastal');
-  const [titlePrefix, setTitlePrefix] = useState('Technology Roadmap');
+  const [selectedTheme, setSelectedTheme] = useState<ThemeOption>("coastal");
+  const [titlePrefix, setTitlePrefix] = useState("Technology Roadmap");
   const [startDate, setStartDate] = useState(() =>
-    formatDateInput(getQuarterStartDate(new Date())),
+    formatDateInput(getQuarterStartDate(new Date()))
   );
   const [quartersToShow, setQuartersToShow] = useState(5);
   const [isHydrated, setIsHydrated] = useState(false);
@@ -64,39 +70,42 @@ export default function HomePage() {
   const [personalViews, setPersonalViews] = useState<SavedView[]>([]);
   const [sharedViews, setSharedViews] = useState<SavedView[]>([]);
   const [isLoadingViews, setIsLoadingViews] = useState(false);
-  const [shareBaseUrl, setShareBaseUrl] = useState('');
-  const [loadedSharedSlug, setLoadedSharedSlug] = useState('');
-  const [loadedViewName, setLoadedViewName] = useState('');
+  const [shareBaseUrl, setShareBaseUrl] = useState("");
+  const [loadedSharedSlug, setLoadedSharedSlug] = useState("");
+  const [loadedViewName, setLoadedViewName] = useState("");
 
   useEffect(() => {
     loadRoadmap().then((data) => {
       setItems(data);
       setFilteredItems(data);
     });
-    fetch('/data/roadmap.csv')
+    fetch("/data/roadmap.csv")
       .then((res) => res.text())
       .then((text) => setCurrentCsvText(text))
       .catch(() => {
-        setCurrentCsvText('');
-    });
+        setCurrentCsvText("");
+      });
   }, []);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     const storage = window.sessionStorage;
-    let tabId = storage.getItem('roadmap-tab-id');
+    let tabId = storage.getItem("roadmap-tab-id");
     if (!tabId) {
-      const fallback = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      tabId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
-        ? crypto.randomUUID()
-        : fallback;
-      storage.setItem('roadmap-tab-id', tabId);
+      const fallback = `${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`;
+      tabId =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : fallback;
+      storage.setItem("roadmap-tab-id", tabId);
     }
     setSettingsKey(`roadmap-viewer-settings:${tabId}`);
   }, []);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     setShareBaseUrl(window.location.origin);
   }, []);
 
@@ -124,7 +133,7 @@ export default function HomePage() {
     setSelectedRegions(payload.filters?.regions ?? []);
     setSelectedCriticalities(payload.filters?.criticalities ?? []);
     setSelectedImpactedStakeholders(
-      payload.filters?.impactedStakeholders ?? [],
+      payload.filters?.impactedStakeholders ?? []
     );
     if (payload.display?.groupBy) {
       setSelectedGroupBy(payload.display.groupBy);
@@ -163,8 +172,8 @@ export default function HomePage() {
     setIsLoadingViews(true);
     try {
       const [personalRes, sharedRes] = await Promise.all([
-        fetch('/api/views?scope=personal'),
-        fetch('/api/views?scope=shared'),
+        fetch("/api/views?scope=personal"),
+        fetch("/api/views?scope=shared"),
       ]);
       const personalData = await personalRes.json();
       const sharedData = await sharedRes.json();
@@ -181,9 +190,9 @@ export default function HomePage() {
   const handleSaveView = async (name: string, scope: ViewScope) => {
     if (!isSignedIn) return;
     const payload = buildViewPayload();
-    await fetch('/api/views', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    await fetch("/api/views", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, scope, payload }),
     });
     await fetchViews();
@@ -192,12 +201,12 @@ export default function HomePage() {
   const handleRenameView = async (
     id: string,
     _scope: ViewScope,
-    name: string,
+    name: string
   ) => {
     if (!isSignedIn) return;
     await fetch(`/api/views/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name }),
     });
     await fetchViews();
@@ -205,15 +214,15 @@ export default function HomePage() {
 
   const handleDeleteView = async (id: string, _scope: ViewScope) => {
     if (!isSignedIn) return;
-    await fetch(`/api/views/${id}`, { method: 'DELETE' });
+    await fetch(`/api/views/${id}`, { method: "DELETE" });
     await fetchViews();
   };
 
   const handleGenerateLink = async (id: string) => {
     if (!isSignedIn) return;
     await fetch(`/api/views/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ generateSlug: true }),
     });
     await fetchViews();
@@ -232,9 +241,9 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!isSignedIn) return;
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
-    const slug = params.get('view') ?? '';
+    const slug = params.get("view") ?? "";
     if (!slug || slug === loadedSharedSlug) return;
     const fetchSharedView = async () => {
       try {
@@ -248,8 +257,8 @@ export default function HomePage() {
           }
           setLoadedSharedSlug(slug);
           const nextUrl = new URL(window.location.href);
-          nextUrl.searchParams.delete('view');
-          window.history.replaceState(null, '', nextUrl.toString());
+          nextUrl.searchParams.delete("view");
+          window.history.replaceState(null, "", nextUrl.toString());
         }
       } catch {
         // Ignore fetch errors for shared views.
@@ -260,11 +269,11 @@ export default function HomePage() {
 
   const handleCsvDownload = () => {
     const csv = currentCsvText || buildCsvFromItems(items);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
-    link.download = 'roadmap.csv';
+    link.download = "roadmap.csv";
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -298,17 +307,17 @@ export default function HomePage() {
   const handleExportImage = async () => {
     setIsExporting(true);
     await new Promise<void>((resolve) =>
-      requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
     );
-    const exportNode = document.getElementById('roadmap-export');
+    const exportNode = document.getElementById("roadmap-export");
     if (!exportNode) {
       setIsExporting(false);
       return;
     }
     const scrollContainer = exportNode.querySelector<HTMLElement>(
-      '[data-roadmap-scroll]',
+      "[data-roadmap-scroll]"
     );
-    const maxWidthContainer = exportNode.closest<HTMLElement>('.max-w-7xl');
+    const maxWidthContainer = exportNode.closest<HTMLElement>(".max-w-7xl");
     const computedMaxWidth = maxWidthContainer
       ? parseFloat(window.getComputedStyle(maxWidthContainer).maxWidth)
       : NaN;
@@ -326,48 +335,44 @@ export default function HomePage() {
         : fullWidth;
 
     exportNode.style.width = `${targetWidth}px`;
-    exportNode.style.maxWidth = 'none';
+    exportNode.style.maxWidth = "none";
     if (scrollContainer) {
       scrollContainer.style.width = `${targetWidth}px`;
-      scrollContainer.style.overflowX = 'visible';
+      scrollContainer.style.overflowX = "visible";
     }
-    const { toPng } = await import('html-to-image');
+    const { toPng } = await import("html-to-image");
     const dataUrl = await toPng(exportNode, {
-      backgroundColor: '#ffffff',
+      backgroundColor: "#ffffff",
       pixelRatio: 2,
     });
     exportNode.style.width = previousExportWidth;
     exportNode.style.maxWidth = previousExportMaxWidth;
     if (scrollContainer) {
-      scrollContainer.style.width = previousScrollWidth ?? '';
-      scrollContainer.style.overflowX = previousScrollOverflow ?? '';
+      scrollContainer.style.width = previousScrollWidth ?? "";
+      scrollContainer.style.overflowX = previousScrollOverflow ?? "";
     }
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = dataUrl;
-    link.download = 'roadmap.png';
+    link.download = "roadmap.png";
     link.click();
     setIsExporting(false);
   };
 
   const summaryViewBy = {
-    pillar: 'Pillar',
-    stakeholder: 'Primary stakeholder',
-    criticality: 'Criticality',
-    region: 'Region',
+    pillar: "Pillar",
+    stakeholder: "Primary stakeholder",
+    criticality: "Criticality",
+    region: "Region",
   }[selectedGroupBy];
 
   const appliedFilters = [
-    selectedPillars.length
-      ? `Pillars: ${selectedPillars.join(', ')}`
-      : null,
-    selectedRegions.length
-      ? `Regions: ${selectedRegions.join(', ')}`
-      : null,
+    selectedPillars.length ? `Pillars: ${selectedPillars.join(", ")}` : null,
+    selectedRegions.length ? `Regions: ${selectedRegions.join(", ")}` : null,
     selectedCriticalities.length
-      ? `Criticality: ${selectedCriticalities.join(', ')}`
+      ? `Criticality: ${selectedCriticalities.join(", ")}`
       : null,
     selectedImpactedStakeholders.length
-      ? `Stakeholders: ${selectedImpactedStakeholders.join(', ')}`
+      ? `Stakeholders: ${selectedImpactedStakeholders.join(", ")}`
       : null,
   ].filter(Boolean) as string[];
 
@@ -389,7 +394,7 @@ export default function HomePage() {
       label: `Criticality: ${value}`,
       onRemove: () =>
         setSelectedCriticalities(
-          selectedCriticalities.filter((item) => item !== value),
+          selectedCriticalities.filter((item) => item !== value)
         ),
     })),
     ...selectedImpactedStakeholders.map((value) => ({
@@ -397,7 +402,7 @@ export default function HomePage() {
       label: `Stakeholder: ${value}`,
       onRemove: () =>
         setSelectedImpactedStakeholders(
-          selectedImpactedStakeholders.filter((item) => item !== value),
+          selectedImpactedStakeholders.filter((item) => item !== value)
         ),
     })),
   ];
@@ -415,18 +420,18 @@ export default function HomePage() {
         selectedRegions: Region[];
         selectedCriticalities: string[];
         selectedImpactedStakeholders: string[];
-        selectedGroupBy: 'pillar' | 'stakeholder' | 'criticality' | 'region';
+        selectedGroupBy: "pillar" | "stakeholder" | "criticality" | "region";
         selectedTheme:
-          | 'coastal'
-          | 'orchard'
-          | 'sunset'
-          | 'slate'
-          | 'sand'
-          | 'mist'
-          | 'mono'
-          | 'forest'
-          | 'metro'
-          | 'metro-dark';
+          | "coastal"
+          | "orchard"
+          | "sunset"
+          | "slate"
+          | "sand"
+          | "mist"
+          | "mono"
+          | "forest"
+          | "metro"
+          | "metro-dark";
         titlePrefix: string;
         displayOptions: {
           showRegionEmojis: boolean;
@@ -434,7 +439,7 @@ export default function HomePage() {
           titleAbove: boolean;
           itemVerticalPadding: number;
           laneDividerOpacity: number;
-          itemStyle: 'tile' | 'line';
+          itemStyle: "tile" | "line";
           lineTitleGap: number;
           showQuarters: boolean;
           showMonths: boolean;
@@ -462,7 +467,7 @@ export default function HomePage() {
       }
       if (parsed.startDate) setStartDate(parsed.startDate);
       if (parsed.quartersToShow) setQuartersToShow(parsed.quartersToShow);
-      if (typeof parsed.isHeaderCollapsed === 'boolean') {
+      if (typeof parsed.isHeaderCollapsed === "boolean") {
         setIsHeaderCollapsed(parsed.isHeaderCollapsed);
       }
     } catch {
@@ -517,14 +522,14 @@ export default function HomePage() {
     }
     if (selectedCriticalities.length > 0) {
       result = result.filter((i) =>
-        selectedCriticalities.includes(i.criticality),
+        selectedCriticalities.includes(i.criticality)
       );
     }
     if (selectedImpactedStakeholders.length > 0) {
       result = result.filter((i) => {
         const stakeholders = parseStakeholders(i.impactedStakeholders);
         return selectedImpactedStakeholders.some((stakeholder) =>
-          stakeholders.includes(stakeholder),
+          stakeholders.includes(stakeholder)
         );
       });
     }
@@ -543,8 +548,8 @@ export default function HomePage() {
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-1">
             <h1 className="text-3xl font-semibold tracking-tight">
-              <span className="text-blue-700">Roadmap</span>{' '}
-              <span className="text-slate-900">to</span>{' '}
+              <span className="text-blue-700">Roadmap</span>{" "}
+              <span className="text-slate-900">to</span>{" "}
               <span className="text-red-600">Liberty</span>
             </h1>
             <p className="text-sm text-slate-600">
@@ -575,227 +580,233 @@ export default function HomePage() {
         </SignedOut>
 
         <SignedIn>
-        <div className="flex gap-6">
-          <aside
-            className={[
-              'relative transition-[width] duration-300 ease-out',
-              isHeaderCollapsed ? 'w-0' : 'w-80',
-              'shrink-0',
-              'overflow-visible',
-            ].join(' ')}
-          >
-            <div className="sticky top-6 space-y-4">
-              <button
-                type="button"
-                onClick={() => setIsHeaderCollapsed(!isHeaderCollapsed)}
-                className={[
-                  'absolute top-6 right-0 translate-x-1/2 rounded-full border bg-white p-2 text-slate-700 shadow-sm hover:bg-slate-100',
-                ].join(' ')}
-              >
-                <span className="text-base leading-none">
-                  ≡
-                </span>
-              </button>
-
-              {isHeaderCollapsed ? null : (
-                <>
-                  <RoadmapFilters
-                    items={items}
-                    selectedPillars={selectedPillars}
-                    setSelectedPillars={setSelectedPillars}
-                    selectedRegions={selectedRegions}
-                    setSelectedRegions={setSelectedRegions}
-                    selectedCriticalities={selectedCriticalities}
-                    setSelectedCriticalities={setSelectedCriticalities}
-                    selectedImpactedStakeholders={selectedImpactedStakeholders}
-                    setSelectedImpactedStakeholders={
-                      setSelectedImpactedStakeholders
-                    }
-                    selectedGroupBy={selectedGroupBy}
-                    setSelectedGroupBy={setSelectedGroupBy}
-                    displayOptions={displayOptions}
-                    setDisplayOptions={setDisplayOptions}
-                    selectedTheme={selectedTheme}
-                    setSelectedTheme={setSelectedTheme}
-                    startDate={startDate}
-                    setStartDate={setStartDate}
-                    quartersToShow={quartersToShow}
-                    setQuartersToShow={setQuartersToShow}
-                    titlePrefix={titlePrefix}
-                    setTitlePrefix={setTitlePrefix}
-                    savedViewsPanel={
-                      <SavedViewsPanel
-                        isLoading={isLoadingViews}
-                        personalViews={personalViews}
-                        sharedViews={sharedViews}
-                        shareBaseUrl={shareBaseUrl}
-                        onSaveView={handleSaveView}
-                        onLoadView={handleLoadView}
-                        onRenameView={handleRenameView}
-                        onDeleteView={handleDeleteView}
-                        onGenerateLink={handleGenerateLink}
-                      />
-                    }
-                  />
-                </>
-              )}
-            </div>
-          </aside>
-
-          <div className="min-w-0 flex-1 space-y-6">
-            <div
+          <div className="flex gap-6">
+            <aside
               className={[
-                'flex flex-wrap items-center gap-3',
-                displayOptions.showDynamicHeader
-                  ? 'justify-between'
-                  : 'justify-end',
-              ].join(' ')}
+                "relative transition-[width] duration-300 ease-out",
+                isHeaderCollapsed ? "w-0" : "w-80",
+                "shrink-0",
+                "overflow-visible",
+              ].join(" ")}
             >
-              {displayOptions.showDynamicHeader ? (
-                <h2 className="text-xl font-semibold text-slate-900">
-                  {titlePrefix} By {summaryViewBy}
-                </h2>
-              ) : null}
-              <div className="flex flex-wrap items-center gap-3">
-                <label
+              <div className="sticky top-6 space-y-4">
+                <button
+                  type="button"
+                  onClick={() => setIsHeaderCollapsed(!isHeaderCollapsed)}
                   className={[
-                    'relative flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-slate-700',
-                    isDraggingCsv
-                      ? 'border-sky-400 bg-sky-50'
-                      : 'border-slate-200 bg-white hover:border-slate-300',
-                  ].join(' ')}
-                  onDragOver={(event) => {
-                    event.preventDefault();
-                    setIsDraggingCsv(true);
-                  }}
-                  onDragLeave={() => setIsDraggingCsv(false)}
-                  onDrop={handleCsvDrop}
+                    "absolute top-6 right-0 translate-x-1/2 rounded-full border bg-white p-2 text-slate-700 shadow-sm hover:bg-slate-100",
+                  ].join(" ")}
                 >
-                  <input
-                    type="file"
-                    accept=".csv,text/csv"
-                    className="sr-only"
-                    onChange={(event) => handleCsvFile(event.target.files?.[0])}
-                  />
-                  <span className="inline-flex h-4 w-4 items-center justify-center text-sky-600">
-                    <svg
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M12 21V9" />
-                      <path d="M7 14l5-5 5 5" />
-                      <path d="M5 3h14" />
-                    </svg>
-                  </span>
-                  <span>Upload CSV</span>
-                  <span className="text-slate-400">or drop</span>
-                </label>
-                <button
-                  type="button"
-                  onClick={handleCsvDownload}
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50"
-                >
-                  <span className="inline-flex h-4 w-4 items-center justify-center text-emerald-600">
-                    <svg
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M12 3v12" />
-                      <path d="M7 10l5 5 5-5" />
-                      <path d="M5 21h14" />
-                    </svg>
-                  </span>
-                  Download CSV
+                  {isHeaderCollapsed ? (
+                    <BiRightIndent className="h-5 w-5" aria-hidden="true" />
+                  ) : (
+                    <BiLeftIndent className="h-5 w-5" aria-hidden="true" />
+                  )}
                 </button>
-                <button
-                  type="button"
-                  onClick={handleExportImage}
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50"
-                  disabled={isExporting}
-                >
-                  <span className="inline-flex h-4 w-4 items-center justify-center text-amber-600">
-                    <svg
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <rect x="3" y="5" width="18" height="14" rx="2" />
-                      <path d="M8 13l2-2 3 3 3-4 2 3" />
-                      <circle cx="8.5" cy="9" r="1" />
-                    </svg>
-                  </span>
-                  {isExporting ? 'Exporting...' : 'Export Image'}
-                </button>
-              </div>
-            </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              {loadedViewName ? (
-                <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700">
-                  <span className="text-slate-500">Loaded view:</span>
-                  <span className="font-medium">{loadedViewName}</span>
+                {isHeaderCollapsed ? null : (
+                  <>
+                    <RoadmapFilters
+                      items={items}
+                      selectedPillars={selectedPillars}
+                      setSelectedPillars={setSelectedPillars}
+                      selectedRegions={selectedRegions}
+                      setSelectedRegions={setSelectedRegions}
+                      selectedCriticalities={selectedCriticalities}
+                      setSelectedCriticalities={setSelectedCriticalities}
+                      selectedImpactedStakeholders={
+                        selectedImpactedStakeholders
+                      }
+                      setSelectedImpactedStakeholders={
+                        setSelectedImpactedStakeholders
+                      }
+                      selectedGroupBy={selectedGroupBy}
+                      setSelectedGroupBy={setSelectedGroupBy}
+                      displayOptions={displayOptions}
+                      setDisplayOptions={setDisplayOptions}
+                      selectedTheme={selectedTheme}
+                      setSelectedTheme={setSelectedTheme}
+                      startDate={startDate}
+                      setStartDate={setStartDate}
+                      quartersToShow={quartersToShow}
+                      setQuartersToShow={setQuartersToShow}
+                      titlePrefix={titlePrefix}
+                      setTitlePrefix={setTitlePrefix}
+                      savedViewsPanel={
+                        <SavedViewsPanel
+                          isLoading={isLoadingViews}
+                          personalViews={personalViews}
+                          sharedViews={sharedViews}
+                          shareBaseUrl={shareBaseUrl}
+                          onSaveView={handleSaveView}
+                          onLoadView={handleLoadView}
+                          onRenameView={handleRenameView}
+                          onDeleteView={handleDeleteView}
+                          onGenerateLink={handleGenerateLink}
+                        />
+                      }
+                    />
+                  </>
+                )}
+              </div>
+            </aside>
+
+            <div className="min-w-0 flex-1 space-y-6">
+              <div
+                className={[
+                  "flex flex-wrap items-center gap-3",
+                  displayOptions.showDynamicHeader
+                    ? "justify-between"
+                    : "justify-end",
+                ].join(" ")}
+              >
+                {displayOptions.showDynamicHeader ? (
+                  <h2 className="text-xl font-semibold text-slate-900">
+                    {titlePrefix} By {summaryViewBy}
+                  </h2>
+                ) : null}
+                <div className="flex flex-wrap items-center gap-3">
+                  <label
+                    className={[
+                      "relative flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-slate-700",
+                      isDraggingCsv
+                        ? "border-sky-400 bg-sky-50"
+                        : "border-slate-200 bg-white hover:border-slate-300",
+                    ].join(" ")}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      setIsDraggingCsv(true);
+                    }}
+                    onDragLeave={() => setIsDraggingCsv(false)}
+                    onDrop={handleCsvDrop}
+                  >
+                    <input
+                      type="file"
+                      accept=".csv,text/csv"
+                      className="sr-only"
+                      onChange={(event) =>
+                        handleCsvFile(event.target.files?.[0])
+                      }
+                    />
+                    <span className="inline-flex h-4 w-4 items-center justify-center text-sky-600">
+                      <svg
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M12 21V9" />
+                        <path d="M7 14l5-5 5 5" />
+                        <path d="M5 3h14" />
+                      </svg>
+                    </span>
+                    <span>Upload CSV</span>
+                    <span className="text-slate-400">or drop</span>
+                  </label>
                   <button
                     type="button"
-                    className="text-slate-400 hover:text-slate-600"
-                    onClick={() => setLoadedViewName('')}
-                    aria-label="Dismiss loaded view"
+                    onClick={handleCsvDownload}
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50"
                   >
-                    ×
+                    <span className="inline-flex h-4 w-4 items-center justify-center text-emerald-600">
+                      <svg
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M12 3v12" />
+                        <path d="M7 10l5 5 5-5" />
+                        <path d="M5 21h14" />
+                      </svg>
+                    </span>
+                    Download CSV
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportImage}
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                    disabled={isExporting}
+                  >
+                    <span className="inline-flex h-4 w-4 items-center justify-center text-amber-600">
+                      <svg
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <rect x="3" y="5" width="18" height="14" rx="2" />
+                        <path d="M8 13l2-2 3 3 3-4 2 3" />
+                        <circle cx="8.5" cy="9" r="1" />
+                      </svg>
+                    </span>
+                    {isExporting ? "Exporting..." : "Export Image"}
                   </button>
                 </div>
-              ) : null}
-              {filterChips.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {filterChips.map((chip) => (
-                    <button
-                      key={chip.key}
-                      type="button"
-                      onClick={chip.onRemove}
-                      className="group inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-100"
-                    >
-                      <span>{chip.label}</span>
-                      <span className="text-slate-400 group-hover:text-slate-600">
-                        ×
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
+              </div>
 
-            <RoadmapTimeline
-              items={filteredItems}
-              groupBy={selectedGroupBy}
-              displayOptions={displayOptions}
-              theme={selectedTheme}
-              startDate={startDate}
-              quartersToShow={quartersToShow}
-              exportSummary={{
-                viewBy: summaryViewBy,
-                titlePrefix,
-                filters: appliedFilters,
-              }}
-              isExporting={isExporting}
-            />
+              <div className="flex flex-wrap items-center gap-2">
+                {loadedViewName ? (
+                  <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700">
+                    <span className="text-slate-500">Loaded view:</span>
+                    <span className="font-medium">{loadedViewName}</span>
+                    <button
+                      type="button"
+                      className="text-slate-400 hover:text-slate-600"
+                      onClick={() => setLoadedViewName("")}
+                      aria-label="Dismiss loaded view"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ) : null}
+                {filterChips.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {filterChips.map((chip) => (
+                      <button
+                        key={chip.key}
+                        type="button"
+                        onClick={chip.onRemove}
+                        className="group inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-100"
+                      >
+                        <span>{chip.label}</span>
+                        <span className="text-slate-400 group-hover:text-slate-600">
+                          ×
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              <RoadmapTimeline
+                items={filteredItems}
+                groupBy={selectedGroupBy}
+                displayOptions={displayOptions}
+                theme={selectedTheme}
+                startDate={startDate}
+                quartersToShow={quartersToShow}
+                exportSummary={{
+                  viewBy: summaryViewBy,
+                  titlePrefix,
+                  filters: appliedFilters,
+                }}
+                isExporting={isExporting}
+              />
+            </div>
           </div>
-        </div>
         </SignedIn>
       </div>
     </main>
@@ -804,35 +815,35 @@ export default function HomePage() {
 
 function formatDateInput(date: Date): string {
   const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(date.getUTCDate()).padStart(2, '0');
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
 function buildCsvFromItems(items: RoadmapItem[]): string {
   const headers = [
-    'id',
-    'title',
-    'url',
-    'impactedStakeholders',
-    'submitterName',
-    'submitterDepartment',
-    'submitterPriority',
-    'shortDescription',
-    'longDescription',
-    'criticality',
-    'executiveSponsor',
-    'startDate',
-    'endDate',
-    'tShirtSize',
-    'pillar',
-    'region',
-    'expenseType',
-    'pointOfContact',
-    'lead',
+    "id",
+    "title",
+    "url",
+    "impactedStakeholders",
+    "submitterName",
+    "submitterDepartment",
+    "submitterPriority",
+    "shortDescription",
+    "longDescription",
+    "criticality",
+    "executiveSponsor",
+    "startDate",
+    "endDate",
+    "tShirtSize",
+    "pillar",
+    "region",
+    "expenseType",
+    "pointOfContact",
+    "lead",
   ];
   const escapeValue = (value: string) => {
-    const safe = value ?? '';
+    const safe = value ?? "";
     if (/[",\n]/.test(safe)) {
       return `"${safe.replace(/"/g, '""')}"`;
     }
@@ -861,7 +872,7 @@ function buildCsvFromItems(items: RoadmapItem[]): string {
       item.lead,
     ]
       .map(escapeValue)
-      .join(','),
+      .join(",")
   );
-  return [headers.join(','), ...rows].join('\n');
+  return [headers.join(","), ...rows].join("\n");
 }
