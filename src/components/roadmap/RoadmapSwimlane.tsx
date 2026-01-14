@@ -39,7 +39,8 @@ interface Props {
     | 'mono'
     | 'forest'
     | 'metro'
-    | 'metro-dark';
+    | 'metro-dark'
+    | 'executive';
   laneIndex: number;
 }
 

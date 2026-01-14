@@ -60,7 +60,7 @@ export default function HomePage() {
   const [displayOptions, setDisplayOptions] = useState<DisplayOptions>(
     defaultDisplayOptions
   );
-  const [selectedTheme, setSelectedTheme] = useState<ThemeOption>("coastal");
+  const [selectedTheme, setSelectedTheme] = useState<ThemeOption>("executive");
   const [titlePrefix, setTitlePrefix] = useState("Technology Roadmap");
   const [startDate, setStartDate] = useState(() =>
     formatDateInput(getQuarterStartDate(new Date()))
@@ -434,7 +434,8 @@ export default function HomePage() {
           | "mono"
           | "forest"
           | "metro"
-          | "metro-dark";
+          | "metro-dark"
+          | "executive";
         titlePrefix: string;
         displayOptions: {
           showRegionEmojis: boolean;

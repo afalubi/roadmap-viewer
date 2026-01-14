@@ -25,7 +25,8 @@ export type ThemeOption =
   | 'mono'
   | 'forest'
   | 'metro'
-  | 'metro-dark';
+  | 'metro-dark'
+  | 'executive';
 
 export type GroupByOption = 'pillar' | 'stakeholder' | 'criticality' | 'region';
 

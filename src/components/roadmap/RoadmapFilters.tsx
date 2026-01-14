@@ -53,7 +53,8 @@ interface Props {
     | 'mono'
     | 'forest'
     | 'metro'
-    | 'metro-dark';
+    | 'metro-dark'
+    | 'executive';
   setSelectedTheme: (
     value:
       | 'coastal'
@@ -65,7 +66,8 @@ interface Props {
       | 'mono'
       | 'forest'
       | 'metro'
-      | 'metro-dark',
+      | 'metro-dark'
+      | 'executive',
   ) => void;
   startDate: string;
   setStartDate: (value: string) => void;
@@ -308,10 +310,12 @@ export function RoadmapFilters({
                     | 'mono'
                     | 'forest'
                     | 'metro'
-                    | 'metro-dark',
+                    | 'metro-dark'
+                    | 'executive',
                 )
               }
             >
+              <option value="executive">Executive</option>
               <option value="coastal">Coastal</option>
               <option value="orchard">Orchard</option>
               <option value="sunset">Sunset</option>

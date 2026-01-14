@@ -7,6 +7,7 @@ import {
   getItemClassesByIndex,
   getLaneBackgroundClassFromItem,
   getLaneClassesByIndex,
+  getLaneHeaderClassesByIndex,
 } from '@/lib/color';
 import { RoadmapSwimlane } from './RoadmapSwimlane';
 import { RoadmapItemDetailDialog } from './RoadmapItemDetailDialog';
@@ -35,7 +36,8 @@ interface Props {
     | 'mono'
     | 'forest'
     | 'metro'
-    | 'metro-dark';
+    | 'metro-dark'
+    | 'executive';
   startDate: string;
   quartersToShow: number;
   exportSummary: {
@@ -188,7 +190,10 @@ export function RoadmapTimeline({
             >
               {pillars.map((pillar, index) => {
                 const itemClasses = getItemClassesByIndex(index, theme);
-                const laneBgClass = getLaneBackgroundClassFromItem(itemClasses);
+                const laneBgClass =
+                  theme === 'executive'
+                    ? getLaneHeaderClassesByIndex(index, theme)
+                    : getLaneBackgroundClassFromItem(itemClasses);
                 return (
                   <RoadmapSwimlane
                     key={pillar}

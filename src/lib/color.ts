@@ -8,7 +8,21 @@ export type ColorTheme =
   | 'mono'
   | 'forest'
   | 'metro'
-  | 'metro-dark';
+  | 'metro-dark'
+  | 'executive';
+
+const EXECUTIVE_HEADER_LANE = [
+  'bg-[#16A085]/45',
+  'bg-[#F39c12]/50',
+  'bg-[#E74c3c]/45',
+  'bg-[#F7Dc6F]/85',
+  'bg-[#34495e]/45',
+  'bg-[#5DADE2]/48',
+  'bg-[#34495e]/52',
+  'bg-[#16A085]/52',
+  'bg-[#F39c12]/55',
+  'bg-[#5DADE2]/52',
+];
 
 const PALETTES: Record<
   ColorTheme,
@@ -224,6 +238,28 @@ const PALETTES: Record<
       'bg-rose-50',
     ],
   },
+  executive: {
+    item: [
+      'bg-[#16A085]/15 hover:bg-[#16A085]/25 border-[#16A085]',
+      'bg-[#F39c12]/18 hover:bg-[#F39c12]/28 border-[#F39c12]',
+      'bg-[#E74c3c]/15 hover:bg-[#E74c3c]/25 border-[#E74c3c]',
+      'bg-[#F7Dc6F]/40 hover:bg-[#F7Dc6F]/55 border-[#F7Dc6F]',
+      'bg-[#34495e]/15 hover:bg-[#34495e]/25 border-[#34495e]',
+      'bg-[#5DADE2]/18 hover:bg-[#5DADE2]/30 border-[#5DADE2]',
+    ],
+    lane: [
+      'bg-[#16A085]/8',
+      'bg-[#F39c12]/10',
+      'bg-[#E74c3c]/8',
+      'bg-[#F7Dc6F]/28',
+      'bg-[#34495e]/8',
+      'bg-[#5DADE2]/10',
+      'bg-[#34495e]/12',
+      'bg-[#16A085]/12',
+      'bg-[#F39c12]/14',
+      'bg-[#5DADE2]/14',
+    ],
+  },
 };
 
 export function getItemClassesByIndex(
@@ -246,10 +282,21 @@ export function getLaneClassesByIndex(
   return palette.lane[index % palette.lane.length];
 }
 
+export function getLaneHeaderClassesByIndex(
+  index: number,
+  theme: ColorTheme,
+): string {
+  if (!Number.isFinite(index) || index < 0) return 'bg-slate-50';
+  if (theme === 'executive') {
+    return EXECUTIVE_HEADER_LANE[index % EXECUTIVE_HEADER_LANE.length];
+  }
+  return getLaneClassesByIndex(index, theme);
+}
+
 export function getLaneBackgroundClassFromItem(itemClasses: string): string {
   const bgClass = itemClasses
     .split(' ')
-    .find((cls) => cls.startsWith('bg-') && !cls.startsWith('bg-['));
+    .find((cls) => cls.startsWith('bg-'));
   return bgClass || 'bg-slate-50';
 }
 
@@ -337,6 +384,30 @@ const LINE_BG_CLASS_MAP: Record<
   'border-fuchsia-500': {
     fill: 'bg-fuchsia-500',
     hover: 'hover:bg-fuchsia-500',
+  },
+  'border-[#34495e]': {
+    fill: 'bg-[#34495e]',
+    hover: 'hover:bg-[#34495e]',
+  },
+  'border-[#16A085]': {
+    fill: 'bg-[#16A085]',
+    hover: 'hover:bg-[#16A085]',
+  },
+  'border-[#F39c12]': {
+    fill: 'bg-[#F39c12]',
+    hover: 'hover:bg-[#F39c12]',
+  },
+  'border-[#E74c3c]': {
+    fill: 'bg-[#E74c3c]',
+    hover: 'hover:bg-[#E74c3c]',
+  },
+  'border-[#F7Dc6F]': {
+    fill: 'bg-[#F7Dc6F]',
+    hover: 'hover:bg-[#F7Dc6F]',
+  },
+  'border-[#5DADE2]': {
+    fill: 'bg-[#5DADE2]',
+    hover: 'hover:bg-[#5DADE2]',
   },
 };
 
