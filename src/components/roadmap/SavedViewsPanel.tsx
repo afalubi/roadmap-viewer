@@ -53,8 +53,11 @@ export function SavedViewsPanel({
   );
 
   const buildShareUrl = (view: SavedView) => {
-    if (!shareBaseUrl || !view.sharedSlug) return null;
-    return `${shareBaseUrl}/?view=${view.sharedSlug}`;
+    if (!shareBaseUrl) return null;
+    if (view.sharedSlug) {
+      return `${shareBaseUrl}/?view=${view.sharedSlug}`;
+    }
+    return `${shareBaseUrl}/?viewId=${view.id}`;
   };
 
   const handleShare = (view: SavedView) => {
@@ -220,7 +223,7 @@ export function SavedViewsPanel({
             </svg>
           </button>
           {showShare ? (
-            view.sharedSlug ? (
+            view.scope === 'personal' || view.sharedSlug ? (
               <button
                 type="button"
                 className="rounded-full border border-slate-200 p-1 text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
@@ -432,7 +435,7 @@ export function SavedViewsPanel({
                   No personal views yet.
                 </div>
               ) : (
-                personalList.map((view) => renderViewRow(view, false))
+                personalList.map((view) => renderViewRow(view, true))
               )}
             </div>
           </div>

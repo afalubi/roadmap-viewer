@@ -62,7 +62,7 @@ export default function HomePage() {
     defaultDisplayOptions
   );
   const [selectedTheme, setSelectedTheme] = useState<ThemeOption>("executive");
-  const [titlePrefix, setTitlePrefix] = useState("Technology Roadmap");
+  const [titlePrefix, setTitlePrefix] = useState("My Roadmap");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(titlePrefix);
   const [startDate, setStartDate] = useState(() =>
@@ -851,6 +851,7 @@ export default function HomePage() {
                       "absolute top-6 right-0 translate-x-1/2 rounded-full border bg-white p-2 text-slate-700 shadow-sm hover:bg-slate-100",
                       "dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800",
                     ].join(" ")}
+                    style={{ marginRight: "-10px" }}
                   >
                     {isHeaderCollapsed ? (
                       <RightDrawer className="h-5 w-5" aria-hidden="true" />

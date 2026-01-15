@@ -206,7 +206,7 @@ export function RoadmapFilters({
     >
       <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-3 dark:bg-slate-900 dark:border-slate-700">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          <div className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
             View by
           </div>
           <select
@@ -230,7 +230,7 @@ export function RoadmapFilters({
         </div>
 
         <div className="flex items-center justify-between gap-3">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          <div className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
             Filters
           </div>
           <button
@@ -304,7 +304,7 @@ export function RoadmapFilters({
       {savedViewsPanel}
 
       <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-3 dark:bg-slate-900 dark:border-slate-700">
-        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        <div className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
           Board options
         </div>
         <div className="space-y-3">
@@ -510,7 +510,7 @@ export function RoadmapFilters({
       </div>
 
       <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-3 dark:bg-slate-900 dark:border-slate-700">
-        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        <div className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
           Item options
         </div>
         <div className="space-y-3">
