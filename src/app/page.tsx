@@ -63,6 +63,8 @@ export default function HomePage() {
   );
   const [selectedTheme, setSelectedTheme] = useState<ThemeOption>("executive");
   const [titlePrefix, setTitlePrefix] = useState("Technology Roadmap");
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(titlePrefix);
   const [startDate, setStartDate] = useState(() =>
     formatDateInput(getQuarterStartDate(new Date()))
   );
@@ -71,6 +73,7 @@ export default function HomePage() {
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isDraggingCsv, setIsDraggingCsv] = useState(false);
+  const [showDebugOutlines, setShowDebugOutlines] = useState(false);
   const [personalViews, setPersonalViews] = useState<SavedView[]>([]);
   const [sharedViews, setSharedViews] = useState<SavedView[]>([]);
   const [isLoadingViews, setIsLoadingViews] = useState(false);
@@ -114,12 +117,24 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    setShowDebugOutlines(params.get("debug") === "1");
+  }, []);
+
+  useEffect(() => {
     if (typeof document === "undefined") return;
     document.documentElement.classList.toggle(
       "dark",
       displayOptions.darkMode
     );
   }, [displayOptions.darkMode]);
+
+  useEffect(() => {
+    if (!isEditingTitle) {
+      setTitleDraft(titlePrefix);
+    }
+  }, [isEditingTitle, titlePrefix]);
 
   const buildViewPayload = (): ViewPayload => ({
     filters: {
@@ -440,37 +455,6 @@ export default function HomePage() {
       : null,
   ].filter(Boolean) as string[];
 
-  const filterChips = [
-    ...selectedPillars.map((value) => ({
-      key: `pillar-${value}`,
-      label: `Pillar: ${value}`,
-      onRemove: () =>
-        setSelectedPillars(selectedPillars.filter((item) => item !== value)),
-    })),
-    ...selectedRegions.map((value) => ({
-      key: `region-${value}`,
-      label: `Region: ${value}`,
-      onRemove: () =>
-        setSelectedRegions(selectedRegions.filter((item) => item !== value)),
-    })),
-    ...selectedCriticalities.map((value) => ({
-      key: `criticality-${value}`,
-      label: `Criticality: ${value}`,
-      onRemove: () =>
-        setSelectedCriticalities(
-          selectedCriticalities.filter((item) => item !== value)
-        ),
-    })),
-    ...selectedImpactedStakeholders.map((value) => ({
-      key: `stakeholder-${value}`,
-      label: `Stakeholder: ${value}`,
-      onRemove: () =>
-        setSelectedImpactedStakeholders(
-          selectedImpactedStakeholders.filter((item) => item !== value)
-        ),
-    })),
-  ];
-
   useEffect(() => {
     if (!settingsKey) return;
     const raw = localStorage.getItem(settingsKey);
@@ -608,8 +592,22 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      <div className="max-w-screen-2xl mx-auto px-4 py-8 space-y-6">
-        <header className="flex flex-wrap items-start justify-between gap-4">
+      <div
+        className={[
+          "max-w-screen-2xl mx-auto px-4 py-8 space-y-6",
+          showDebugOutlines
+            ? "outline outline-1 outline-dashed outline-rose-300/80"
+            : "",
+        ].join(" ")}
+      >
+        <header
+          className={[
+            "flex flex-wrap items-start justify-between gap-4",
+            showDebugOutlines
+              ? "outline outline-1 outline-dashed outline-blue-300/80"
+              : "",
+          ].join(" ")}
+        >
           <div className="space-y-1">
             <h1 className="text-3xl font-semibold tracking-tight">
               <span className="text-blue-700">Roadmap</span>{" "}
@@ -644,226 +642,295 @@ export default function HomePage() {
         </SignedOut>
 
         <SignedIn>
-          <div className="flex gap-6">
-            <aside
+          <div
+            className={[
+              "space-y-6",
+              showDebugOutlines
+                ? "outline outline-1 outline-dashed outline-amber-300/80"
+                : "",
+            ].join(" ")}
+          >
+            <div
               className={[
-                "relative transition-[width] duration-300 ease-out",
-                isHeaderCollapsed ? "w-0" : "w-80",
-                "shrink-0",
-                "overflow-visible",
+                "flex flex-wrap items-center gap-3",
+                displayOptions.showDynamicHeader
+                  ? "justify-between"
+                  : "justify-end",
+                showDebugOutlines
+                  ? "outline outline-1 outline-dashed outline-sky-300/80"
+                  : "",
               ].join(" ")}
             >
-              <div className="sticky top-6 space-y-4">
+              {displayOptions.showDynamicHeader ? (
+                <div className="flex items-center gap-2 min-w-0">
+                  {isEditingTitle ? (
+                    <input
+                      type="text"
+                      value={titleDraft}
+                      onChange={(event) => setTitleDraft(event.target.value)}
+                      onBlur={() => {
+                        const nextTitle = titleDraft.trim();
+                        if (nextTitle) {
+                          setTitlePrefix(nextTitle);
+                        } else {
+                          setTitleDraft(titlePrefix);
+                        }
+                        setIsEditingTitle(false);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.currentTarget.blur();
+                        }
+                        if (event.key === "Escape") {
+                          setTitleDraft(titlePrefix);
+                          setIsEditingTitle(false);
+                        }
+                      }}
+                      className="w-full max-w-md rounded-md border border-slate-200 bg-white px-2 py-1 text-xl font-semibold text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-sky-700"
+                      aria-label="Edit roadmap title"
+                      autoFocus
+                    />
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className="text-left text-xl font-semibold text-slate-900 hover:text-slate-700 dark:text-slate-100 dark:hover:text-slate-200 truncate"
+                        onClick={() => {
+                          setTitleDraft(titlePrefix);
+                          setIsEditingTitle(true);
+                        }}
+                        title="Edit title"
+                        aria-label="Edit roadmap title"
+                      >
+                        {titlePrefix}
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                        onClick={() => {
+                          setTitleDraft(titlePrefix);
+                          setIsEditingTitle(true);
+                        }}
+                        title="Edit title"
+                        aria-label="Edit roadmap title"
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          aria-hidden="true"
+                          className="h-3.5 w-3.5"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M12 20h9" />
+                          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z" />
+                        </svg>
+                      </button>
+                    </>
+                  )}
+                </div>
+              ) : null}
+              <div className="flex flex-wrap items-center gap-3">
+                <label
+                  className={[
+                    "relative flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-slate-700",
+                    isDraggingCsv
+                      ? "border-sky-400 bg-sky-50 dark:border-sky-500/70 dark:bg-sky-950/40"
+                      : "border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600",
+                  ].join(" ")}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    setIsDraggingCsv(true);
+                  }}
+                  onDragLeave={() => setIsDraggingCsv(false)}
+                  onDrop={handleCsvDrop}
+                >
+                  <input
+                    type="file"
+                    accept=".csv,text/csv"
+                    className="sr-only"
+                    onChange={(event) =>
+                      handleCsvFile(event.target.files?.[0])
+                    }
+                  />
+                  <span className="inline-flex h-4 w-4 items-center justify-center text-sky-600">
+                    <svg
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M12 21V9" />
+                      <path d="M7 14l5-5 5 5" />
+                      <path d="M5 3h14" />
+                    </svg>
+                  </span>
+                  <span>Upload CSV</span>
+                  <span className="text-slate-400 dark:text-slate-500">or drop</span>
+                </label>
                 <button
                   type="button"
-                  onClick={() => setIsHeaderCollapsed(!isHeaderCollapsed)}
-                  className={[
-                    "absolute top-6 right-0 translate-x-1/2 rounded-full border bg-white p-2 text-slate-700 shadow-sm hover:bg-slate-100",
-                    "dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800",
-                  ].join(" ")}
+                  onClick={handleCsvDownload}
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
                 >
-                  {isHeaderCollapsed ? (
-                    <RightDrawer className="h-5 w-5" aria-hidden="true" />
-                  ) : (
-                    <LeftDrawer className="h-5 w-5" aria-hidden="true" />
-                  )}
+                  <span className="inline-flex h-4 w-4 items-center justify-center text-emerald-600">
+                    <svg
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M12 3v12" />
+                      <path d="M7 10l5 5 5-5" />
+                      <path d="M5 21h14" />
+                    </svg>
+                  </span>
+                  Download CSV
                 </button>
-
-                {isHeaderCollapsed ? null : (
-                  <>
-                    <RoadmapFilters
-                      items={items}
-                      selectedPillars={selectedPillars}
-                      setSelectedPillars={setSelectedPillars}
-                      selectedRegions={selectedRegions}
-                      setSelectedRegions={setSelectedRegions}
-                      selectedCriticalities={selectedCriticalities}
-                      setSelectedCriticalities={setSelectedCriticalities}
-                      selectedImpactedStakeholders={
-                        selectedImpactedStakeholders
-                      }
-                      setSelectedImpactedStakeholders={
-                        setSelectedImpactedStakeholders
-                      }
-                      selectedGroupBy={selectedGroupBy}
-                      setSelectedGroupBy={setSelectedGroupBy}
-                      displayOptions={displayOptions}
-                      setDisplayOptions={setDisplayOptions}
-                      selectedTheme={selectedTheme}
-                      setSelectedTheme={setSelectedTheme}
-                      startDate={startDate}
-                      setStartDate={setStartDate}
-                      quartersToShow={quartersToShow}
-                      setQuartersToShow={setQuartersToShow}
-                      titlePrefix={titlePrefix}
-                      setTitlePrefix={setTitlePrefix}
-                      savedViewsPanel={
-                        <SavedViewsPanel
-                          isLoading={isLoadingViews}
-                          personalViews={personalViews}
-                          sharedViews={sharedViews}
-                          shareBaseUrl={shareBaseUrl}
-                      onSaveView={handleSaveView}
-                      onLoadView={handleLoadView}
-                      onRenameView={handleRenameView}
-                      onDeleteView={handleDeleteView}
-                      onGenerateLink={handleGenerateLink}
-                      onUpdateView={handleUpdateView}
-                      activeViewId={loadedView?.id ?? null}
-                    />
-                      }
-                    />
-                  </>
-                )}
+                <button
+                  type="button"
+                  onClick={handleExportImage}
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                  disabled={isExporting}
+                >
+                  <span className="inline-flex h-4 w-4 items-center justify-center text-amber-600">
+                    <svg
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect x="3" y="5" width="18" height="14" rx="2" />
+                      <path d="M8 13l2-2 3 3 3-4 2 3" />
+                      <circle cx="8.5" cy="9" r="1" />
+                    </svg>
+                  </span>
+                  {isExporting ? "Exporting..." : "Export Image"}
+                </button>
               </div>
-            </aside>
+            </div>
 
-            <div className="min-w-0 flex-1 space-y-6">
-              <div
+            <div
+              className={[
+                "flex gap-6",
+                showDebugOutlines
+                  ? "outline outline-1 outline-dashed outline-emerald-300/80"
+                  : "",
+              ].join(" ")}
+            >
+              <aside
                 className={[
-                  "flex flex-wrap items-center gap-3",
-                  displayOptions.showDynamicHeader
-                    ? "justify-between"
-                    : "justify-end",
+                  "relative transition-[width] duration-300 ease-out",
+                  isHeaderCollapsed ? "w-0" : "w-80",
+                  "shrink-0",
+                  "overflow-visible",
+                  showDebugOutlines
+                    ? "outline outline-1 outline-dashed outline-rose-300/80"
+                    : "",
                 ].join(" ")}
               >
-                {displayOptions.showDynamicHeader ? (
-                  <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
-                    {titlePrefix} By {summaryViewBy}
-                  </h2>
-                ) : null}
-                <div className="flex flex-wrap items-center gap-3">
-                  <label
+                <div className="sticky top-6 space-y-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsHeaderCollapsed(!isHeaderCollapsed)}
                     className={[
-                      "relative flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-slate-700",
-                      isDraggingCsv
-                        ? "border-sky-400 bg-sky-50 dark:border-sky-500/70 dark:bg-sky-950/40"
-                        : "border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600",
+                      "absolute top-6 right-0 translate-x-1/2 rounded-full border bg-white p-2 text-slate-700 shadow-sm hover:bg-slate-100",
+                      "dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800",
                     ].join(" ")}
-                    onDragOver={(event) => {
-                      event.preventDefault();
-                      setIsDraggingCsv(true);
-                    }}
-                    onDragLeave={() => setIsDraggingCsv(false)}
-                    onDrop={handleCsvDrop}
                   >
-                    <input
-                      type="file"
-                      accept=".csv,text/csv"
-                      className="sr-only"
-                      onChange={(event) =>
-                        handleCsvFile(event.target.files?.[0])
-                      }
-                    />
-                    <span className="inline-flex h-4 w-4 items-center justify-center text-sky-600">
-                      <svg
-                        viewBox="0 0 24 24"
-                        aria-hidden="true"
-                        className="h-4 w-4"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.6"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M12 21V9" />
-                        <path d="M7 14l5-5 5 5" />
-                        <path d="M5 3h14" />
-                      </svg>
-                    </span>
-                    <span>Upload CSV</span>
-                    <span className="text-slate-400 dark:text-slate-500">or drop</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleCsvDownload}
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
-                  >
-                    <span className="inline-flex h-4 w-4 items-center justify-center text-emerald-600">
-                      <svg
-                        viewBox="0 0 24 24"
-                        aria-hidden="true"
-                        className="h-4 w-4"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.6"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M12 3v12" />
-                        <path d="M7 10l5 5 5-5" />
-                        <path d="M5 21h14" />
-                      </svg>
-                    </span>
-                    Download CSV
+                    {isHeaderCollapsed ? (
+                      <RightDrawer className="h-5 w-5" aria-hidden="true" />
+                    ) : (
+                      <LeftDrawer className="h-5 w-5" aria-hidden="true" />
+                    )}
                   </button>
-                  <button
-                    type="button"
-                    onClick={handleExportImage}
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
-                    disabled={isExporting}
-                  >
-                    <span className="inline-flex h-4 w-4 items-center justify-center text-amber-600">
-                      <svg
-                        viewBox="0 0 24 24"
-                        aria-hidden="true"
-                        className="h-4 w-4"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.6"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <rect x="3" y="5" width="18" height="14" rx="2" />
-                        <path d="M8 13l2-2 3 3 3-4 2 3" />
-                        <circle cx="8.5" cy="9" r="1" />
-                      </svg>
-                    </span>
-                    {isExporting ? "Exporting..." : "Export Image"}
-                  </button>
+
+                  {isHeaderCollapsed ? null : (
+                    <>
+                      <RoadmapFilters
+                        items={items}
+                        selectedPillars={selectedPillars}
+                        setSelectedPillars={setSelectedPillars}
+                        selectedRegions={selectedRegions}
+                        setSelectedRegions={setSelectedRegions}
+                        selectedCriticalities={selectedCriticalities}
+                        setSelectedCriticalities={setSelectedCriticalities}
+                        selectedImpactedStakeholders={
+                          selectedImpactedStakeholders
+                        }
+                        setSelectedImpactedStakeholders={
+                          setSelectedImpactedStakeholders
+                        }
+                        selectedGroupBy={selectedGroupBy}
+                        setSelectedGroupBy={setSelectedGroupBy}
+                        displayOptions={displayOptions}
+                        setDisplayOptions={setDisplayOptions}
+                        selectedTheme={selectedTheme}
+                        setSelectedTheme={setSelectedTheme}
+                        startDate={startDate}
+                        setStartDate={setStartDate}
+                        quartersToShow={quartersToShow}
+                        setQuartersToShow={setQuartersToShow}
+                        savedViewsPanel={
+                          <SavedViewsPanel
+                            isLoading={isLoadingViews}
+                            personalViews={personalViews}
+                            sharedViews={sharedViews}
+                            shareBaseUrl={shareBaseUrl}
+                            onSaveView={handleSaveView}
+                            onLoadView={handleLoadView}
+                            onRenameView={handleRenameView}
+                            onDeleteView={handleDeleteView}
+                            onGenerateLink={handleGenerateLink}
+                            onUpdateView={handleUpdateView}
+                            activeViewId={loadedView?.id ?? null}
+                          />
+                        }
+                        showDebugOutlines={showDebugOutlines}
+                      />
+                    </>
+                  )}
                 </div>
-              </div>
+              </aside>
 
-              <div className="flex flex-wrap items-center gap-2">
-                {loadedView ? (
-                  <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
-                    <span className="text-slate-500 dark:text-slate-400">Loaded view:</span>
-                    <span className="font-medium">{loadedView.name}</span>
-                  </div>
-                ) : null}
-                {filterChips.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {filterChips.map((chip) => (
-                      <button
-                        key={chip.key}
-                        type="button"
-                        onClick={chip.onRemove}
-                        className="group inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
-                      >
-                        <span>{chip.label}</span>
-                        <span className="text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300">
-                          ×
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
+              <div
+                className={[
+                  "min-w-0 flex-1",
+                  showDebugOutlines
+                    ? "outline outline-1 outline-dashed outline-violet-300/80"
+                    : "",
+                ].join(" ")}
+              >
+                <RoadmapTimeline
+                  items={filteredItems}
+                  groupBy={selectedGroupBy}
+                  displayOptions={displayOptions}
+                  theme={selectedTheme}
+                  startDate={startDate}
+                  quartersToShow={quartersToShow}
+                  exportSummary={{
+                    viewBy: summaryViewBy,
+                    titlePrefix,
+                    filters: appliedFilters,
+                  }}
+                  isExporting={isExporting}
+                  showDebugOutlines={showDebugOutlines}
+                />
               </div>
-
-              <RoadmapTimeline
-                items={filteredItems}
-                groupBy={selectedGroupBy}
-                displayOptions={displayOptions}
-                theme={selectedTheme}
-                startDate={startDate}
-                quartersToShow={quartersToShow}
-                exportSummary={{
-                  viewBy: summaryViewBy,
-                  titlePrefix,
-                  filters: appliedFilters,
-                }}
-                isExporting={isExporting}
-              />
             </div>
           </div>
         </SignedIn>

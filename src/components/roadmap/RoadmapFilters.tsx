@@ -71,9 +71,8 @@ interface Props {
   setStartDate: (value: string) => void;
   quartersToShow: number;
   setQuartersToShow: (value: number) => void;
-  titlePrefix: string;
-  setTitlePrefix: (value: string) => void;
   savedViewsPanel?: React.ReactNode;
+  showDebugOutlines?: boolean;
 }
 
 export function RoadmapFilters({
@@ -96,9 +95,8 @@ export function RoadmapFilters({
   setStartDate,
   quartersToShow,
   setQuartersToShow,
-  titlePrefix,
-  setTitlePrefix,
   savedViewsPanel,
+  showDebugOutlines = false,
 }: Props) {
   const pillars = Array.from(
     new Set(items.map((i) => i.pillar).filter(Boolean)),
@@ -175,33 +173,62 @@ export function RoadmapFilters({
     </div>
   );
 
-  return (
-    <section className="space-y-4">
-      <div className="flex items-center gap-3">
-        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-          View by
-        </div>
-        <select
-          className={compactSelectClasses}
-          value={selectedGroupBy}
-          onChange={(e) =>
-            setSelectedGroupBy(
-              e.target.value as
-                | 'pillar'
-                | 'stakeholder'
-                | 'criticality'
-                | 'region',
-            )
-          }
-        >
-          <option value="pillar">Pillar</option>
-          <option value="stakeholder">Primary stakeholder</option>
-          <option value="criticality">Criticality</option>
-          <option value="region">Region</option>
-        </select>
+  const renderSelectedChips = (
+    values: string[],
+    onRemove: (value: string) => void,
+  ) =>
+    values.length > 0 ? (
+      <div className="flex flex-wrap gap-2 pt-0">
+        {values.map((value) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => onRemove(value)}
+            className="group inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+          >
+            <span>{value}</span>
+            <span className="text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300">
+              ×
+            </span>
+          </button>
+        ))}
       </div>
+    ) : null;
 
+  return (
+    <section
+      className={[
+        "space-y-4",
+        showDebugOutlines
+          ? "outline outline-1 outline-dashed outline-fuchsia-300/80"
+          : "",
+      ].join(" ")}
+    >
       <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-3 dark:bg-slate-900 dark:border-slate-700">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            View by
+          </div>
+          <select
+            className={compactSelectClasses}
+            value={selectedGroupBy}
+            onChange={(e) =>
+              setSelectedGroupBy(
+                e.target.value as
+                  | 'pillar'
+                  | 'stakeholder'
+                  | 'criticality'
+                  | 'region',
+              )
+            }
+          >
+            <option value="pillar">Pillar</option>
+            <option value="stakeholder">Primary stakeholder</option>
+            <option value="criticality">Criticality</option>
+            <option value="region">Region</option>
+          </select>
+        </div>
+
         <div className="flex items-center justify-between gap-3">
           <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
             Filters
@@ -223,6 +250,11 @@ export function RoadmapFilters({
             'Select pillar',
             { singular: 'pillar', plural: 'pillars' },
           )}
+          {renderSelectedChips(selectedPillars, (value) =>
+            setSelectedPillars(
+              selectedPillars.filter((item) => item !== value),
+            ),
+          )}
 
           {renderCheckboxDropdown(
             'Region',
@@ -231,6 +263,11 @@ export function RoadmapFilters({
             (next) => setSelectedRegions(next as Region[]),
             'Select region',
             { singular: 'region', plural: 'regions' },
+          )}
+          {renderSelectedChips(selectedRegions, (value) =>
+            setSelectedRegions(
+              selectedRegions.filter((item) => item !== value),
+            ),
           )}
 
           {renderCheckboxDropdown(
@@ -241,6 +278,11 @@ export function RoadmapFilters({
             'Select criticality',
             { singular: 'criticality', plural: 'criticalities' },
           )}
+          {renderSelectedChips(selectedCriticalities, (value) =>
+            setSelectedCriticalities(
+              selectedCriticalities.filter((item) => item !== value),
+            ),
+          )}
 
           {renderCheckboxDropdown(
             'Impacted stakeholders',
@@ -249,6 +291,11 @@ export function RoadmapFilters({
             setSelectedImpactedStakeholders,
             'Select stakeholders',
             { singular: 'impacted stakeholder', plural: 'impacted stakeholders' },
+          )}
+          {renderSelectedChips(selectedImpactedStakeholders, (value) =>
+            setSelectedImpactedStakeholders(
+              selectedImpactedStakeholders.filter((item) => item !== value),
+            ),
           )}
 
         </div>
@@ -262,32 +309,20 @@ export function RoadmapFilters({
         </div>
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1 dark:text-slate-300">
-              Title prefix
-            </label>
-            <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
               <input
-                type="text"
-                className={compactSelectClasses}
-                value={titlePrefix}
-                onChange={(e) => setTitlePrefix(e.target.value)}
-                placeholder="Technology Roadmap"
+                type="checkbox"
+                className={checkboxClasses}
+                checked={displayOptions.showDynamicHeader}
+                onChange={(e) =>
+                  setDisplayOptions({
+                    ...displayOptions,
+                    showDynamicHeader: e.target.checked,
+                  })
+                }
               />
-              <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
-                <input
-                  type="checkbox"
-                  className={checkboxClasses}
-                  checked={displayOptions.showDynamicHeader}
-                  onChange={(e) =>
-                    setDisplayOptions({
-                      ...displayOptions,
-                      showDynamicHeader: e.target.checked,
-                    })
-                  }
-                />
-                Show
-              </label>
-            </div>
+              Show title
+            </label>
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1 dark:text-slate-300">

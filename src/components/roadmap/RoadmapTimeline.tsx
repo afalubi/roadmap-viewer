@@ -45,6 +45,7 @@ interface Props {
     filters: string[];
   };
   isExporting: boolean;
+  showDebugOutlines?: boolean;
 }
 
 const GROUP_LABELS: Record<
@@ -79,6 +80,7 @@ export function RoadmapTimeline({
   quartersToShow,
   exportSummary,
   isExporting,
+  showDebugOutlines = false,
 }: Props) {
   const labelWidth = 160;
   const timelinePadding = 8;
@@ -116,12 +118,17 @@ export function RoadmapTimeline({
   return (
     <section
       id="roadmap-export"
-      className="bg-white border border-slate-200 rounded-lg shadow-sm p-4 space-y-4 dark:bg-slate-900 dark:border-slate-700"
+      className={[
+        "bg-white border border-slate-200 rounded-lg shadow-sm p-4 space-y-4 dark:bg-slate-900 dark:border-slate-700",
+        showDebugOutlines
+          ? "outline outline-1 outline-dashed outline-cyan-300/80"
+          : "",
+      ].join(" ")}
     >
       {isExporting ? (
         <div className="space-y-1 border border-slate-200 rounded-md bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
           <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-            {`${exportSummary.titlePrefix} By ${exportSummary.viewBy}`}
+            {exportSummary.titlePrefix}
           </div>
           <div className="text-[0.7rem] text-slate-600 dark:text-slate-300">
             {exportSummary.filters.length > 0
