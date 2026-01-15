@@ -28,14 +28,13 @@ interface Props {
     lineTitleGap: number;
     showQuarters: boolean;
     showMonths: boolean;
+    darkMode: boolean;
   };
   theme:
     | 'coastal'
     | 'orchard'
     | 'sunset'
-    | 'slate'
     | 'sand'
-    | 'mist'
     | 'mono'
     | 'forest'
     | 'metro'
@@ -70,6 +69,8 @@ export function RoadmapSwimlane({
   } | null>(null);
   const titleAbove =
     displayOptions.titleAbove || displayOptions.itemStyle === 'line';
+  const useDarkItemText =
+    displayOptions.darkMode && theme !== 'executive' && theme !== 'metro-dark';
   const lanePaddingTop = titleAbove ? 20 : 8;
   const lanePaddingX = 8;
   const lanePaddingBottom = 8;
@@ -107,7 +108,8 @@ export function RoadmapSwimlane({
     >
       <div
         className={[
-          'border-r border-slate-200 py-3 px-2 text-xs font-semibold text-slate-900 dark:border-slate-700 dark:text-slate-100',
+          'border-r border-slate-200 py-3 px-2 text-xs font-semibold text-slate-900 dark:border-slate-700',
+          useDarkItemText ? 'dark:text-slate-900' : 'dark:text-slate-100',
           laneClasses,
         ].join(' ')}
       >
@@ -141,7 +143,12 @@ export function RoadmapSwimlane({
               ? getRegionFlagAssets(item.region)
               : [];
             const regionBadges = regionFlags.length ? (
-              <span className="mr-1 inline-flex items-center gap-0.5 text-slate-800 dark:text-slate-100">
+              <span
+                className={[
+                  'mr-1 inline-flex items-center gap-0.5 text-slate-800',
+                  useDarkItemText ? 'dark:text-slate-800' : 'dark:text-slate-100',
+                ].join(' ')}
+              >
                 {regionFlags.map((flag) => (
                   <span
                     key={`${item.id}-${flag.region}`}
@@ -190,7 +197,12 @@ export function RoadmapSwimlane({
                 }}
               >
                 {titleAbove ? (
-                  <div className="text-[0.65rem] font-semibold leading-none text-slate-800 truncate dark:text-slate-100">
+                  <div
+                    className={[
+                      'text-[0.65rem] font-semibold leading-none text-slate-800 truncate',
+                      useDarkItemText ? 'dark:text-slate-800' : 'dark:text-slate-100',
+                    ].join(' ')}
+                  >
                     {regionBadges}
                     {item.title}
                   </div>
@@ -199,6 +211,7 @@ export function RoadmapSwimlane({
                   type="button"
                   className={[
                     'group relative z-40 w-full text-left text-xs px-2 py-1 rounded-md border shadow-sm cursor-pointer transition-colors',
+                    useDarkItemText ? 'text-slate-900 dark:text-slate-900' : 'text-slate-900 dark:text-slate-100',
                     displayOptions.itemStyle === 'line'
                       ? lineBorderClasses
                       : itemColorClasses,
@@ -229,7 +242,12 @@ export function RoadmapSwimlane({
                     </div>
                   ) : null}
                   {hasInlineText && displayOptions.showShortDescription ? (
-                    <div className="text-[0.65rem] text-slate-700 truncate dark:text-slate-200">
+                    <div
+                      className={[
+                        'text-[0.65rem] truncate text-slate-700',
+                        useDarkItemText ? 'dark:text-slate-700' : 'dark:text-slate-200',
+                      ].join(' ')}
+                    >
                       {item.shortDescription}
                     </div>
                   ) : null}

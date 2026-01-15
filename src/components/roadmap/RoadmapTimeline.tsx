@@ -31,9 +31,7 @@ interface Props {
     | 'coastal'
     | 'orchard'
     | 'sunset'
-    | 'slate'
     | 'sand'
-    | 'mist'
     | 'mono'
     | 'forest'
     | 'metro'
@@ -203,7 +201,7 @@ export function RoadmapTimeline({
               {pillars.map((pillar, index) => {
                 const itemClasses = getItemClassesByIndex(index, theme);
                 const laneBgClass =
-                  theme === 'executive'
+                  theme === 'executive' || theme === 'mono'
                     ? getLaneHeaderClassesByIndex(index, theme)
                     : getLaneBackgroundClassFromItem(itemClasses);
                 return (

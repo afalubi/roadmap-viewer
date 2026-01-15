@@ -3,18 +3,20 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { SignedIn, SignedOut, SignInButton } from '@clerk/nextjs';
-import type { SavedView, ViewPayload, ViewScope } from '@/types/views';
+import type { SavedView, ViewScope } from '@/types/views';
 
 interface Props {
   isLoading: boolean;
   personalViews: SavedView[];
   sharedViews: SavedView[];
   shareBaseUrl?: string;
+  activeViewId?: string | null;
   onSaveView: (name: string, scope: ViewScope) => void;
-  onLoadView: (payload: ViewPayload, name: string) => void;
+  onLoadView: (view: SavedView) => void;
   onRenameView: (id: string, scope: ViewScope, name: string) => void;
   onDeleteView: (id: string, scope: ViewScope) => void;
   onGenerateLink: (id: string) => void;
+  onUpdateView: (view: SavedView) => Promise<boolean>;
 }
 
 export function SavedViewsPanel({
@@ -22,19 +24,24 @@ export function SavedViewsPanel({
   personalViews,
   sharedViews,
   shareBaseUrl,
+  activeViewId,
   onSaveView,
   onLoadView,
   onRenameView,
   onDeleteView,
   onGenerateLink,
+  onUpdateView,
 }: Props) {
+  const baseUrl =
+    shareBaseUrl ??
+    (typeof window !== 'undefined' ? window.location.origin : '');
   const [name, setName] = useState('');
   const [scope, setScope] = useState<ViewScope>('personal');
   const [pendingDelete, setPendingDelete] = useState<SavedView | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
-  const [loadingId, setLoadingId] = useState<string | null>(null);
-  const [loadTimer, setLoadTimer] = useState<number | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastTimer, setToastTimer] = useState<number | null>(null);
   const [shareView, setShareView] = useState<SavedView | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
 
@@ -103,10 +110,12 @@ export function SavedViewsPanel({
     setPendingDelete(null);
   };
 
-  const renderViewRow = (view: SavedView, showShare: boolean) => (
+  const renderViewRow = (view: SavedView, showShare: boolean) => {
+    const isActive = Boolean(activeViewId && view.id === activeViewId);
+    return (
     <div
       key={view.id}
-      className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-900"
+      className="group flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
     >
       <div className="flex items-center gap-2">
         {editingId === view.id ? (
@@ -128,53 +137,87 @@ export function SavedViewsPanel({
             autoFocus
           />
         ) : (
+          <a
+            href={`${baseUrl}/?${view.sharedSlug ? `view=${view.sharedSlug}` : `viewId=${view.id}`}`}
+            className={[
+              'inline-flex items-center gap-1 font-medium hover:underline',
+              isActive
+                ? 'text-sky-700 dark:text-sky-300'
+                : 'text-slate-700 hover:text-slate-900 dark:text-slate-200 dark:hover:text-slate-100',
+            ].join(' ')}
+            onClick={(event) => {
+              event.preventDefault();
+              handleLoad(view);
+            }}
+            aria-label={`Load ${view.name}`}
+            title="Load view"
+          >
+            {view.name}
+            <svg
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              className="h-3 w-3"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M5 12h14" />
+              <path d="M13 6l6 6-6 6" />
+            </svg>
+          </a>
+        )}
+        {isActive ? (
+          <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[0.65rem] font-semibold text-sky-700 dark:bg-sky-900/50 dark:text-sky-200">
+            Active
+          </span>
+        ) : null}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1">
+          {isActive ? (
+            <button
+              type="button"
+              className="rounded-full border border-slate-200 px-2 py-0.5 text-[0.7rem] text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+              onClick={async () => {
+                const ok = await onUpdateView(view);
+                if (ok) {
+                  setToastMessage(`Updated view: ${view.name}`);
+                  if (toastTimer) {
+                    window.clearTimeout(toastTimer);
+                  }
+                  const timer = window.setTimeout(() => {
+                    setToastMessage(null);
+                  }, 2200);
+                  setToastTimer(timer);
+                }
+              }}
+              title="Update with current settings"
+            >
+              Update
+            </button>
+          ) : null}
           <button
             type="button"
-            className="font-medium text-slate-700 hover:text-slate-900 dark:text-slate-200 dark:hover:text-slate-100"
+            className="rounded-full border border-slate-200 p-1 text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
             onClick={() => handleRename(view)}
             aria-label={`Rename ${view.name}`}
             title="Rename"
           >
-            {view.name}
-          </button>
-        )}
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            className="rounded-full border border-slate-200 p-1 text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
-            onClick={() => handleLoad(view)}
-            aria-label={`Load ${view.name}`}
-            title={loadingId === view.id ? 'Loading' : 'Load'}
-          >
-            {loadingId === view.id ? (
-              <svg
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-                className="h-3.5 w-3.5 animate-spin text-slate-500"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              >
-                <path d="M12 3a9 9 0 1 0 9 9" />
-              </svg>
-            ) : (
-              <svg
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-                className="h-3.5 w-3.5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M6 4h8l4 4v12H6z" />
-                <path d="M14 4v4h4" />
-              </svg>
-            )}
+            <svg
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              className="h-3.5 w-3.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z" />
+            </svg>
           </button>
           {showShare ? (
             view.sharedSlug ? (
@@ -241,23 +284,29 @@ export function SavedViewsPanel({
       </div>
     </div>
   );
+  };
 
   const handleLoad = (view: SavedView) => {
-    if (loadTimer) {
-      window.clearTimeout(loadTimer);
+    onLoadView(view);
+    setToastMessage(`Loaded view: ${view.name}`);
+    if (toastTimer) {
+      window.clearTimeout(toastTimer);
     }
-    setLoadingId(view.id);
-    onLoadView(view.payload, view.name);
     const timer = window.setTimeout(() => {
-      setLoadingId((current) => (current === view.id ? null : current));
-    }, 600);
-    setLoadTimer(timer);
+      setToastMessage(null);
+    }, 2200);
+    setToastTimer(timer);
   };
 
   return (
     <section className="bg-white border border-slate-200 rounded-lg p-3 shadow-sm space-y-2 dark:bg-slate-900 dark:border-slate-700">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Saved Views</h2>
+        <div className="space-y-1">
+          <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Saved Views</h2>
+          <p className="text-[0.7rem] text-slate-500 dark:text-slate-400">
+            Click a view name to load it.
+          </p>
+        </div>
       </div>
 
       <SignedOut>
@@ -276,6 +325,25 @@ export function SavedViewsPanel({
 
       <SignedIn>
         <div className="space-y-1.5">
+          {toastMessage ? (
+            <div className="fixed top-6 left-1/2 z-[110] -translate-x-1/2 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-900 shadow-lg ring-1 ring-slate-200/60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-sky-600 text-white">
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  className="h-3.5 w-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M20 6L9 17l-5-5" />
+                </svg>
+              </span>
+              {toastMessage}
+            </div>
+          ) : null}
           {pendingDelete && typeof document !== 'undefined'
             ? createPortal(
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 px-4">

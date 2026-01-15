@@ -2,9 +2,7 @@ export type ColorTheme =
   | 'coastal'
   | 'orchard'
   | 'sunset'
-  | 'slate'
   | 'sand'
-  | 'mist'
   | 'mono'
   | 'forest'
   | 'metro'
@@ -22,6 +20,19 @@ const EXECUTIVE_HEADER_LANE = [
   'bg-[#16A085]/52',
   'bg-[#F39c12]/55',
   'bg-[#5DADE2]/52',
+];
+
+const MONO_HEADER_LANE = [
+  'bg-slate-300',
+  'bg-slate-400',
+  'bg-gray-300',
+  'bg-gray-400',
+  'bg-zinc-300',
+  'bg-zinc-400',
+  'bg-stone-300',
+  'bg-stone-400',
+  'bg-neutral-300',
+  'bg-neutral-400',
 ];
 
 const PALETTES: Record<
@@ -91,27 +102,6 @@ const PALETTES: Record<
       'bg-purple-50',
     ],
   },
-  slate: {
-    item: [
-      'bg-slate-100 hover:bg-slate-200 border-slate-300',
-      'bg-gray-100 hover:bg-gray-200 border-gray-300',
-      'bg-zinc-100 hover:bg-zinc-200 border-zinc-300',
-      'bg-stone-100 hover:bg-stone-200 border-stone-300',
-      'bg-neutral-100 hover:bg-neutral-200 border-neutral-300',
-    ],
-    lane: [
-      'bg-slate-50',
-      'bg-gray-50',
-      'bg-zinc-50',
-      'bg-stone-50',
-      'bg-neutral-50',
-      'bg-slate-100/60',
-      'bg-gray-100/60',
-      'bg-zinc-100/60',
-      'bg-stone-100/60',
-      'bg-neutral-100/60',
-    ],
-  },
   sand: {
     item: [
       'bg-amber-50 hover:bg-amber-100 border-amber-200',
@@ -133,27 +123,6 @@ const PALETTES: Record<
       'bg-rose-100/60',
     ],
   },
-  mist: {
-    item: [
-      'bg-sky-50 hover:bg-sky-100 border-sky-200',
-      'bg-cyan-50 hover:bg-cyan-100 border-cyan-200',
-      'bg-indigo-50 hover:bg-indigo-100 border-indigo-200',
-      'bg-blue-50 hover:bg-blue-100 border-blue-200',
-      'bg-violet-50 hover:bg-violet-100 border-violet-200',
-    ],
-    lane: [
-      'bg-sky-50',
-      'bg-cyan-50',
-      'bg-indigo-50',
-      'bg-blue-50',
-      'bg-violet-50',
-      'bg-sky-100/60',
-      'bg-cyan-100/60',
-      'bg-indigo-100/60',
-      'bg-blue-100/60',
-      'bg-violet-100/60',
-    ],
-  },
   mono: {
     item: [
       'bg-slate-50 hover:bg-slate-100 border-slate-200',
@@ -163,16 +132,16 @@ const PALETTES: Record<
       'bg-zinc-50 hover:bg-zinc-100 border-zinc-200',
     ],
     lane: [
-      'bg-slate-50',
-      'bg-slate-100/50',
-      'bg-gray-50',
-      'bg-gray-100/50',
-      'bg-zinc-50',
-      'bg-zinc-100/50',
-      'bg-stone-50',
-      'bg-stone-100/50',
-      'bg-neutral-50',
-      'bg-neutral-100/50',
+      'bg-slate-200',
+      'bg-slate-300',
+      'bg-gray-200',
+      'bg-gray-300',
+      'bg-zinc-200',
+      'bg-zinc-300',
+      'bg-stone-200',
+      'bg-stone-300',
+      'bg-neutral-200',
+      'bg-neutral-300',
     ],
   },
   forest: {
@@ -289,6 +258,9 @@ export function getLaneHeaderClassesByIndex(
   if (!Number.isFinite(index) || index < 0) return 'bg-slate-50';
   if (theme === 'executive') {
     return EXECUTIVE_HEADER_LANE[index % EXECUTIVE_HEADER_LANE.length];
+  }
+  if (theme === 'mono') {
+    return MONO_HEADER_LANE[index % MONO_HEADER_LANE.length];
   }
   return getLaneClassesByIndex(index, theme);
 }

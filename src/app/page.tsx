@@ -68,7 +68,7 @@ export default function HomePage() {
   );
   const [quartersToShow, setQuartersToShow] = useState(5);
   const [isHydrated, setIsHydrated] = useState(false);
-  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(true);
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isDraggingCsv, setIsDraggingCsv] = useState(false);
   const [personalViews, setPersonalViews] = useState<SavedView[]>([]);
@@ -76,7 +76,7 @@ export default function HomePage() {
   const [isLoadingViews, setIsLoadingViews] = useState(false);
   const [shareBaseUrl, setShareBaseUrl] = useState("");
   const [loadedSharedSlug, setLoadedSharedSlug] = useState("");
-  const [loadedViewName, setLoadedViewName] = useState("");
+  const [loadedView, setLoadedView] = useState<SavedView | null>(null);
 
   useEffect(() => {
     loadRoadmap().then((data) => {
@@ -170,9 +170,45 @@ export default function HomePage() {
     }
   };
 
-  const handleLoadView = (payload: ViewPayload, name: string) => {
-    applyViewPayload(payload);
-    setLoadedViewName(name);
+  const handleLoadView = (view: SavedView) => {
+    applyViewPayload(view.payload);
+    setLoadedView(view);
+    if (typeof window !== "undefined") {
+      const nextUrl = new URL(window.location.href);
+      if (view.sharedSlug) {
+        nextUrl.searchParams.set("view", view.sharedSlug);
+        nextUrl.searchParams.delete("viewId");
+        setLoadedSharedSlug(view.sharedSlug);
+      } else {
+        nextUrl.searchParams.set("viewId", view.id);
+        nextUrl.searchParams.delete("view");
+        setLoadedSharedSlug("");
+      }
+      window.history.replaceState(null, "", nextUrl.toString());
+    }
+  };
+
+  const handleUpdateView = async (view: SavedView): Promise<boolean> => {
+    if (!isSignedIn) return false;
+    const payload = buildViewPayload();
+    try {
+      const res = await fetch(`/api/views/${view.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ payload }),
+      });
+      if (!res.ok) return false;
+      const updatedView = {
+        ...view,
+        payload,
+        updatedAt: new Date().toISOString(),
+      };
+      setLoadedView(updatedView);
+      await fetchViews();
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   const fetchViews = async () => {
@@ -227,6 +263,14 @@ export default function HomePage() {
   const handleDeleteView = async (id: string, _scope: ViewScope) => {
     if (!isSignedIn) return;
     await fetch(`/api/views/${id}`, { method: "DELETE" });
+    if (loadedView?.id === id && typeof window !== "undefined") {
+      setLoadedView(null);
+      setLoadedSharedSlug("");
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.delete("view");
+      nextUrl.searchParams.delete("viewId");
+      window.history.replaceState(null, "", nextUrl.toString());
+    }
     await fetchViews();
   };
 
@@ -264,13 +308,10 @@ export default function HomePage() {
         const data = await res.json();
         if (data.view?.payload) {
           applyViewPayload(data.view.payload as ViewPayload);
-          if (data.view?.name) {
-            setLoadedViewName(data.view.name);
+          if (data.view) {
+            setLoadedView(data.view as SavedView);
           }
           setLoadedSharedSlug(slug);
-          const nextUrl = new URL(window.location.href);
-          nextUrl.searchParams.delete("view");
-          window.history.replaceState(null, "", nextUrl.toString());
         }
       } catch {
         // Ignore fetch errors for shared views.
@@ -278,6 +319,17 @@ export default function HomePage() {
     };
     fetchSharedView();
   }, [isSignedIn, loadedSharedSlug]);
+
+  useEffect(() => {
+    if (!isSignedIn) return;
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const viewId = params.get("viewId") ?? "";
+    if (!viewId || loadedView?.id === viewId) return;
+    const match = personalViews.find((view) => view.id === viewId);
+    if (!match) return;
+    handleLoadView(match);
+  }, [isSignedIn, personalViews, loadedView?.id]);
 
   const handleCsvDownload = () => {
     const csv = currentCsvText || buildCsvFromItems(items);
@@ -437,9 +489,7 @@ export default function HomePage() {
           | "coastal"
           | "orchard"
           | "sunset"
-          | "slate"
           | "sand"
-          | "mist"
           | "mono"
           | "forest"
           | "metro"
@@ -653,12 +703,14 @@ export default function HomePage() {
                           personalViews={personalViews}
                           sharedViews={sharedViews}
                           shareBaseUrl={shareBaseUrl}
-                          onSaveView={handleSaveView}
-                          onLoadView={handleLoadView}
-                          onRenameView={handleRenameView}
-                          onDeleteView={handleDeleteView}
-                          onGenerateLink={handleGenerateLink}
-                        />
+                      onSaveView={handleSaveView}
+                      onLoadView={handleLoadView}
+                      onRenameView={handleRenameView}
+                      onDeleteView={handleDeleteView}
+                      onGenerateLink={handleGenerateLink}
+                      onUpdateView={handleUpdateView}
+                      activeViewId={loadedView?.id ?? null}
+                    />
                       }
                     />
                   </>
@@ -773,18 +825,10 @@ export default function HomePage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                {loadedViewName ? (
+                {loadedView ? (
                   <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
                     <span className="text-slate-500 dark:text-slate-400">Loaded view:</span>
-                    <span className="font-medium">{loadedViewName}</span>
-                    <button
-                      type="button"
-                      className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
-                      onClick={() => setLoadedViewName("")}
-                      aria-label="Dismiss loaded view"
-                    >
-                      ×
-                    </button>
+                    <span className="font-medium">{loadedView.name}</span>
                   </div>
                 ) : null}
                 {filterChips.length > 0 ? (

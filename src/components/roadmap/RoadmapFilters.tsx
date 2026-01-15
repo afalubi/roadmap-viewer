@@ -49,9 +49,7 @@ interface Props {
     | 'coastal'
     | 'orchard'
     | 'sunset'
-    | 'slate'
     | 'sand'
-    | 'mist'
     | 'mono'
     | 'forest'
     | 'metro'
@@ -62,9 +60,7 @@ interface Props {
       | 'coastal'
       | 'orchard'
       | 'sunset'
-      | 'slate'
       | 'sand'
-      | 'mist'
       | 'mono'
       | 'forest'
       | 'metro'
@@ -307,9 +303,7 @@ export function RoadmapFilters({
                       | 'coastal'
                       | 'orchard'
                       | 'sunset'
-                      | 'slate'
                       | 'sand'
-                      | 'mist'
                       | 'mono'
                       | 'forest'
                       | 'metro'
@@ -322,9 +316,7 @@ export function RoadmapFilters({
                 <option value="coastal">Coastal</option>
                 <option value="orchard">Orchard</option>
                 <option value="sunset">Sunset</option>
-                <option value="slate">Slate</option>
                 <option value="sand">Sand</option>
-                <option value="mist">Mist</option>
                 <option value="mono">Mono</option>
                 <option value="forest">Forest</option>
                 <option value="metro">Metro</option>
