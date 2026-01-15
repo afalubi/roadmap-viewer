@@ -7,7 +7,7 @@ import type { RoadmapItem } from '@/types/roadmap';
 import type { QuarterBucket } from '@/lib/timeScale';
 import { getTimelinePosition } from '@/lib/timeScale';
 import { getItemClassesByIndex, getLineFillClasses } from '@/lib/color';
-import { getRegionEmojiList } from '@/lib/region';
+import { getRegionFlagAssets } from '@/lib/region';
 
 interface Props {
   pillar: string;
@@ -137,17 +137,22 @@ export function RoadmapSwimlane({
           {positionedItems.items.map(({ item, row }) => {
             const pos = getTimelinePosition(item, quarters);
             if (pos.widthPercent <= 0) return null;
-            const regionEmojis = displayOptions.showRegionEmojis
-              ? getRegionEmojiList(item.region)
+            const regionFlags = displayOptions.showRegionEmojis
+              ? getRegionFlagAssets(item.region)
               : [];
-            const regionBadges = regionEmojis.length ? (
+            const regionBadges = regionFlags.length ? (
               <span className="mr-1 inline-flex items-center gap-0.5 text-slate-800 dark:text-slate-100">
-                {regionEmojis.map((emoji) => (
+                {regionFlags.map((flag) => (
                   <span
-                    key={`${item.id}-${emoji}`}
+                    key={`${item.id}-${flag.region}`}
                     className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-200 bg-white/80 text-[0.6rem] leading-none"
                   >
-                    {emoji}
+                    <img
+                      src={flag.src}
+                      alt={flag.alt}
+                      className="h-3 w-3 rounded-sm object-cover"
+                      loading="lazy"
+                    />
                   </span>
                 ))}
               </span>

@@ -8,9 +8,23 @@ const REGION_ALIASES: Record<string, Region> = {
 };
 
 const REGION_ORDER: Region[] = ['US', 'Canada'];
-const REGION_EMOJIS: Record<Region, string> = {
-  US: '🇺🇸',
-  Canada: '🇨🇦',
+type RegionFlagAsset = {
+  region: Region;
+  src: string;
+  alt: string;
+};
+
+const REGION_FLAG_ASSETS: Record<Region, RegionFlagAsset> = {
+  US: {
+    region: 'US',
+    src: 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f1fa-1f1f8.svg',
+    alt: 'United States flag',
+  },
+  Canada: {
+    region: 'Canada',
+    src: 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f1e8-1f1e6.svg',
+    alt: 'Canada flag',
+  },
 };
 
 export function parseRegions(value: string): Region[] {
@@ -27,11 +41,7 @@ export function parseRegions(value: string): Region[] {
   return REGION_ORDER.filter((region) => normalized.includes(region));
 }
 
-export function getRegionEmojiList(value: string): string[] {
+export function getRegionFlagAssets(value: string): RegionFlagAsset[] {
   const regions = parseRegions(value);
-  return regions.map((region) => REGION_EMOJIS[region]);
-}
-
-export function getRegionEmojis(value: string): string {
-  return getRegionEmojiList(value).join(' ');
+  return regions.map((region) => REGION_FLAG_ASSETS[region]);
 }
