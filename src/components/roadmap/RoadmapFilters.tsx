@@ -208,8 +208,13 @@ export function RoadmapFilters({
           : '',
       ].join(' ')}
     >
-      <div className="rounded-xl border border-slate-200 bg-white p-0 dark:border-slate-700 dark:bg-slate-900">
-        <div className="flex items-center justify-between px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 border-b border-slate-200 dark:border-slate-700 dark:text-slate-300">
+      <div className="relative rounded-xl border border-slate-200 bg-white p-0 dark:border-slate-700 dark:bg-slate-900">
+        {showDebugOutlines ? (
+          <span className="absolute -top-3 left-2 rounded bg-fuchsia-100 px-1 text-[10px] font-semibold text-fuchsia-800">
+            SETTINGS PANEL
+          </span>
+        ) : null}
+        <div className="flex items-center justify-between px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-600 border-b border-slate-200 dark:border-slate-700 dark:text-slate-300">
           <span className={isCollapsed ? 'sr-only' : ''}>SETTINGS</span>
           {onToggleCollapsed ? (
             <button
@@ -253,7 +258,7 @@ export function RoadmapFilters({
         </div>
         {isCollapsed ? null : (
           <div className="divide-y divide-slate-200 dark:divide-slate-700">
-            <div className="space-y-3 px-3 py-3">
+            <div className="space-y-3 px-3 pt-2 pb-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   View by
@@ -290,7 +295,7 @@ export function RoadmapFilters({
                   Clear filters
                 </button>
               </div>
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2">
                 {renderCheckboxDropdown(
                   'Pillar',
                   pillars,

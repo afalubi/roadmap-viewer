@@ -119,12 +119,17 @@ export function RoadmapTimeline({
     <section
       id="roadmap-export"
       className={[
-        "bg-white border border-slate-200 rounded-lg shadow-sm p-4 space-y-4 dark:bg-slate-900 dark:border-slate-700",
+        "relative bg-white border border-slate-200 rounded-lg shadow-sm p-4 space-y-4 dark:bg-slate-900 dark:border-slate-700",
         showDebugOutlines
           ? "outline outline-1 outline-dashed outline-cyan-300/80"
           : "",
       ].join(" ")}
     >
+      {showDebugOutlines ? (
+        <span className="absolute -top-3 left-2 rounded bg-cyan-100 px-1 text-[10px] font-semibold text-cyan-800">
+          ROADMAP
+        </span>
+      ) : null}
       {isExporting ? (
         <div className="space-y-1 border border-slate-200 rounded-md bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
           <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">

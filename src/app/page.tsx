@@ -614,18 +614,28 @@ export default function HomePage() {
         className={[
           "max-w-screen-2xl mx-auto px-4 py-8 space-y-6",
           showDebugOutlines
-            ? "outline outline-1 outline-dashed outline-rose-300/80"
+            ? "relative outline outline-1 outline-dashed outline-rose-300/80"
             : "",
         ].join(" ")}
       >
+        {showDebugOutlines ? (
+          <span className="absolute -top-3 left-2 rounded bg-rose-100 px-1 text-[10px] font-semibold text-rose-800">
+            MAIN
+          </span>
+        ) : null}
         <header
           className={[
             "flex flex-wrap items-start justify-between gap-4",
             showDebugOutlines
-              ? "outline outline-1 outline-dashed outline-blue-300/80"
+              ? "relative outline outline-1 outline-dashed outline-blue-300/80"
               : "",
           ].join(" ")}
         >
+          {showDebugOutlines ? (
+            <span className="absolute -top-3 left-2 rounded bg-blue-100 px-1 text-[10px] font-semibold text-blue-800">
+              HEADER
+            </span>
+          ) : null}
           <div className="space-y-1">
             <h1 className="text-3xl font-semibold tracking-tight">
               <span className="text-blue-700">Roadmap</span>{" "}
@@ -662,7 +672,7 @@ export default function HomePage() {
         <SignedIn>
           <div
             className={[
-              "space-y-6",
+              "space-y-3",
               showDebugOutlines
                 ? "outline outline-1 outline-dashed outline-amber-300/80"
                 : "",
@@ -675,10 +685,15 @@ export default function HomePage() {
                   ? "justify-between"
                   : "justify-end",
                 showDebugOutlines
-                  ? "outline outline-1 outline-dashed outline-sky-300/80"
+                  ? "relative outline outline-1 outline-dashed outline-sky-300/80"
                   : "",
               ].join(" ")}
             >
+              {showDebugOutlines ? (
+                <span className="absolute -top-3 left-2 rounded bg-sky-100 px-1 text-[10px] font-semibold text-sky-800">
+                  CONTROLS
+                </span>
+              ) : null}
               {displayOptions.showDynamicHeader ? (
                 <div className="flex items-center gap-2 min-w-0">
                   {isEditingTitle ? (
@@ -912,6 +927,11 @@ export default function HomePage() {
                   : "",
               ].join(" ")}
             >
+              {showDebugOutlines ? (
+                <span className="absolute -top-3 left-2 rounded bg-emerald-100 px-1 text-[10px] font-semibold text-emerald-800">
+                  LAYOUT
+                </span>
+              ) : null}
               {isHeaderCollapsed ? (
                 <button
                   type="button"
@@ -945,6 +965,11 @@ export default function HomePage() {
                     : "",
                 ].join(" ")}
               >
+                {showDebugOutlines && !isHeaderCollapsed ? (
+                  <span className="absolute -top-3 left-2 rounded bg-rose-100 px-1 text-[10px] font-semibold text-rose-800">
+                    DRAWER
+                  </span>
+                ) : null}
                 <div className="sticky top-6 space-y-4">
                   {isHeaderCollapsed ? null : (
                       <RoadmapFilters
