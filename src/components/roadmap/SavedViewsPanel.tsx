@@ -17,6 +17,7 @@ interface Props {
   onDeleteView: (id: string, scope: ViewScope) => void;
   onGenerateLink: (id: string) => void;
   onUpdateView: (view: SavedView) => Promise<boolean>;
+  variant?: 'card' | 'plain';
 }
 
 export function SavedViewsPanel({
@@ -31,10 +32,12 @@ export function SavedViewsPanel({
   onDeleteView,
   onGenerateLink,
   onUpdateView,
+  variant = 'card',
 }: Props) {
   const baseUrl =
     shareBaseUrl ??
     (typeof window !== 'undefined' ? window.location.origin : '');
+  const isPlain = variant === 'plain';
   const [name, setName] = useState('');
   const [scope, setScope] = useState<ViewScope>('personal');
   const [pendingDelete, setPendingDelete] = useState<SavedView | null>(null);
@@ -115,10 +118,13 @@ export function SavedViewsPanel({
 
   const renderViewRow = (view: SavedView, showShare: boolean) => {
     const isActive = Boolean(activeViewId && view.id === activeViewId);
+    const rowClassName = isPlain
+      ? 'group flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200/70 bg-transparent px-3 py-1.5 text-xs transition-colors hover:bg-slate-100/60 dark:border-slate-700/60 dark:hover:bg-slate-800/40'
+      : 'group flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800';
     return (
     <div
       key={view.id}
-      className="group flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+      className={rowClassName}
     >
       <div className="flex items-center gap-2">
         {editingId === view.id ? (
@@ -302,7 +308,13 @@ export function SavedViewsPanel({
   };
 
   return (
-    <section className="bg-white border border-slate-200 rounded-lg p-3 shadow-sm space-y-2 dark:bg-slate-900 dark:border-slate-700">
+    <section
+      className={
+        isPlain
+          ? 'space-y-2'
+          : 'bg-white border border-slate-200 rounded-lg p-3 shadow-sm space-y-2 dark:bg-slate-900 dark:border-slate-700'
+      }
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
           <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Saved Views</h2>
@@ -313,7 +325,13 @@ export function SavedViewsPanel({
       </div>
 
       <SignedOut>
-        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+        <div
+          className={
+            isPlain
+              ? 'flex flex-wrap items-center gap-3 text-xs text-slate-600 dark:text-slate-300'
+              : 'flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
+          }
+        >
           <span>Sign in to save and load views.</span>
           <SignInButton mode="modal">
             <button
@@ -440,7 +458,13 @@ export function SavedViewsPanel({
             </div>
           </div>
 
-          <div className="rounded-md border border-slate-200 bg-slate-50/70 p-2 space-y-2 dark:border-slate-700 dark:bg-slate-800">
+          <div
+            className={
+              isPlain
+                ? 'space-y-2 pt-3'
+                : 'rounded-md border border-slate-200 bg-slate-50/70 p-2 space-y-2 dark:border-slate-700 dark:bg-slate-800'
+            }
+          >
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               Save current view
             </div>

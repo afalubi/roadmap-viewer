@@ -73,6 +73,8 @@ interface Props {
   setQuartersToShow: (value: number) => void;
   savedViewsPanel?: React.ReactNode;
   showDebugOutlines?: boolean;
+  isCollapsed?: boolean;
+  onToggleCollapsed?: () => void;
 }
 
 export function RoadmapFilters({
@@ -97,6 +99,8 @@ export function RoadmapFilters({
   setQuartersToShow,
   savedViewsPanel,
   showDebugOutlines = false,
+  isCollapsed = false,
+  onToggleCollapsed,
 }: Props) {
   const pillars = Array.from(
     new Set(items.map((i) => i.pillar).filter(Boolean)),
@@ -198,440 +202,489 @@ export function RoadmapFilters({
   return (
     <section
       className={[
-        "space-y-4",
+        'space-y-4',
         showDebugOutlines
-          ? "outline outline-1 outline-dashed outline-fuchsia-300/80"
-          : "",
-      ].join(" ")}
+          ? 'outline outline-1 outline-dashed outline-fuchsia-300/80'
+          : '',
+      ].join(' ')}
     >
-      <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-3 dark:bg-slate-900 dark:border-slate-700">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            View by
-          </div>
-          <select
-            className={compactSelectClasses}
-            value={selectedGroupBy}
-            onChange={(e) =>
-              setSelectedGroupBy(
-                e.target.value as
-                  | 'pillar'
-                  | 'stakeholder'
-                  | 'criticality'
-                  | 'region',
-              )
-            }
-          >
-            <option value="pillar">Pillar</option>
-            <option value="stakeholder">Primary stakeholder</option>
-            <option value="criticality">Criticality</option>
-            <option value="region">Region</option>
-          </select>
+      <div className="rounded-xl border border-slate-200 bg-white p-0 dark:border-slate-700 dark:bg-slate-900">
+        <div className="flex items-center justify-between px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 border-b border-slate-200 dark:border-slate-700 dark:text-slate-300">
+          <span className={isCollapsed ? 'sr-only' : ''}>SETTINGS</span>
+          {onToggleCollapsed ? (
+            <button
+              type="button"
+              onClick={onToggleCollapsed}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-100 hover:text-slate-700 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+              title={isCollapsed ? 'Expand controls' : 'Collapse controls'}
+              aria-label={isCollapsed ? 'Expand controls' : 'Collapse controls'}
+            >
+              {isCollapsed ? (
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M8 6l6 6-6 6" />
+                  <path d="M14 6l6 6-6 6" />
+                </svg>
+              ) : (
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M16 6l-6 6 6 6" />
+                  <path d="M10 6l-6 6 6 6" />
+                </svg>
+              )}
+            </button>
+          ) : null}
         </div>
-
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            Filters
-          </div>
-          <button
-            type="button"
-            onClick={clearFilters}
-            className="text-xs px-3 py-1 rounded-full border border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
-          >
-            Clear filters
-          </button>
-        </div>
-        <div className="flex flex-col gap-3">
-          {renderCheckboxDropdown(
-            'Pillar',
-            pillars,
-            selectedPillars,
-            setSelectedPillars,
-            'Select pillar',
-            { singular: 'pillar', plural: 'pillars' },
-          )}
-          {renderSelectedChips(selectedPillars, (value) =>
-            setSelectedPillars(
-              selectedPillars.filter((item) => item !== value),
-            ),
-          )}
-
-          {renderCheckboxDropdown(
-            'Region',
-            regions,
-            selectedRegions,
-            (next) => setSelectedRegions(next as Region[]),
-            'Select region',
-            { singular: 'region', plural: 'regions' },
-          )}
-          {renderSelectedChips(selectedRegions, (value) =>
-            setSelectedRegions(
-              selectedRegions.filter((item) => item !== value),
-            ),
-          )}
-
-          {renderCheckboxDropdown(
-            'Criticality',
-            criticalities,
-            selectedCriticalities,
-            setSelectedCriticalities,
-            'Select criticality',
-            { singular: 'criticality', plural: 'criticalities' },
-          )}
-          {renderSelectedChips(selectedCriticalities, (value) =>
-            setSelectedCriticalities(
-              selectedCriticalities.filter((item) => item !== value),
-            ),
-          )}
-
-          {renderCheckboxDropdown(
-            'Impacted stakeholders',
-            impactedStakeholders,
-            selectedImpactedStakeholders,
-            setSelectedImpactedStakeholders,
-            'Select stakeholders',
-            { singular: 'impacted stakeholder', plural: 'impacted stakeholders' },
-          )}
-          {renderSelectedChips(selectedImpactedStakeholders, (value) =>
-            setSelectedImpactedStakeholders(
-              selectedImpactedStakeholders.filter((item) => item !== value),
-            ),
-          )}
-
-        </div>
-      </div>
-
-      {savedViewsPanel}
-
-      <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-3 dark:bg-slate-900 dark:border-slate-700">
-        <div className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-          Board options
-        </div>
-        <div className="space-y-3">
-          <div>
-            <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
-              <input
-                type="checkbox"
-                className={checkboxClasses}
-                checked={displayOptions.showDynamicHeader}
-                onChange={(e) =>
-                  setDisplayOptions({
-                    ...displayOptions,
-                    showDynamicHeader: e.target.checked,
-                  })
-                }
-              />
-              Show title
-            </label>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1 dark:text-slate-300">
-              Theme
-            </label>
-            <div className="flex flex-wrap items-center gap-3">
-              <select
-                className={compactSelectClasses}
-                value={selectedTheme}
-                onChange={(e) =>
-                  setSelectedTheme(
-                    e.target.value as
-                      | 'coastal'
-                      | 'orchard'
-                      | 'sunset'
-                      | 'sand'
-                      | 'mono'
-                      | 'forest'
-                      | 'metro'
-                      | 'metro-dark'
-                      | 'executive',
-                  )
-                }
-              >
-                <option value="executive">Executive</option>
-                <option value="coastal">Coastal</option>
-                <option value="orchard">Orchard</option>
-                <option value="sunset">Sunset</option>
-                <option value="sand">Sand</option>
-                <option value="mono">Mono</option>
-                <option value="forest">Forest</option>
-                <option value="metro">Metro</option>
-                <option value="metro-dark">Metro Dark</option>
-              </select>
-              <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
-                <input
-                  type="checkbox"
-                  className={checkboxClasses}
-                  checked={displayOptions.darkMode}
+        {isCollapsed ? null : (
+          <div className="divide-y divide-slate-200 dark:divide-slate-700">
+            <div className="space-y-3 px-3 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  View by
+                </div>
+                <select
+                  className={compactSelectClasses}
+                  value={selectedGroupBy}
                   onChange={(e) =>
-                    setDisplayOptions({
-                      ...displayOptions,
-                      darkMode: e.target.checked,
-                    })
+                    setSelectedGroupBy(
+                      e.target.value as
+                        | 'pillar'
+                        | 'stakeholder'
+                        | 'criticality'
+                        | 'region',
+                    )
                   }
-                />
-                Dark mode
-              </label>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1 dark:text-slate-300">
-                Start date
-              </label>
-              <input
-                type="date"
-                className={compactSelectClasses}
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1 dark:text-slate-300">
-                Quarters shown
-              </label>
-              <select
-                className={compactSelectClasses}
-                value={quartersToShow}
-                onChange={(e) => setQuartersToShow(Number(e.target.value))}
-              >
-                {Array.from({ length: 12 }, (_, index) => {
-                  const count = index + 1;
-                  return (
-                    <option key={count} value={count}>
-                      {count}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
-              <input
-                type="checkbox"
-                className={checkboxClasses}
-                checked={displayOptions.showQuarters}
-                onChange={(e) =>
-                  setDisplayOptions({
-                    ...displayOptions,
-                    showQuarters: e.target.checked,
-                  })
-                }
-              />
-              Show quarters
-            </label>
-            <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
-              <input
-                type="checkbox"
-                className={checkboxClasses}
-                checked={displayOptions.showMonths}
-                onChange={(e) =>
-                  setDisplayOptions({
-                    ...displayOptions,
-                    showMonths: e.target.checked,
-                  })
-                }
-              />
-              Show months
-            </label>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1 dark:text-slate-300">
-              Item spacing
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                type="range"
-                min={0}
-                max={16}
-                step={1}
-                value={displayOptions.itemVerticalPadding}
-                onChange={(e) =>
-                  setDisplayOptions({
-                    ...displayOptions,
-                    itemVerticalPadding: Number(e.target.value),
-                  })
-                }
-                className="w-28"
-              />
-              <input
-                type="number"
-                min={0}
-                max={16}
-                step={1}
-                value={displayOptions.itemVerticalPadding}
-                onChange={(e) =>
-                  setDisplayOptions({
-                    ...displayOptions,
-                    itemVerticalPadding: Number(e.target.value),
-                  })
-                }
-                className="w-14 rounded-md border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
-              />
-              <span className="text-[0.7rem] text-slate-500 dark:text-slate-400">px</span>
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1 dark:text-slate-300">
-              Lane divider darkness
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                type="range"
-                min={0}
-                max={0.4}
-                step={0.02}
-                value={displayOptions.laneDividerOpacity}
-                onChange={(e) =>
-                  setDisplayOptions({
-                    ...displayOptions,
-                    laneDividerOpacity: Number(e.target.value),
-                  })
-                }
-                className="w-28"
-              />
-              <input
-                type="number"
-                min={0}
-                max={0.4}
-                step={0.02}
-                value={displayOptions.laneDividerOpacity}
-                onChange={(e) =>
-                  setDisplayOptions({
-                    ...displayOptions,
-                    laneDividerOpacity: Number(e.target.value),
-                  })
-                }
-                className="w-14 rounded-md border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
+                >
+                  <option value="pillar">Pillar</option>
+                  <option value="stakeholder">Primary stakeholder</option>
+                  <option value="criticality">Criticality</option>
+                  <option value="region">Region</option>
+                </select>
+              </div>
 
-      <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm space-y-3 dark:bg-slate-900 dark:border-slate-700">
-        <div className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-          Item options
-        </div>
-        <div className="space-y-3">
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-2 dark:text-slate-300">
-              Item style
-            </label>
-            <div className="flex items-center gap-3 text-xs text-slate-700 dark:text-slate-200">
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="item-style"
-                  value="tile"
-                  checked={displayOptions.itemStyle === 'tile'}
-                  onChange={() =>
-                    setDisplayOptions({
-                      ...displayOptions,
-                      itemStyle: 'tile',
-                    })
-                  }
-                />
-                Tile
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="item-style"
-                  value="line"
-                  checked={displayOptions.itemStyle === 'line'}
-                  onChange={() =>
-                    setDisplayOptions({
-                      ...displayOptions,
-                      itemStyle: 'line',
-                    })
-                  }
-                />
-                Line
-              </label>
-            </div>
-          </div>
-          {displayOptions.itemStyle === 'line' ? (
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1 dark:text-slate-300">
-                Line title gap
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="range"
-                  min={0}
-                  max={12}
-                  step={1}
-                  value={displayOptions.lineTitleGap}
-                  onChange={(e) =>
-                    setDisplayOptions({
-                      ...displayOptions,
-                      lineTitleGap: Number(e.target.value),
-                    })
-                  }
-                  className="w-28"
-                />
-                <input
-                  type="number"
-                  min={0}
-                  max={12}
-                  step={1}
-                  value={displayOptions.lineTitleGap}
-                  onChange={(e) =>
-                    setDisplayOptions({
-                      ...displayOptions,
-                      lineTitleGap: Number(e.target.value),
-                    })
-                  }
-                  className="w-14 rounded-md border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
-                />
-                <span className="text-[0.7rem] text-slate-500 dark:text-slate-400">px</span>
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Filters
+                </div>
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="text-xs px-3 py-1 rounded-full border border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  Clear filters
+                </button>
+              </div>
+              <div className="flex flex-col gap-3">
+                {renderCheckboxDropdown(
+                  'Pillar',
+                  pillars,
+                  selectedPillars,
+                  setSelectedPillars,
+                  'Select pillar',
+                  { singular: 'pillar', plural: 'pillars' },
+                )}
+                {renderSelectedChips(selectedPillars, (value) =>
+                  setSelectedPillars(
+                    selectedPillars.filter((item) => item !== value),
+                  ),
+                )}
+
+                {renderCheckboxDropdown(
+                  'Region',
+                  regions,
+                  selectedRegions,
+                  (next) => setSelectedRegions(next as Region[]),
+                  'Select region',
+                  { singular: 'region', plural: 'regions' },
+                )}
+                {renderSelectedChips(selectedRegions, (value) =>
+                  setSelectedRegions(
+                    selectedRegions.filter((item) => item !== value),
+                  ),
+                )}
+
+                {renderCheckboxDropdown(
+                  'Criticality',
+                  criticalities,
+                  selectedCriticalities,
+                  setSelectedCriticalities,
+                  'Select criticality',
+                  { singular: 'criticality', plural: 'criticalities' },
+                )}
+                {renderSelectedChips(selectedCriticalities, (value) =>
+                  setSelectedCriticalities(
+                    selectedCriticalities.filter((item) => item !== value),
+                  ),
+                )}
+
+                {renderCheckboxDropdown(
+                  'Impacted stakeholders',
+                  impactedStakeholders,
+                  selectedImpactedStakeholders,
+                  setSelectedImpactedStakeholders,
+                  'Select stakeholders',
+                  { singular: 'impacted stakeholder', plural: 'impacted stakeholders' },
+                )}
+                {renderSelectedChips(selectedImpactedStakeholders, (value) =>
+                  setSelectedImpactedStakeholders(
+                    selectedImpactedStakeholders.filter((item) => item !== value),
+                  ),
+                )}
               </div>
             </div>
-          ) : null}
-          <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
-            <input
-              type="checkbox"
-              className={checkboxClasses}
-              checked={displayOptions.showRegionEmojis}
-              onChange={(e) =>
-                setDisplayOptions({
-                  ...displayOptions,
-                  showRegionEmojis: e.target.checked,
-                })
-              }
-            />
-            Show region flags
-          </label>
-          <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
-            <input
-              type="checkbox"
-              className={checkboxClasses}
-              checked={displayOptions.showShortDescription}
-              onChange={(e) =>
-                setDisplayOptions({
-                  ...displayOptions,
-                  showShortDescription: e.target.checked,
-                })
-              }
-            />
-            Show short description
-          </label>
-          <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
-            <input
-              type="checkbox"
-              className={checkboxClasses}
-              checked={displayOptions.titleAbove}
-              onChange={(e) =>
-                setDisplayOptions({
-                  ...displayOptions,
-                  titleAbove: e.target.checked,
-                })
-              }
-            />
-            Title above item
-          </label>
-        </div>
+
+            {savedViewsPanel ? (
+              <div className="px-3 py-3">{savedViewsPanel}</div>
+            ) : null}
+
+            <div className="space-y-3 px-3 py-3">
+              <div className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Board options
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
+                    <input
+                      type="checkbox"
+                      className={checkboxClasses}
+                      checked={displayOptions.showDynamicHeader}
+                      onChange={(e) =>
+                        setDisplayOptions({
+                          ...displayOptions,
+                          showDynamicHeader: e.target.checked,
+                        })
+                      }
+                    />
+                    Show title
+                  </label>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1 dark:text-slate-300">
+                    Theme
+                  </label>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <select
+                      className={compactSelectClasses}
+                      value={selectedTheme}
+                      onChange={(e) =>
+                        setSelectedTheme(
+                          e.target.value as
+                            | 'coastal'
+                            | 'orchard'
+                            | 'sunset'
+                            | 'sand'
+                            | 'mono'
+                            | 'forest'
+                            | 'metro'
+                            | 'metro-dark'
+                            | 'executive',
+                        )
+                      }
+                    >
+                      <option value="executive">Executive</option>
+                      <option value="coastal">Coastal</option>
+                      <option value="orchard">Orchard</option>
+                      <option value="sunset">Sunset</option>
+                      <option value="sand">Sand</option>
+                      <option value="mono">Mono</option>
+                      <option value="forest">Forest</option>
+                      <option value="metro">Metro</option>
+                      <option value="metro-dark">Metro Dark</option>
+                    </select>
+                    <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
+                      <input
+                        type="checkbox"
+                        className={checkboxClasses}
+                        checked={displayOptions.darkMode}
+                        onChange={(e) =>
+                          setDisplayOptions({
+                            ...displayOptions,
+                            darkMode: e.target.checked,
+                          })
+                        }
+                      />
+                      Dark mode
+                    </label>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1 dark:text-slate-300">
+                      Start date
+                    </label>
+                    <input
+                      type="date"
+                      className={compactSelectClasses}
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1 dark:text-slate-300">
+                      Quarters shown
+                    </label>
+                    <select
+                      className={compactSelectClasses}
+                      value={quartersToShow}
+                      onChange={(e) => setQuartersToShow(Number(e.target.value))}
+                    >
+                      {Array.from({ length: 12 }, (_, index) => {
+                        const count = index + 1;
+                        return (
+                          <option key={count} value={count}>
+                            {count}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
+                    <input
+                      type="checkbox"
+                      className={checkboxClasses}
+                      checked={displayOptions.showQuarters}
+                      onChange={(e) =>
+                        setDisplayOptions({
+                          ...displayOptions,
+                          showQuarters: e.target.checked,
+                        })
+                      }
+                    />
+                    Show quarters
+                  </label>
+                  <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
+                    <input
+                      type="checkbox"
+                      className={checkboxClasses}
+                      checked={displayOptions.showMonths}
+                      onChange={(e) =>
+                        setDisplayOptions({
+                          ...displayOptions,
+                          showMonths: e.target.checked,
+                        })
+                      }
+                    />
+                    Show months
+                  </label>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1 dark:text-slate-300">
+                    Item spacing
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="range"
+                      min={0}
+                      max={16}
+                      step={1}
+                      value={displayOptions.itemVerticalPadding}
+                      onChange={(e) =>
+                        setDisplayOptions({
+                          ...displayOptions,
+                          itemVerticalPadding: Number(e.target.value),
+                        })
+                      }
+                      className="w-28"
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      max={16}
+                      step={1}
+                      value={displayOptions.itemVerticalPadding}
+                      onChange={(e) =>
+                        setDisplayOptions({
+                          ...displayOptions,
+                          itemVerticalPadding: Number(e.target.value),
+                        })
+                      }
+                      className="w-14 rounded-md border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                    />
+                    <span className="text-[0.7rem] text-slate-500 dark:text-slate-400">px</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1 dark:text-slate-300">
+                    Lane divider darkness
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="range"
+                      min={0}
+                      max={0.4}
+                      step={0.02}
+                      value={displayOptions.laneDividerOpacity}
+                      onChange={(e) =>
+                        setDisplayOptions({
+                          ...displayOptions,
+                          laneDividerOpacity: Number(e.target.value),
+                        })
+                      }
+                      className="w-28"
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      max={0.4}
+                      step={0.02}
+                      value={displayOptions.laneDividerOpacity}
+                      onChange={(e) =>
+                        setDisplayOptions({
+                          ...displayOptions,
+                          laneDividerOpacity: Number(e.target.value),
+                        })
+                      }
+                      className="w-14 rounded-md border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3 px-3 py-3">
+              <div className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Item options
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-2 dark:text-slate-300">
+                    Item style
+                  </label>
+                  <div className="flex items-center gap-3 text-xs text-slate-700 dark:text-slate-200">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="item-style"
+                        value="tile"
+                        checked={displayOptions.itemStyle === 'tile'}
+                        onChange={() =>
+                          setDisplayOptions({
+                            ...displayOptions,
+                            itemStyle: 'tile',
+                          })
+                        }
+                      />
+                      Tile
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="item-style"
+                        value="line"
+                        checked={displayOptions.itemStyle === 'line'}
+                        onChange={() =>
+                          setDisplayOptions({
+                            ...displayOptions,
+                            itemStyle: 'line',
+                          })
+                        }
+                      />
+                      Line
+                    </label>
+                  </div>
+                </div>
+                {displayOptions.itemStyle === 'line' ? (
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1 dark:text-slate-300">
+                      Line title gap
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="range"
+                        min={0}
+                        max={12}
+                        step={1}
+                        value={displayOptions.lineTitleGap}
+                        onChange={(e) =>
+                          setDisplayOptions({
+                            ...displayOptions,
+                            lineTitleGap: Number(e.target.value),
+                          })
+                        }
+                        className="w-28"
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        max={12}
+                        step={1}
+                        value={displayOptions.lineTitleGap}
+                        onChange={(e) =>
+                          setDisplayOptions({
+                            ...displayOptions,
+                            lineTitleGap: Number(e.target.value),
+                          })
+                        }
+                        className="w-14 rounded-md border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                      />
+                      <span className="text-[0.7rem] text-slate-500 dark:text-slate-400">px</span>
+                    </div>
+                  </div>
+                ) : null}
+                <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
+                  <input
+                    type="checkbox"
+                    className={checkboxClasses}
+                    checked={displayOptions.showRegionEmojis}
+                    onChange={(e) =>
+                      setDisplayOptions({
+                        ...displayOptions,
+                        showRegionEmojis: e.target.checked,
+                      })
+                    }
+                  />
+                  Show region flags
+                </label>
+                <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
+                  <input
+                    type="checkbox"
+                    className={checkboxClasses}
+                    checked={displayOptions.showShortDescription}
+                    onChange={(e) =>
+                      setDisplayOptions({
+                        ...displayOptions,
+                        showShortDescription: e.target.checked,
+                      })
+                    }
+                  />
+                  Show short description
+                </label>
+                <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
+                  <input
+                    type="checkbox"
+                    className={checkboxClasses}
+                    checked={displayOptions.titleAbove}
+                    onChange={(e) =>
+                      setDisplayOptions({
+                        ...displayOptions,
+                        titleAbove: e.target.checked,
+                      })
+                    }
+                  />
+                  Title above item
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );

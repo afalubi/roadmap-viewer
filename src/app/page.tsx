@@ -8,10 +8,6 @@ import {
   UserButton,
   useAuth,
 } from "@clerk/nextjs";
-import {
-  RxHamburgerMenu as LeftDrawer,
-  RxHamburgerMenu as RightDrawer,
-} from "react-icons/rx";
 import type { RoadmapItem } from "@/types/roadmap";
 import { loadRoadmap } from "@/lib/loadRoadmap";
 import { parseRegions, type Region } from "@/lib/region";
@@ -455,6 +451,28 @@ export default function HomePage() {
       : null,
   ].filter(Boolean) as string[];
 
+  const viewOptions = [
+    ...personalViews.map((view) => ({
+      value: `personal:${view.id}`,
+      label: view.name,
+      view,
+    })),
+    ...sharedViews.map((view) => ({
+      value: `shared:${view.id}`,
+      label: view.name,
+      view,
+    })),
+  ];
+  const selectedViewValue = loadedView
+    ? `${loadedView.scope}:${loadedView.id}`
+    : "";
+  const handleViewSelect = (value: string) => {
+    const match = viewOptions.find((option) => option.value === value);
+    if (match) {
+      handleLoadView(match.view);
+    }
+  };
+
   useEffect(() => {
     if (!settingsKey) return;
     const raw = localStorage.getItem(settingsKey);
@@ -732,7 +750,69 @@ export default function HomePage() {
                   )}
                 </div>
               ) : null}
-              <div className="flex flex-wrap items-center gap-3">
+              <div
+                className="flex flex-wrap items-center gap-3"
+                style={{
+                  marginLeft: isHeaderCollapsed ? 0 : "calc(20rem + 1.5rem)",
+                }}
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    View
+                  </span>
+                  <select
+                    className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                    value={selectedViewValue}
+                    onChange={(e) => handleViewSelect(e.target.value)}
+                  >
+                    <option value="">Select view</option>
+                    {personalViews.length ? (
+                      <optgroup label="Personal">
+                        {personalViews.map((view) => (
+                          <option
+                            key={`personal-${view.id}`}
+                            value={`personal:${view.id}`}
+                          >
+                            {view.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ) : null}
+                    {sharedViews.length ? (
+                      <optgroup label="Shared">
+                        {sharedViews.map((view) => (
+                          <option
+                            key={`shared-${view.id}`}
+                            value={`shared:${view.id}`}
+                          >
+                            {view.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ) : null}
+                  </select>
+                  <details className="relative">
+                    <summary className="list-none rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 cursor-pointer hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800">
+                      Manage
+                    </summary>
+                    <div className="absolute left-0 z-[120] mt-2 w-96 max-w-[90vw] rounded-lg border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                      <SavedViewsPanel
+                        isLoading={isLoadingViews}
+                        personalViews={personalViews}
+                        sharedViews={sharedViews}
+                        shareBaseUrl={shareBaseUrl}
+                        onSaveView={handleSaveView}
+                        onLoadView={handleLoadView}
+                        onRenameView={handleRenameView}
+                        onDeleteView={handleDeleteView}
+                        onGenerateLink={handleGenerateLink}
+                        onUpdateView={handleUpdateView}
+                        activeViewId={loadedView?.id ?? null}
+                        variant="plain"
+                      />
+                    </div>
+                  </details>
+                </div>
                 <label
                   className={[
                     "relative flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-slate-700",
@@ -826,12 +906,34 @@ export default function HomePage() {
 
             <div
               className={[
-                "flex gap-6",
+                "relative flex gap-6",
                 showDebugOutlines
                   ? "outline outline-1 outline-dashed outline-emerald-300/80"
                   : "",
               ].join(" ")}
             >
+              {isHeaderCollapsed ? (
+                <button
+                  type="button"
+                  onClick={() => setIsHeaderCollapsed(false)}
+                  className="absolute top-6 left-0 -translate-x-1/2 rounded-full border bg-white p-2 text-slate-700 shadow-sm hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                  aria-label="Expand controls"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    className="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M8 6l6 6-6 6" />
+                    <path d="M14 6l6 6-6 6" />
+                  </svg>
+                </button>
+              ) : null}
               <aside
                 className={[
                   "relative transition-[width] duration-300 ease-out",
@@ -844,66 +946,33 @@ export default function HomePage() {
                 ].join(" ")}
               >
                 <div className="sticky top-6 space-y-4">
-                  <button
-                    type="button"
-                    onClick={() => setIsHeaderCollapsed(!isHeaderCollapsed)}
-                    className={[
-                      "absolute top-6 right-0 translate-x-1/2 rounded-full border bg-white p-2 text-slate-700 shadow-sm hover:bg-slate-100",
-                      "dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800",
-                    ].join(" ")}
-                    style={{ marginRight: "-10px" }}
-                  >
-                    {isHeaderCollapsed ? (
-                      <RightDrawer className="h-5 w-5" aria-hidden="true" />
-                    ) : (
-                      <LeftDrawer className="h-5 w-5" aria-hidden="true" />
-                    )}
-                  </button>
-
                   {isHeaderCollapsed ? null : (
-                    <>
                       <RoadmapFilters
                         items={items}
                         selectedPillars={selectedPillars}
                         setSelectedPillars={setSelectedPillars}
                         selectedRegions={selectedRegions}
-                        setSelectedRegions={setSelectedRegions}
-                        selectedCriticalities={selectedCriticalities}
-                        setSelectedCriticalities={setSelectedCriticalities}
-                        selectedImpactedStakeholders={
-                          selectedImpactedStakeholders
-                        }
-                        setSelectedImpactedStakeholders={
-                          setSelectedImpactedStakeholders
-                        }
-                        selectedGroupBy={selectedGroupBy}
-                        setSelectedGroupBy={setSelectedGroupBy}
-                        displayOptions={displayOptions}
-                        setDisplayOptions={setDisplayOptions}
-                        selectedTheme={selectedTheme}
-                        setSelectedTheme={setSelectedTheme}
+                      setSelectedRegions={setSelectedRegions}
+                      selectedCriticalities={selectedCriticalities}
+                      setSelectedCriticalities={setSelectedCriticalities}
+                      selectedImpactedStakeholders={selectedImpactedStakeholders}
+                      setSelectedImpactedStakeholders={
+                        setSelectedImpactedStakeholders
+                      }
+                      selectedGroupBy={selectedGroupBy}
+                      setSelectedGroupBy={setSelectedGroupBy}
+                      displayOptions={displayOptions}
+                      setDisplayOptions={setDisplayOptions}
+                      selectedTheme={selectedTheme}
+                      setSelectedTheme={setSelectedTheme}
                         startDate={startDate}
                         setStartDate={setStartDate}
                         quartersToShow={quartersToShow}
                         setQuartersToShow={setQuartersToShow}
-                        savedViewsPanel={
-                          <SavedViewsPanel
-                            isLoading={isLoadingViews}
-                            personalViews={personalViews}
-                            sharedViews={sharedViews}
-                            shareBaseUrl={shareBaseUrl}
-                            onSaveView={handleSaveView}
-                            onLoadView={handleLoadView}
-                            onRenameView={handleRenameView}
-                            onDeleteView={handleDeleteView}
-                            onGenerateLink={handleGenerateLink}
-                            onUpdateView={handleUpdateView}
-                            activeViewId={loadedView?.id ?? null}
-                          />
-                        }
                         showDebugOutlines={showDebugOutlines}
+                        isCollapsed={false}
+                        onToggleCollapsed={() => setIsHeaderCollapsed(true)}
                       />
-                    </>
                   )}
                 </div>
               </aside>
