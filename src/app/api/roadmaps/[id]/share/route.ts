@@ -11,6 +11,17 @@ import {
 
 const VALID_ROLES: RoadmapRole[] = ['editor', 'owner'];
 
+const canModifyShareEntry = (
+  grantorRole: RoadmapRole,
+  targetRole: RoadmapRole,
+  isSelf: boolean,
+) => {
+  if (!grantorRole || !targetRole) return false;
+  if (isSelf) return false;
+  if (grantorRole === 'owner') return true;
+  return targetRole === 'viewer';
+};
+
 async function resolveUserId(value: string): Promise<string | null> {
   const trimmed = value.trim();
   if (!trimmed) return null;
@@ -190,11 +201,25 @@ export async function POST(
   if (!canGrantRoadmapRole(grantorRole, requestedRole)) {
     return NextResponse.json({ error: 'Cannot grant higher role' }, { status: 403 });
   }
-  if (targetUserId === userId && requestedRole !== 'owner') {
+  if (targetUserId === userId) {
     return NextResponse.json(
-      { error: 'Owner cannot demote themselves' },
+      { error: 'Cannot change your own access' },
       { status: 400 },
     );
+  }
+
+  const targetRows = await sql`
+    SELECT role
+    FROM roadmap_shares
+    WHERE roadmap_id = ${id} AND user_id = ${targetUserId}
+    LIMIT 1
+  `;
+  const target = targetRows[0] as { role: RoadmapRole } | undefined;
+  if (target?.role && !canModifyShareEntry(grantorRole, target.role, targetUserId === userId)) {
+    return NextResponse.json({ error: 'Cannot modify peer access' }, { status: 403 });
+  }
+  if (target?.role && !canGrantRoadmapRole(grantorRole, target.role)) {
+    return NextResponse.json({ error: 'Cannot update higher role' }, { status: 403 });
   }
 
   const now = new Date().toISOString();

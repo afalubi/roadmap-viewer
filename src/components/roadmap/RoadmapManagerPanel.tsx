@@ -302,6 +302,12 @@ export function RoadmapManagerPanel({
     : (['editor', 'owner'] as RoadmapRole[]);
 
   const canManageShare = shareRoadmap ? canShare(shareRoadmap.role) : false;
+  const canModifyEntry = (role: RoadmapRole, entryUserId: string) => {
+    if (!shareRoadmap) return false;
+    if (entryUserId === currentUserId) return false;
+    if (shareRoadmap.role === 'owner') return true;
+    return role === 'viewer';
+  };
   const visibleShareEntries = shareEntries.filter(
     (entry) => entry.userId !== currentUserId,
   );
@@ -489,7 +495,9 @@ export function RoadmapManagerPanel({
                                     {entry.userEmail ?? entry.userId}
                                   </div>
                                   <div className="flex items-center gap-2">
-                                    {canManageShare && entry.role !== 'viewer' ? (
+                                    {canManageShare &&
+                                    canModifyEntry(entry.role, entry.userId) &&
+                                    entry.role !== 'viewer' ? (
                                       <select
                                         className="rounded-md border border-slate-300 px-2 py-1 text-xs bg-white dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
                                         value={entry.role}
@@ -517,7 +525,9 @@ export function RoadmapManagerPanel({
                                         {roleLabel(entry.role)}
                                       </span>
                                     )}
-                                    {canManageShare && entry.role === 'viewer' ? (
+                                    {canManageShare &&
+                                    canModifyEntry(entry.role, entry.userId) &&
+                                    entry.role === 'viewer' ? (
                                       <button
                                         type="button"
                                         className="rounded-full border border-slate-300 px-2 py-0.5 text-[0.7rem] text-slate-600 hover:border-slate-400 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
@@ -539,13 +549,21 @@ export function RoadmapManagerPanel({
                                       type="button"
                                       className="rounded-full border border-rose-200 px-2 py-0.5 text-[0.7rem] text-rose-600 hover:border-rose-300 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-700/60 dark:text-rose-300 dark:hover:bg-rose-900/40"
                                       onClick={async () => {
-                                        if (!canManageShare) return;
+                                        if (
+                                          !canManageShare ||
+                                          !canModifyEntry(entry.role, entry.userId)
+                                        ) {
+                                          return;
+                                        }
                                         const ok = await onRevokeShare(shareRoadmap.id, entry.userId);
                                         if (ok) {
                                           await fetchShares(shareRoadmap.id);
                                         }
                                       }}
-                                      disabled={!canManageShare}
+                                      disabled={
+                                        !canManageShare ||
+                                        !canModifyEntry(entry.role, entry.userId)
+                                      }
                                     >
                                       Revoke
                                     </button>
