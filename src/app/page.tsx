@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   SignedIn,
   SignedOut,
@@ -16,18 +16,20 @@ import { parseStakeholders } from "@/lib/stakeholders";
 import { parseRoadmapCsv } from "@/lib/loadRoadmapFromCsv";
 import { RoadmapFilters } from "@/components/roadmap/RoadmapFilters";
 import { RoadmapTimeline } from "@/components/roadmap/RoadmapTimeline";
+import { RoadmapManagerPanel } from "@/components/roadmap/RoadmapManagerPanel";
 import { SavedViewsPanel } from "@/components/roadmap/SavedViewsPanel";
+import type { RoadmapDetail, RoadmapSummary } from "@/types/roadmaps";
 import type {
   DisplayOptions,
   GroupByOption,
   SavedView,
   ThemeOption,
   ViewPayload,
-  ViewScope,
 } from "@/types/views";
 
 export default function HomePage() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, userId } = useAuth();
+  const lastUserIdRef = useRef<string | null>(null);
   const [settingsKey, setSettingsKey] = useState<string | null>(null);
   const [items, setItems] = useState<RoadmapItem[]>([]);
   const [filteredItems, setFilteredItems] = useState<RoadmapItem[]>([]);
@@ -70,25 +72,48 @@ export default function HomePage() {
   const [isExporting, setIsExporting] = useState(false);
   const [isDraggingCsv, setIsDraggingCsv] = useState(false);
   const [showDebugOutlines, setShowDebugOutlines] = useState(false);
-  const [personalViews, setPersonalViews] = useState<SavedView[]>([]);
-  const [sharedViews, setSharedViews] = useState<SavedView[]>([]);
+  const [views, setViews] = useState<SavedView[]>([]);
   const [isLoadingViews, setIsLoadingViews] = useState(false);
+  const [roadmaps, setRoadmaps] = useState<RoadmapSummary[]>([]);
+  const [isLoadingRoadmaps, setIsLoadingRoadmaps] = useState(false);
+  const [activeRoadmapId, setActiveRoadmapId] = useState<string | null>(null);
+  const [activeRoadmapRole, setActiveRoadmapRole] = useState<
+    RoadmapSummary["role"] | null
+  >(null);
+  const [loadedRoadmapSlug, setLoadedRoadmapSlug] = useState("");
+  const [isRoadmapManageOpen, setIsRoadmapManageOpen] = useState(false);
+  const [shareRoadmapId, setShareRoadmapId] = useState<string | null>(null);
   const [shareBaseUrl, setShareBaseUrl] = useState("");
   const [loadedSharedSlug, setLoadedSharedSlug] = useState("");
   const [loadedView, setLoadedView] = useState<SavedView | null>(null);
 
   useEffect(() => {
-    loadRoadmap().then((data) => {
-      setItems(data);
-      setFilteredItems(data);
-    });
+    if (!isLoaded) return;
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("roadmap") || params.get("roadmapId") || params.get("view")) {
+        return;
+      }
+    }
+    if (!isSignedIn) {
+      loadRoadmap().then((data) => {
+        setItems(data);
+        setFilteredItems(data);
+      });
+    }
+  }, [isLoaded, isSignedIn]);
+
+  useEffect(() => {
+    if (isSignedIn) {
+      return;
+    }
     fetch("/data/roadmap.csv")
       .then((res) => res.text())
       .then((text) => setCurrentCsvText(text))
       .catch(() => {
         setCurrentCsvText("");
       });
-  }, []);
+  }, [isSignedIn]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -181,7 +206,10 @@ export default function HomePage() {
     }
   };
 
-  const handleLoadView = (view: SavedView) => {
+  const handleLoadView = async (view: SavedView) => {
+    if (view.roadmapId && view.roadmapId !== activeRoadmapId) {
+      await loadRoadmapById(view.roadmapId);
+    }
     applyViewPayload(view.payload);
     setLoadedView(view);
     if (typeof window !== "undefined") {
@@ -194,6 +222,10 @@ export default function HomePage() {
         nextUrl.searchParams.set("viewId", view.id);
         nextUrl.searchParams.delete("view");
         setLoadedSharedSlug("");
+      }
+      if (view.roadmapId) {
+        nextUrl.searchParams.set("roadmapId", view.roadmapId);
+        nextUrl.searchParams.delete("roadmap");
       }
       window.history.replaceState(null, "", nextUrl.toString());
     }
@@ -222,46 +254,145 @@ export default function HomePage() {
     }
   };
 
+  const fetchRoadmaps = async () => {
+    if (!isSignedIn) {
+      setRoadmaps([]);
+      setActiveRoadmapId(null);
+      setActiveRoadmapRole(null);
+      return;
+    }
+    setIsLoadingRoadmaps(true);
+    try {
+      const res = await fetch("/api/roadmaps");
+      const data = await res.json();
+      const list = (data.roadmaps ?? []) as RoadmapSummary[];
+      setRoadmaps(list);
+      if (list.length === 0) {
+        setActiveRoadmapId(null);
+        setActiveRoadmapRole(null);
+        setViews([]);
+        setLoadedView(null);
+        setLoadedSharedSlug("");
+        setLoadedRoadmapSlug("");
+        setItems([]);
+        setFilteredItems([]);
+        return;
+      }
+      const activeMatch = activeRoadmapId
+        ? list.find((roadmap) => roadmap.id === activeRoadmapId)
+        : null;
+      if (activeMatch) {
+        setActiveRoadmapRole(activeMatch.role);
+      } else if (activeRoadmapId) {
+        setActiveRoadmapRole(null);
+      }
+    } catch {
+      setRoadmaps([]);
+    } finally {
+      setIsLoadingRoadmaps(false);
+    }
+  };
+
+  const loadRoadmapById = async (roadmapId: string) => {
+    try {
+      const res = await fetch(`/api/roadmaps/${roadmapId}`);
+      if (!res.ok) return;
+      const data = (await res.json()) as { roadmap?: RoadmapDetail };
+      if (data.roadmap && typeof data.roadmap.csvText === "string") {
+        applyCsvText(data.roadmap.csvText);
+      }
+      if (data.roadmap) {
+        setActiveRoadmapId(data.roadmap.id);
+        setActiveRoadmapRole(data.roadmap.role);
+      }
+    } catch {
+      // Ignore load errors.
+    }
+  };
+
+  const loadRoadmapBySlug = async (slug: string, password?: string) => {
+    try {
+      const res = await fetch(`/api/roadmaps/slug/${slug}`, {
+        headers: password
+          ? { "x-roadmap-link-password": password }
+          : undefined,
+      });
+      if (res.status === 401) {
+        const data = await res.json();
+        if (data?.requiresPassword) {
+          const promptValue = window.prompt("Enter the roadmap password");
+          if (promptValue) {
+            await loadRoadmapBySlug(slug, promptValue);
+          }
+        }
+        return;
+      }
+      if (!res.ok) return;
+      const data = (await res.json()) as { roadmap?: RoadmapDetail };
+      if (data.roadmap && typeof data.roadmap.csvText === "string") {
+        applyCsvText(data.roadmap.csvText);
+      }
+      if (data.roadmap) {
+        setActiveRoadmapId(data.roadmap.id);
+        setActiveRoadmapRole(data.roadmap.role);
+        setLoadedRoadmapSlug(slug);
+        setLoadedView(null);
+        setLoadedSharedSlug("");
+        setShareRoadmapId(null);
+      }
+    } catch {
+      // Ignore load errors.
+    }
+  };
+
+  const handleLoadRoadmap = async (roadmap: RoadmapSummary) => {
+    if (typeof window !== "undefined") {
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.set("roadmapId", roadmap.id);
+      nextUrl.searchParams.delete("roadmap");
+      window.history.replaceState(null, "", nextUrl.toString());
+    }
+    setLoadedRoadmapSlug("");
+    setLoadedView(null);
+    setLoadedSharedSlug("");
+    setShareRoadmapId(null);
+    await loadRoadmapById(roadmap.id);
+  };
+
   const fetchViews = async () => {
     if (!isSignedIn) {
-      setPersonalViews([]);
-      setSharedViews([]);
+      setViews([]);
+      return;
+    }
+    if (!activeRoadmapId) {
+      setViews([]);
       return;
     }
     setIsLoadingViews(true);
     try {
-      const [personalRes, sharedRes] = await Promise.all([
-        fetch("/api/views?scope=personal"),
-        fetch("/api/views?scope=shared"),
-      ]);
-      const personalData = await personalRes.json();
-      const sharedData = await sharedRes.json();
-      setPersonalViews(personalData.views ?? []);
-      setSharedViews(sharedData.views ?? []);
+      const res = await fetch(`/api/views?roadmapId=${activeRoadmapId}`);
+      const data = await res.json();
+      setViews(data.views ?? []);
     } catch {
-      setPersonalViews([]);
-      setSharedViews([]);
+      setViews([]);
     } finally {
       setIsLoadingViews(false);
     }
   };
 
-  const handleSaveView = async (name: string, scope: ViewScope) => {
+  const handleSaveView = async (name: string) => {
     if (!isSignedIn) return;
+    if (!activeRoadmapId) return;
     const payload = buildViewPayload();
     await fetch("/api/views", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, scope, payload }),
+      body: JSON.stringify({ name, payload, roadmapId: activeRoadmapId }),
     });
     await fetchViews();
   };
 
-  const handleRenameView = async (
-    id: string,
-    _scope: ViewScope,
-    name: string
-  ) => {
+  const handleRenameView = async (id: string, name: string) => {
     if (!isSignedIn) return;
     await fetch(`/api/views/${id}`, {
       method: "PUT",
@@ -271,7 +402,7 @@ export default function HomePage() {
     await fetchViews();
   };
 
-  const handleDeleteView = async (id: string, _scope: ViewScope) => {
+  const handleDeleteView = async (id: string) => {
     if (!isSignedIn) return;
     await fetch(`/api/views/${id}`, { method: "DELETE" });
     if (loadedView?.id === id && typeof window !== "undefined") {
@@ -285,51 +416,229 @@ export default function HomePage() {
     await fetchViews();
   };
 
-  const handleGenerateLink = async (id: string) => {
-    if (!isSignedIn) return;
-    await fetch(`/api/views/${id}`, {
+  const handleCreateLink = async (
+    id: string,
+    options: { password?: string | null; rotate?: boolean }
+  ) => {
+    if (!isSignedIn) return false;
+    const res = await fetch(`/api/views/${id}/link`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(options),
+    });
+    if (!res.ok) return false;
+    await fetchViews();
+    return true;
+  };
+
+  const handleDeleteLink = async (id: string) => {
+    if (!isSignedIn) return false;
+    const res = await fetch(`/api/views/${id}/link`, { method: "DELETE" });
+    if (!res.ok) return false;
+    await fetchViews();
+    return true;
+  };
+
+  const handleCreateRoadmap = async (name: string, csvText: string) => {
+    if (!isSignedIn) return false;
+    const res = await fetch("/api/roadmaps", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, csvText }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    if (data.roadmap?.id) {
+      setActiveRoadmapId(data.roadmap.id);
+      setActiveRoadmapRole(data.roadmap.role);
+      applyCsvText(csvText);
+      setLoadedRoadmapSlug("");
+      setLoadedSharedSlug("");
+      setLoadedView(null);
+      setShareRoadmapId(null);
+      if (typeof window !== "undefined") {
+        const nextUrl = new URL(window.location.href);
+        nextUrl.searchParams.set("roadmapId", data.roadmap.id);
+        nextUrl.searchParams.delete("roadmap");
+        window.history.replaceState(null, "", nextUrl.toString());
+      }
+    }
+    await fetchRoadmaps();
+    return true;
+  };
+
+  const handleRenameRoadmap = async (id: string, name: string) => {
+    if (!isSignedIn) return false;
+    const res = await fetch(`/api/roadmaps/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ generateSlug: true }),
+      body: JSON.stringify({ name }),
     });
-    await fetchViews();
+    if (!res.ok) return false;
+    await fetchRoadmaps();
+    return true;
+  };
+
+  const handleDeleteRoadmap = async (id: string) => {
+    if (!isSignedIn) return false;
+    const res = await fetch(`/api/roadmaps/${id}`, { method: "DELETE" });
+    if (!res.ok) return false;
+    if (activeRoadmapId === id && typeof window !== "undefined") {
+      setActiveRoadmapId(null);
+      setActiveRoadmapRole(null);
+      setViews([]);
+      setShareRoadmapId(null);
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.delete("roadmap");
+      nextUrl.searchParams.delete("roadmapId");
+      window.history.replaceState(null, "", nextUrl.toString());
+    }
+    await fetchRoadmaps();
+    return true;
+  };
+
+  const handleShareRoadmapUser = async (
+    id: string,
+    targetUserId: string,
+    role: "viewer" | "editor" | "owner"
+  ) => {
+    if (!isSignedIn) return false;
+    const res = await fetch(`/api/roadmaps/${id}/share`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: targetUserId, role }),
+    });
+    return res.ok;
+  };
+
+  const handleUpdateRoadmapShare = async (
+    id: string,
+    targetUserId: string,
+    role: "viewer" | "editor" | "owner"
+  ) => {
+    if (!isSignedIn) return false;
+    const res = await fetch(`/api/roadmaps/${id}/share/${targetUserId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role }),
+    });
+    return res.ok;
+  };
+
+  const handleRevokeRoadmapShare = async (
+    id: string,
+    targetUserId: string
+  ) => {
+    if (!isSignedIn) return false;
+    const res = await fetch(`/api/roadmaps/${id}/share/${targetUserId}`, {
+      method: "DELETE",
+    });
+    return res.ok;
   };
 
   useEffect(() => {
     if (!isLoaded) return;
     if (!isSignedIn) {
-      setPersonalViews([]);
-      setSharedViews([]);
+      setViews([]);
+      setRoadmaps([]);
       return;
     }
-    fetchViews();
+    fetchRoadmaps();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoaded, isSignedIn]);
 
   useEffect(() => {
-    if (!isSignedIn) return;
+    if (!isLoaded) return;
+    if (lastUserIdRef.current === null) {
+      lastUserIdRef.current = userId ?? null;
+      return;
+    }
+    if (lastUserIdRef.current !== userId) {
+      lastUserIdRef.current = userId ?? null;
+      setIsLoadingRoadmaps(true);
+      setRoadmaps([]);
+      setActiveRoadmapId(null);
+      setActiveRoadmapRole(null);
+      setViews([]);
+      setLoadedView(null);
+      setLoadedSharedSlug("");
+      setLoadedRoadmapSlug("");
+      setFilteredItems([]);
+      setItems([]);
+    }
+  }, [isLoaded, userId]);
+
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const slug = params.get("view") ?? "";
     if (!slug || slug === loadedSharedSlug) return;
-    const fetchSharedView = async () => {
+
+    const fetchSharedView = async (password?: string) => {
       try {
-        const res = await fetch(`/api/views/slug/${slug}`);
+        const res = await fetch(`/api/views/slug/${slug}`, {
+          headers: password ? { "x-view-link-password": password } : undefined,
+        });
+        if (res.status === 401) {
+          const data = await res.json();
+          if (data?.requiresPassword) {
+            const promptValue = window.prompt("Enter the share password");
+            if (promptValue) {
+              await fetchSharedView(promptValue);
+            }
+          }
+          return;
+        }
         if (!res.ok) return;
         const data = await res.json();
+        if (typeof data.view?.roadmapCsvText === "string") {
+          applyCsvText(data.view.roadmapCsvText as string);
+        }
         if (data.view?.payload) {
           applyViewPayload(data.view.payload as ViewPayload);
-          if (data.view) {
-            setLoadedView(data.view as SavedView);
-          }
-          setLoadedSharedSlug(slug);
         }
+        if (data.view) {
+          setLoadedView(data.view as SavedView);
+          if (data.view.roadmapId) {
+            setActiveRoadmapId(data.view.roadmapId as string);
+            setActiveRoadmapRole("viewer");
+          }
+        }
+        setLoadedSharedSlug(slug);
       } catch {
         // Ignore fetch errors for shared views.
       }
     };
+
     fetchSharedView();
-  }, [isSignedIn, loadedSharedSlug]);
+  }, [loadedSharedSlug]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const slug = params.get("roadmap") ?? "";
+    const roadmapIdParam = params.get("roadmapId") ?? "";
+
+    if (slug && slug !== loadedRoadmapSlug) {
+      loadRoadmapBySlug(slug);
+      return;
+    }
+    if (isSignedIn && roadmapIdParam && roadmapIdParam !== activeRoadmapId) {
+      loadRoadmapById(roadmapIdParam);
+      return;
+    }
+    if (isSignedIn && !activeRoadmapId && roadmaps.length > 0) {
+      handleLoadRoadmap(roadmaps[0]);
+    }
+  }, [
+    isLoaded,
+    isSignedIn,
+    activeRoadmapId,
+    loadedRoadmapSlug,
+    roadmaps,
+  ]);
 
   useEffect(() => {
     if (!isSignedIn) return;
@@ -337,10 +646,17 @@ export default function HomePage() {
     const params = new URLSearchParams(window.location.search);
     const viewId = params.get("viewId") ?? "";
     if (!viewId || loadedView?.id === viewId) return;
-    const match = personalViews.find((view) => view.id === viewId);
+    const match = views.find((view) => view.id === viewId);
     if (!match) return;
     handleLoadView(match);
-  }, [isSignedIn, personalViews, loadedView?.id]);
+  }, [isSignedIn, views, loadedView?.id]);
+
+  useEffect(() => {
+    if (!isSignedIn) return;
+    if (!activeRoadmapId) return;
+    fetchViews();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSignedIn, activeRoadmapId]);
 
   const handleCsvDownload = () => {
     const csv = currentCsvText || buildCsvFromItems(items);
@@ -348,12 +664,20 @@ export default function HomePage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "roadmap.csv";
+    const roadmapName =
+      roadmaps.find((roadmap) => roadmap.id === activeRoadmapId)?.name ??
+      "roadmap";
+    const safeName = roadmapName
+      .trim()
+      .replace(/\s+/g, "-")
+      .replace(/[\\/:*?"<>|]+/g, "-");
+    const dateSuffix = new Date().toISOString().slice(0, 10);
+    link.download = `${safeName || "roadmap"}-${dateSuffix}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
 
-  const handleCsvUploadText = (text: string) => {
+  const applyCsvText = (text: string) => {
     const parsedItems = parseRoadmapCsv(text);
     setItems(parsedItems);
     setFilteredItems(parsedItems);
@@ -362,6 +686,22 @@ export default function HomePage() {
     setSelectedCriticalities([]);
     setSelectedImpactedStakeholders([]);
     setCurrentCsvText(text);
+  };
+
+  const handleCsvUploadText = async (text: string) => {
+    applyCsvText(text);
+    if (!isSignedIn || !activeRoadmapId) return;
+    if (!activeRoadmapRole || activeRoadmapRole === "viewer") return;
+    try {
+      await fetch(`/api/roadmaps/${activeRoadmapId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ csvText: text }),
+      });
+      await fetchRoadmaps();
+    } catch {
+      // Ignore CSV sync errors for now.
+    }
   };
 
   const handleCsvFile = async (file?: File | null) => {
@@ -451,25 +791,36 @@ export default function HomePage() {
       : null,
   ].filter(Boolean) as string[];
 
-  const viewOptions = [
-    ...personalViews.map((view) => ({
-      value: `personal:${view.id}`,
-      label: view.name,
-      view,
-    })),
-    ...sharedViews.map((view) => ({
-      value: `shared:${view.id}`,
-      label: view.name,
-      view,
-    })),
-  ];
-  const selectedViewValue = loadedView
-    ? `${loadedView.scope}:${loadedView.id}`
-    : "";
+  const viewOptions = views.map((view) => ({
+    value: view.id,
+    label: `${view.name} (${view.role})`,
+    view,
+  }));
+  const selectedViewValue =
+    loadedView && viewOptions.some((option) => option.value === loadedView.id)
+      ? loadedView.id
+      : "";
   const handleViewSelect = (value: string) => {
     const match = viewOptions.find((option) => option.value === value);
     if (match) {
       handleLoadView(match.view);
+    }
+  };
+
+  const roadmapOptions = roadmaps.map((roadmap) => ({
+    value: roadmap.id,
+    label: `${roadmap.name} (${roadmap.role})`,
+    roadmap,
+  }));
+  const selectedRoadmapValue =
+    activeRoadmapId &&
+    roadmapOptions.some((option) => option.value === activeRoadmapId)
+      ? activeRoadmapId
+      : "";
+  const handleRoadmapSelect = (value: string) => {
+    const match = roadmapOptions.find((option) => option.value === value);
+    if (match) {
+      handleLoadRoadmap(match.roadmap);
     }
   };
 
@@ -646,7 +997,57 @@ export default function HomePage() {
               Visualize roadmap ideas across pillars, time, and regions.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <SignedIn>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Roadmap
+                </span>
+                <select
+                  className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                  value={selectedRoadmapValue}
+                  onChange={(e) => handleRoadmapSelect(e.target.value)}
+                >
+                  <option value="">Select roadmap</option>
+                  {roadmapOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <details
+                  className="relative"
+                  open={isRoadmapManageOpen}
+                  onToggle={(event) =>
+                    setIsRoadmapManageOpen(
+                      (event.target as HTMLDetailsElement).open
+                    )
+                  }
+                >
+                  <summary className="list-none rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 cursor-pointer hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800">
+                    Manage
+                  </summary>
+                  <div className="absolute right-0 z-[120] mt-2 w-[28rem] max-w-[90vw] rounded-lg border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                        <RoadmapManagerPanel
+                          isLoading={isLoadingRoadmaps}
+                          roadmaps={roadmaps}
+                          currentUserId={userId ?? null}
+                          activeRoadmapId={activeRoadmapId}
+                          shareRoadmapId={shareRoadmapId}
+                          onShareRoadmapClose={() => setShareRoadmapId(null)}
+                          onLoadRoadmap={handleLoadRoadmap}
+                          onCreateRoadmap={handleCreateRoadmap}
+                          onRenameRoadmap={handleRenameRoadmap}
+                          onDeleteRoadmap={handleDeleteRoadmap}
+                          onShareUser={handleShareRoadmapUser}
+                          onUpdateShare={handleUpdateRoadmapShare}
+                          onRevokeShare={handleRevokeRoadmapShare}
+                          variant="plain"
+                        />
+                  </div>
+                </details>
+              </div>
+            </SignedIn>
             <SignedOut>
               <SignInButton mode="modal">
                 <button
@@ -664,20 +1065,75 @@ export default function HomePage() {
         </header>
 
         <SignedOut>
-          <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-            Please sign in to view the roadmap.
+          <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-slate-100 p-8 shadow-sm dark:border-slate-700 dark:from-slate-900 dark:via-slate-900/70 dark:to-slate-950">
+            <div className="max-w-2xl space-y-3">
+              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                Tech Roadmap Viewer
+              </div>
+              <h2 className="text-2xl font-semibold text-slate-900 sm:text-3xl dark:text-slate-100">
+                Sign in to view and manage roadmaps.
+              </h2>
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                Use your organization account to access your saved roadmaps,
+                manage sharing, and keep timelines aligned.
+              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                <SignInButton mode="modal">
+                  <button
+                    type="button"
+                    className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100"
+                  >
+                    Sign in
+                  </button>
+                </SignInButton>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  You can still browse the demo data while signed out.
+                </span>
+              </div>
+            </div>
           </div>
         </SignedOut>
 
         <SignedIn>
-          <div
-            className={[
-              "space-y-3",
-              showDebugOutlines
-                ? "outline outline-1 outline-dashed outline-amber-300/80"
-                : "",
-            ].join(" ")}
-          >
+          {isLoadingRoadmaps ? (
+            <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+              Loading roadmaps...
+            </div>
+          ) : null}
+          {!isLoadingRoadmaps && roadmaps.length === 0 ? (
+            <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+              <div className="space-y-2">
+                <div className="text-base font-semibold text-slate-800 dark:text-slate-100">
+                  Create your first roadmap
+                </div>
+                <p>
+                  You don’t have any roadmaps yet. Create one to start adding
+                  items or import a CSV.
+                </p>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                  onClick={() => {
+                    setIsRoadmapManageOpen(true);
+                    if (typeof window !== "undefined") {
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }
+                  }}
+                >
+                  Open Roadmap Manager
+                </button>
+              </div>
+            </div>
+          ) : null}
+          {!isLoadingRoadmaps && roadmaps.length > 0 ? (
+            <div
+              className={[
+                "space-y-3",
+                showDebugOutlines
+                  ? "outline outline-1 outline-dashed outline-amber-300/80"
+                  : "",
+              ].join(" ")}
+            >
             <div
               className={[
                 "flex flex-wrap items-center gap-3",
@@ -771,62 +1227,82 @@ export default function HomePage() {
                   marginLeft: isHeaderCollapsed ? 0 : "calc(20rem + 1.5rem)",
                 }}
               >
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    View
-                  </span>
-                  <select
-                    className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
-                    value={selectedViewValue}
-                    onChange={(e) => handleViewSelect(e.target.value)}
+                <div className="flex flex-wrap items-center gap-6">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      View
+                    </span>
+                    <select
+                      className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                      value={selectedViewValue}
+                      onChange={(e) => handleViewSelect(e.target.value)}
+                    >
+                      <option value="">Select view</option>
+                      {viewOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <details className="relative">
+                      <summary className="list-none rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 cursor-pointer hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800">
+                        Manage
+                      </summary>
+                      <div className="absolute left-0 z-[120] mt-2 w-96 max-w-[90vw] rounded-lg border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                        <SavedViewsPanel
+                          isLoading={isLoadingViews}
+                          views={views}
+                          shareBaseUrl={shareBaseUrl}
+                          onSaveView={handleSaveView}
+                          onLoadView={handleLoadView}
+                          onRenameView={handleRenameView}
+                          onDeleteView={handleDeleteView}
+                          onCreateLink={handleCreateLink}
+                          onDeleteLink={handleDeleteLink}
+                          onUpdateView={handleUpdateView}
+                          activeViewId={loadedView?.id ?? null}
+                          variant="plain"
+                        />
+                      </div>
+                    </details>
+                  </div>
+                  <button
+                    type="button"
+                    className={[
+                      "inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800",
+                    ].join(" ")}
+                    onClick={() => {
+                      if (activeRoadmapId) {
+                        setShareRoadmapId(activeRoadmapId);
+                      }
+                    }}
+                    disabled={
+                      !activeRoadmapId ||
+                      !activeRoadmapRole ||
+                      activeRoadmapRole === "viewer"
+                    }
+                    title="Share current roadmap"
                   >
-                    <option value="">Select view</option>
-                    {personalViews.length ? (
-                      <optgroup label="Personal">
-                        {personalViews.map((view) => (
-                          <option
-                            key={`personal-${view.id}`}
-                            value={`personal:${view.id}`}
-                          >
-                            {view.name}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ) : null}
-                    {sharedViews.length ? (
-                      <optgroup label="Shared">
-                        {sharedViews.map((view) => (
-                          <option
-                            key={`shared-${view.id}`}
-                            value={`shared:${view.id}`}
-                          >
-                            {view.name}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ) : null}
-                  </select>
-                  <details className="relative">
-                    <summary className="list-none rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 cursor-pointer hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800">
-                      Manage
-                    </summary>
-                    <div className="absolute left-0 z-[120] mt-2 w-96 max-w-[90vw] rounded-lg border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-700 dark:bg-slate-900">
-                      <SavedViewsPanel
-                        isLoading={isLoadingViews}
-                        personalViews={personalViews}
-                        sharedViews={sharedViews}
-                        shareBaseUrl={shareBaseUrl}
-                        onSaveView={handleSaveView}
-                        onLoadView={handleLoadView}
-                        onRenameView={handleRenameView}
-                        onDeleteView={handleDeleteView}
-                        onGenerateLink={handleGenerateLink}
-                        onUpdateView={handleUpdateView}
-                        activeViewId={loadedView?.id ?? null}
-                        variant="plain"
-                      />
-                    </div>
-                  </details>
+                    <span className="inline-flex h-4 w-4 items-center justify-center text-sky-600">
+                      <svg
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle cx="18" cy="5" r="2" />
+                        <circle cx="6" cy="12" r="2" />
+                        <circle cx="18" cy="19" r="2" />
+                        <path d="M8 12l8-6" />
+                        <path d="M8 12l8 6" />
+                      </svg>
+                    </span>
+                    Share roadmap
+                  </button>
                 </div>
                 <label
                   className={[
@@ -1027,7 +1503,8 @@ export default function HomePage() {
                 />
               </div>
             </div>
-          </div>
+            </div>
+          ) : null}
         </SignedIn>
       </div>
     </main>

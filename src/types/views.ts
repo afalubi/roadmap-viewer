@@ -1,6 +1,6 @@
 import type { Region } from '@/lib/region';
 
-export type ViewScope = 'personal' | 'shared';
+export type ViewRole = 'owner' | 'editor' | 'viewer';
 
 export interface DisplayOptions {
   showRegionEmojis: boolean;
@@ -51,9 +51,10 @@ export interface ViewPayload {
 export interface SavedView {
   id: string;
   name: string;
-  scope: ViewScope;
+  roadmapId: string;
   payload: ViewPayload;
   sharedSlug?: string | null;
   createdAt: string;
   updatedAt: string;
+  role: ViewRole;
 }

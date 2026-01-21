@@ -1,0 +1,217 @@
+import { NextResponse, type NextRequest } from 'next/server';
+import { auth, clerkClient } from '@clerk/nextjs/server';
+import { sql } from '@/lib/neon';
+import { ensureRoadmapsSchema } from '@/lib/roadmapsDb';
+import {
+  canGrantRoadmapRole,
+  getRoadmapRole,
+  hasRoadmapRoleAtLeast,
+  type RoadmapRole,
+} from '@/lib/roadmapsAccess';
+
+const VALID_ROLES: RoadmapRole[] = ['editor', 'owner'];
+
+async function resolveUserId(value: string): Promise<string | null> {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  console.log('[roadmap-share] resolveUserId input', trimmed);
+  const client = await clerkClient();
+  if (trimmed.includes('@')) {
+    try {
+      console.log('[roadmap-share] lookup by emailAddress', trimmed.toLowerCase());
+      const result = await client.users.getUserList({
+        emailAddress: [trimmed.toLowerCase()],
+        limit: 1,
+      });
+      const users = Array.isArray(result) ? result : result.data;
+      console.log('[roadmap-share] emailAddress result', {
+        count: users?.length ?? 0,
+        ids: users?.map((user) => user.id),
+        emails: users?.map((user) =>
+          user.emailAddresses?.map((entry: { emailAddress?: string }) => entry.emailAddress),
+        ),
+      });
+      const user = users?.[0];
+      if (user?.id) return user.id;
+    } catch (error) {
+      console.log('[roadmap-share] emailAddress lookup error', error);
+      return null;
+    }
+    try {
+      console.log('[roadmap-share] lookup by query', trimmed);
+      const result = await client.users.getUserList({
+        query: trimmed,
+        limit: 10,
+      });
+      const users = Array.isArray(result) ? result : result.data;
+      console.log('[roadmap-share] query result', {
+        count: users?.length ?? 0,
+        ids: users?.map((user) => user.id),
+        emails: users?.map((user) =>
+          user.emailAddresses?.map((entry: { emailAddress?: string }) => entry.emailAddress),
+        ),
+      });
+      const match = users?.find((candidate) =>
+        candidate.emailAddresses?.some(
+          (entry: { emailAddress?: string }) =>
+            entry.emailAddress?.toLowerCase() === trimmed.toLowerCase(),
+        ),
+      );
+      console.log('[roadmap-share] query match', match?.id ?? null);
+      return match?.id ?? null;
+    } catch (error) {
+      console.log('[roadmap-share] query lookup error', error);
+      return null;
+    }
+  }
+  console.log('[roadmap-share] treating input as user id', trimmed);
+  return trimmed;
+}
+
+async function resolveUserEmail(
+  userId: string,
+  client: Awaited<ReturnType<typeof clerkClient>>,
+): Promise<string | null> {
+  try {
+    const user = await client.users.getUser(userId);
+    const email =
+      user.primaryEmailAddress?.emailAddress ??
+      user.emailAddresses?.[0]?.emailAddress;
+    return email ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function GET(
+  _request: NextRequest,
+  context: { params: Promise<{ id: string }> },
+) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { id } = await context.params;
+  await ensureRoadmapsSchema();
+
+  const existingRows = await sql`
+    SELECT id
+    FROM roadmaps
+    WHERE id = ${id}
+    LIMIT 1
+  `;
+  if (existingRows.length === 0) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
+  const role = await getRoadmapRole(userId, id);
+  if (!hasRoadmapRoleAtLeast(role, 'editor')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const rows = await sql`
+    SELECT user_id, role, user_email, created_at, updated_at
+    FROM roadmap_shares
+    WHERE roadmap_id = ${id}
+    ORDER BY
+      CASE role
+        WHEN 'owner' THEN 3
+        WHEN 'editor' THEN 2
+        WHEN 'viewer' THEN 1
+        ELSE 0
+      END DESC,
+      updated_at DESC
+  `;
+
+  const client = await clerkClient();
+  const shares = await Promise.all(
+    rows.map(async (row: any) => {
+      const email =
+        row.user_email ??
+        (await resolveUserEmail(row.user_id as string, client));
+      return {
+        userId: row.user_id,
+        userEmail: email ?? 'Email unavailable',
+        role: row.role,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      };
+    }),
+  );
+
+  return NextResponse.json({ shares });
+}
+
+export async function POST(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> },
+) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { id } = await context.params;
+  const body = (await request.json()) as { userId?: string; role?: RoadmapRole };
+  const targetInput = body.userId?.trim() ?? '';
+  const requestedRole = body.role;
+  const targetEmail = targetInput.includes('@') ? targetInput : null;
+
+  const targetUserId = targetInput ? await resolveUserId(targetInput) : null;
+  console.log('[roadmap-share] resolved target', {
+    input: targetInput,
+    resolved: targetUserId,
+  });
+
+  if (!targetUserId) {
+    return NextResponse.json({ error: 'User not found' }, { status: 404 });
+  }
+  if (!requestedRole || !VALID_ROLES.includes(requestedRole)) {
+    return NextResponse.json({ error: 'Invalid share request' }, { status: 400 });
+  }
+
+  await ensureRoadmapsSchema();
+  const client = await clerkClient();
+  const existingRows = await sql`
+    SELECT id
+    FROM roadmaps
+    WHERE id = ${id}
+    LIMIT 1
+  `;
+  if (existingRows.length === 0) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
+  const grantorRole = await getRoadmapRole(userId, id);
+  if (!hasRoadmapRoleAtLeast(grantorRole, 'editor')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+  if (!canGrantRoadmapRole(grantorRole, requestedRole)) {
+    return NextResponse.json({ error: 'Cannot grant higher role' }, { status: 403 });
+  }
+  if (targetUserId === userId && requestedRole !== 'owner') {
+    return NextResponse.json(
+      { error: 'Owner cannot demote themselves' },
+      { status: 400 },
+    );
+  }
+
+  const now = new Date().toISOString();
+  const resolvedEmail =
+    targetEmail ?? (targetUserId ? await resolveUserEmail(targetUserId, client) : null);
+  await sql`
+    INSERT INTO roadmap_shares
+      (roadmap_id, user_id, role, user_email, created_at, updated_at, created_by, updated_by)
+    VALUES
+      (${id}, ${targetUserId}, ${requestedRole}, ${resolvedEmail}, ${now}, ${now}, ${userId}, ${userId})
+    ON CONFLICT (roadmap_id, user_id)
+    DO UPDATE SET
+      role = ${requestedRole},
+      user_email = COALESCE(${resolvedEmail}, roadmap_shares.user_email),
+      updated_at = ${now},
+      updated_by = ${userId}
+  `;
+
+  return NextResponse.json({ success: true });
+}

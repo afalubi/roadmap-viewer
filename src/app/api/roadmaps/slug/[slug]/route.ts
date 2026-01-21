@@ -2,61 +2,52 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createHash } from 'crypto';
 import { sql } from '@/lib/neon';
-import { ensureViewsSchema } from '@/lib/viewsDb';
 import { ensureRoadmapsSchema } from '@/lib/roadmapsDb';
-import { getViewRole, type ViewRole } from '@/lib/viewsAccess';
+import { getRoadmapRole, type RoadmapRole } from '@/lib/roadmapsAccess';
 
 const hashPassword = (value: string) =>
   createHash('sha256').update(value).digest('hex');
 
-const roleRank: Record<Exclude<ViewRole, null>, number> = {
+const roleRank: Record<Exclude<RoadmapRole, null>, number> = {
   viewer: 1,
   editor: 2,
   owner: 3,
 };
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ slug: string }> },
 ) {
   const { userId } = await auth();
-
   const { slug } = await context.params;
+
   if (!slug) {
     return NextResponse.json({ error: 'Invalid slug' }, { status: 400 });
   }
 
-  await ensureViewsSchema();
   await ensureRoadmapsSchema();
   const rows = await sql`
     SELECT
-      v.id,
-      v.name,
-      v.roadmap_id,
-      v.payload,
-      v.created_at,
-      v.updated_at,
+      r.id,
+      r.name,
       r.csv_text,
-      vl.slug,
-      vl.role,
-      vl.password_hash
-    FROM view_links vl
-    JOIN views v ON v.id = vl.view_id
-    LEFT JOIN roadmaps r ON r.id = v.roadmap_id
-    WHERE vl.slug = ${slug}
+      r.created_at,
+      r.updated_at,
+      rl.slug,
+      rl.password_hash
+    FROM roadmap_links rl
+    JOIN roadmaps r ON r.id = rl.roadmap_id
+    WHERE rl.slug = ${slug}
     LIMIT 1
   `;
   const row = (rows[0] as
     | {
         id: string;
         name: string;
-        roadmap_id: string | null;
-        payload: string;
+        csv_text: string;
         created_at: string;
         updated_at: string;
-        csv_text: string | null;
         slug: string;
-        role: ViewRole;
         password_hash: string | null;
       }
     | undefined);
@@ -66,8 +57,8 @@ export async function GET(
   }
 
   const providedPassword =
-    _request.headers.get('x-view-link-password') ??
-    new URL(_request.url).searchParams.get('password');
+    request.headers.get('x-roadmap-link-password') ??
+    new URL(request.url).searchParams.get('password');
   if (row.password_hash) {
     if (!providedPassword) {
       return NextResponse.json(
@@ -83,23 +74,20 @@ export async function GET(
     }
   }
 
-  const shareRole = userId ? await getViewRole(userId, row.id) : null;
-  const linkRole: ViewRole = 'viewer';
+  const shareRole = userId ? await getRoadmapRole(userId, row.id) : null;
   const effectiveRole = shareRole
-    ? roleRank[shareRole] >= roleRank[linkRole] ? shareRole : linkRole
-    : linkRole;
+    ? roleRank[shareRole] >= roleRank.viewer ? shareRole : 'viewer'
+    : 'viewer';
 
   return NextResponse.json({
-    view: {
+    roadmap: {
       id: row.id,
       name: row.name,
-      roadmapId: row.roadmap_id,
-      payload: JSON.parse(row.payload),
-      sharedSlug: row.slug,
-      role: effectiveRole,
-      roadmapCsvText: row.csv_text,
+      csvText: row.csv_text,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      sharedSlug: row.slug,
+      role: effectiveRole,
     },
   });
 }

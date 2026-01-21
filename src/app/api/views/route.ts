@@ -2,11 +2,8 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { sql } from '@/lib/neon';
 import { ensureViewsSchema } from '@/lib/viewsDb';
-
-const VALID_SCOPES = new Set(['personal', 'shared']);
-
-const generateSlug = () =>
-  Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
+import { ensureRoadmapsSchema } from '@/lib/roadmapsDb';
+import { getRoadmapRole, hasRoadmapRoleAtLeast } from '@/lib/roadmapsAccess';
 
 export async function GET(request: Request) {
   const { userId } = await auth();
@@ -15,35 +12,51 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const scope = searchParams.get('scope') ?? 'personal';
-  if (!VALID_SCOPES.has(scope)) {
-    return NextResponse.json({ error: 'Invalid scope' }, { status: 400 });
+  const roadmapId = searchParams.get('roadmapId');
+  if (!roadmapId) {
+    return NextResponse.json({ error: 'roadmapId is required' }, { status: 400 });
+  }
+
+  await ensureRoadmapsSchema();
+  const roadmapRole = await getRoadmapRole(userId, roadmapId);
+  if (!hasRoadmapRoleAtLeast(roadmapRole, 'viewer')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   await ensureViewsSchema();
-  const rows =
-    scope === 'personal'
-      ? await sql`
-          SELECT id, name, scope, payload, shared_slug, created_at, updated_at
-          FROM views
-          WHERE scope = 'personal' AND owner_user_id = ${userId}
-          ORDER BY updated_at DESC
-        `
-      : await sql`
-          SELECT id, name, scope, payload, shared_slug, created_at, updated_at
-          FROM views
-          WHERE scope = 'shared'
-          ORDER BY updated_at DESC
-        `;
+  const rows = await sql`
+    SELECT
+      v.id,
+      v.name,
+      v.roadmap_id,
+      v.payload,
+      v.created_at,
+      v.updated_at,
+      vs.role,
+      vl.shared_slug
+    FROM views v
+    JOIN view_shares vs
+      ON vs.view_id = v.id
+    LEFT JOIN (
+      SELECT view_id, MIN(slug) AS shared_slug
+      FROM view_links
+      GROUP BY view_id
+    ) vl
+      ON vl.view_id = v.id
+    WHERE vs.user_id = ${userId}
+      AND v.roadmap_id = ${roadmapId}
+    ORDER BY v.updated_at DESC
+  `;
 
   const views = rows.map((row: any) => ({
     id: row.id,
     name: row.name,
-    scope: row.scope,
+    roadmapId: row.roadmap_id ?? '',
     payload: JSON.parse(row.payload),
     sharedSlug: row.shared_slug,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    role: row.role,
   }));
 
   return NextResponse.json({ views });
@@ -57,63 +70,55 @@ export async function POST(request: Request) {
 
   const body = (await request.json()) as {
     name?: string;
-    scope?: 'personal' | 'shared';
     payload?: unknown;
+    roadmapId?: string;
   };
   const name = (body.name ?? '').trim();
-  const scope = body.scope ?? 'personal';
+  const roadmapId = body.roadmapId?.trim() ?? '';
 
   if (!name) {
     return NextResponse.json({ error: 'Name is required' }, { status: 400 });
   }
-  if (!VALID_SCOPES.has(scope)) {
-    return NextResponse.json({ error: 'Invalid scope' }, { status: 400 });
-  }
   if (!body.payload) {
     return NextResponse.json({ error: 'Payload is required' }, { status: 400 });
+  }
+  if (!roadmapId) {
+    return NextResponse.json({ error: 'Roadmap is required' }, { status: 400 });
   }
 
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
-  await ensureViewsSchema();
-  let sharedSlug: string | null = null;
-
-  if (scope === 'shared') {
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      const candidate = generateSlug();
-      const existing = await sql`
-        SELECT id FROM views WHERE shared_slug = ${candidate} LIMIT 1
-      `;
-      if (existing.length === 0) {
-        sharedSlug = candidate;
-        break;
-      }
-    }
-    if (!sharedSlug) {
-      return NextResponse.json(
-        { error: 'Unable to generate share link' },
-        { status: 500 },
-      );
-    }
+  await ensureRoadmapsSchema();
+  const roadmapRole = await getRoadmapRole(userId, roadmapId);
+  if (!hasRoadmapRoleAtLeast(roadmapRole, 'viewer')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
+  await ensureViewsSchema();
 
   await sql`
     INSERT INTO views
-      (id, name, scope, owner_user_id, created_by, updated_by, payload, shared_slug, created_at, updated_at)
+      (id, name, scope, roadmap_id, owner_user_id, created_by, updated_by, payload, shared_slug, created_at, updated_at)
     VALUES
-      (${id}, ${name}, ${scope}, ${scope === 'personal' ? userId : null}, ${userId}, ${userId},
-       ${JSON.stringify(body.payload)}, ${sharedSlug}, ${now}, ${now})
+      (${id}, ${name}, 'personal', ${roadmapId}, ${userId}, ${userId}, ${userId},
+       ${JSON.stringify(body.payload)}, NULL, ${now}, ${now})
+  `;
+  await sql`
+    INSERT INTO view_shares
+      (view_id, user_id, role, created_at, updated_at, created_by, updated_by)
+    VALUES
+      (${id}, ${userId}, 'owner', ${now}, ${now}, ${userId}, ${userId})
   `;
 
   return NextResponse.json({
     view: {
       id,
       name,
-      scope,
+      roadmapId,
       payload: body.payload,
-      sharedSlug,
+      sharedSlug: null,
       createdAt: now,
       updatedAt: now,
+      role: 'owner',
     },
   });
 }
