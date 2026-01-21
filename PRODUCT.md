@@ -1,70 +1,16 @@
-# Technology Roadmap Viewer – Build Instructions (Next.js + React + Tailwind)
+# Technology Roadmap Viewer – Product Requirements
 
-These are instructions for an AI coding assistant (e.g., GitHub Copilot / Codex) to build a **Technology Roadmap Viewer**.
+These requirements describe the intended behavior and user-facing functionality of the **Technology Roadmap Viewer**.
+See `ARCHITECTURE.md` for stack, setup, and structural guidance.
 
 The app:
 
-- Uses **Next.js (latest, App Router)** + **React** + **TypeScript**
-- Uses **Tailwind CSS** for styling
 - Loads data from a **CSV file** (for now)
 - Displays roadmap items as a **timeline with swimlanes by pillar**
 - Shows a **quarter-based time header** starting from the current quarter
 - Supports **filtering** (e.g., by Region, Pillar, Criticality)
 - Shows a **detail view** when clicking an item
 - Is **read-only** (no editing UI, no auth yet)
-
----
-
-## 0. Project Setup
-
-**Goal for Codex:** Create a new Next.js 14+ project using the App Router, TypeScript, and Tailwind.
-
-1. **Create the Next.js app:**
-
-   ```bash
-   npx create-next-app@latest tech-roadmap-viewer \
-     --typescript \
-     --tailwind \
-     --eslint \
-     --app \
-     --src-dir
-   ```
-
-2. **Install extra dependency for CSV parsing:**
-
-   ```bash
-   cd tech-roadmap-viewer
-   npm install papaparse
-   ```
-
-3. Ensure Tailwind is already wired up by the Next.js starter. Use Tailwind classes for all styling.
-
----
-
-## 1. Directory Structure
-
-Use the following structure (inside `src/`):
-
-- `app/`
-  - `layout.tsx`
-  - `page.tsx`
-- `components/`
-  - `layout/Shell.tsx` (optional wrapper)
-  - `roadmap/RoadmapFilters.tsx`
-  - `roadmap/RoadmapTimeline.tsx`
-  - `roadmap/RoadmapSwimlane.tsx`
-  - `roadmap/RoadmapItemDetailDialog.tsx`
-- `lib/`
-  - `loadRoadmap.ts`
-  - `loadRoadmapFromCsv.ts`
-  - `timeScale.ts`
-  - `color.ts`
-- `types/`
-  - `roadmap.ts`
-
-Also create:
-
-- `public/data/roadmap.csv` as the initial data source.
 
 ---
 
