@@ -112,18 +112,20 @@ export const mapAzureDevopsItem = (
   const url = urlField || buildWorkItemUrl(baseUrl, config.project, item.id);
 
   const rawStakeholders = getFieldValue(fields, fieldMap.impactedStakeholders);
+  const normalizeTagValue = (tag: string, prefix: string) => {
+    const trimmed = tag.trim();
+    if (!prefix) return trimmed;
+    const normalizedPrefix = prefix.trim().toLowerCase();
+    const lower = trimmed.toLowerCase();
+    if (!lower.startsWith(normalizedPrefix)) return '';
+    return trimmed.slice(normalizedPrefix.length).trim();
+  };
   const impactedStakeholders =
     fieldMap.impactedStakeholders === 'System.Tags' && rawStakeholders
       ? rawStakeholders
           .split(';')
-          .map((tag) => tag.trim())
+          .map((tag) => normalizeTagValue(tag, stakeholderPrefix))
           .filter(Boolean)
-          .filter((tag) =>
-            stakeholderPrefix ? tag.toLowerCase().startsWith(stakeholderPrefix) : true,
-          )
-          .map((tag) =>
-            stakeholderPrefix ? tag.slice(stakeholderPrefix.length).trim() : tag,
-          )
           .join(', ')
       : rawStakeholders;
 
@@ -132,14 +134,8 @@ export const mapAzureDevopsItem = (
     fieldMap.region === 'System.Tags' && rawRegion
       ? rawRegion
           .split(';')
-          .map((tag) => tag.trim())
+          .map((tag) => normalizeTagValue(tag, regionPrefix))
           .filter(Boolean)
-          .filter((tag) =>
-            regionPrefix ? tag.toLowerCase().startsWith(regionPrefix) : true,
-          )
-          .map((tag) =>
-            regionPrefix ? tag.slice(regionPrefix.length).trim() : tag,
-          )
           .join(', ')
       : rawRegion;
 
