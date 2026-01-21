@@ -6,7 +6,7 @@ Enable roadmaps to read items from Azure DevOps work items as an alternative dat
 ## Scope
 - New datasource type: `azure-devops` alongside existing CSV (`csvText`)
 - Flexible datasource framework to support future types (e.g., Jira)
-- User-configurable Azure DevOps settings per roadmap
+- User-configurable Azure DevOps settings per roadmap (owners only)
 - Connection validation before saving settings
 - Read work items to populate roadmap timeline and filters
 - No write-back to Azure DevOps
@@ -20,12 +20,12 @@ Enable roadmaps to read items from Azure DevOps work items as an alternative dat
 ## User Configuration Flow (Tailored to Current UI)
 1. Add a "Data source" action in the roadmap manager UI (`src/components/roadmap/RoadmapManagerPanel.tsx`):
    - For each roadmap row, add a button (e.g., "Configure data source") near rename/delete.
-   - Only show for editors/owners (reuse `canEdit`).
+   - Only show for owners (PAT and connection settings are sensitive).
 2. Open a modal (pattern already used in the same component for share/delete) for configuration:
    - Selector: `CSV` (default) or `Azure DevOps`.
    - When `CSV` selected: show existing CSV upload/textarea behavior (if present) or keep as-is.
    - When `Azure DevOps` selected, show:
-     - Organization URL (e.g., `https://dev.azure.com/{org}`)
+     - Organization URL (support both `https://dev.azure.com/{org}` and `https://{org}.visualstudio.com`)
      - Project name
      - Team (optional)
      - PAT (read-only scope)
@@ -39,6 +39,7 @@ Enable roadmaps to read items from Azure DevOps work items as an alternative dat
 4. On "Save", persist settings via existing `/api/roadmaps/[id]` update or a new settings endpoint.
    - Store PAT server-side only; never return it to the client after save.
    - Return a masked placeholder to indicate "PAT set".
+   - Provide a "Replace PAT" / "Clear PAT" option for rotation.
 
 ## Data Access Architecture (Aligned to Current Routes, Flexible)
 - Keep `/api/roadmaps` and `/api/roadmaps/[id]` for list/detail.
@@ -51,6 +52,7 @@ Enable roadmaps to read items from Azure DevOps work items as an alternative dat
 - Server implementation selects a handler by `datasourceType` (e.g., `csv`, `azure-devops`, `jira`).
 - Client roadmap loader always calls `/api/roadmaps/[id]/datasource/items` and stays agnostic to type.
   - On user login, trigger a fresh fetch (bypass cache) for the active roadmap.
+- Access control: `/datasource/items` requires at least viewer role for the roadmap.
 
 ## Implementation Steps (Tailored)
 
@@ -66,12 +68,14 @@ Enable roadmaps to read items from Azure DevOps work items as an alternative dat
 - Add server-only storage for PATs (encrypted DB field or secret store).
 - UI submits PAT once; server stores a reference or encrypted value.
 - Return only a masked indicator to the client for edits (never the PAT).
+- Define PAT rotation/clear flow and ensure logs never include PATs.
 
 ### 3) Validation endpoint
 - Create `POST /api/roadmaps/[id]/datasource/validate`:
   - Reads the `datasourceType` and type-specific settings from request body.
   - Dispatches to the matching validator (ADO now, Jira later).
   - Returns success/failure and error details (sanitized).
+- Allow validation to use stored PAT when the user does not re-enter it.
 
 ### 4) Azure DevOps fetch endpoint
 - Implement `GET /api/roadmaps/[id]/datasource/items` with handler dispatch:
@@ -80,6 +84,7 @@ Enable roadmaps to read items from Azure DevOps work items as an alternative dat
   - Fetches work item details via batch endpoint:
     - `POST https://dev.azure.com/{org}/{project}/_apis/wit/workitemsbatch?api-version=7.1-preview.1`
   - Maps fields to `RoadmapItem`.
+  - Chunk IDs per request and cap max items to avoid API limits.
 
 ### 5) Mapping strategy
 - Default mapping:
@@ -90,6 +95,7 @@ Enable roadmaps to read items from Azure DevOps work items as an alternative dat
   - `region` <- custom field (e.g., `Custom.Region`)
   - `criticality` <- custom field
   - Others default to empty string
+- Define fallback behavior when start/end dates are missing (e.g., skip item or use CreatedDate/TargetDate).
 - Provide a mapping UI for advanced users.
 
 ### 6) Client loader changes
@@ -153,6 +159,7 @@ Enable roadmaps to read items from Azure DevOps work items as an alternative dat
 - Default refresh interval: 15 minutes; configurable per roadmap (range 5–60 minutes).
 - Manual refresh action available in the UI (roadmap view or manager panel).
 - Server-side caching with TTL equal to the configured interval; use stale-while-revalidate to keep UI responsive.
+- If no background scheduler exists, document this as on-demand cache refresh (manual or on view load).
 - On user login, force a refresh for the active roadmap to ensure fresh data for that session.
 
 ## CSV Export (Non-CSV Datasources)
@@ -160,3 +167,4 @@ Enable roadmaps to read items from Azure DevOps work items as an alternative dat
 - For Azure DevOps, generate CSV on demand from the fetched items (or cached snapshot), without storing it in `csv_text`.
 - Use the same CSV header/field order as existing CSV imports to keep consistency.
 - Keep the “Download CSV” button in its current location (delete confirmation flow in `src/components/roadmap/RoadmapManagerPanel.tsx`), but switch the backend to use the active datasource when present.
+- If live fetch fails, export from the cached snapshot and indicate staleness.

@@ -15,6 +15,30 @@ export async function ensureRoadmapsSchema() {
   await sql`CREATE INDEX IF NOT EXISTS idx_roadmaps_name ON roadmaps(name);`;
 
   await sql`
+    CREATE TABLE IF NOT EXISTS roadmap_datasources (
+      roadmap_id TEXT PRIMARY KEY REFERENCES roadmaps(id) ON DELETE CASCADE,
+      type TEXT NOT NULL CHECK (type IN ('csv','azure-devops')),
+      config_json TEXT NOT NULL,
+      secret_encrypted TEXT,
+      last_snapshot_json TEXT,
+      last_snapshot_at TEXT,
+      last_sync_at TEXT,
+      last_sync_duration_ms INTEGER,
+      last_sync_item_count INTEGER,
+      last_sync_error TEXT
+    );
+  `;
+  await sql`ALTER TABLE roadmap_datasources ADD COLUMN IF NOT EXISTS type TEXT`;
+  await sql`ALTER TABLE roadmap_datasources ADD COLUMN IF NOT EXISTS config_json TEXT`;
+  await sql`ALTER TABLE roadmap_datasources ADD COLUMN IF NOT EXISTS secret_encrypted TEXT`;
+  await sql`ALTER TABLE roadmap_datasources ADD COLUMN IF NOT EXISTS last_snapshot_json TEXT`;
+  await sql`ALTER TABLE roadmap_datasources ADD COLUMN IF NOT EXISTS last_snapshot_at TEXT`;
+  await sql`ALTER TABLE roadmap_datasources ADD COLUMN IF NOT EXISTS last_sync_at TEXT`;
+  await sql`ALTER TABLE roadmap_datasources ADD COLUMN IF NOT EXISTS last_sync_duration_ms INTEGER`;
+  await sql`ALTER TABLE roadmap_datasources ADD COLUMN IF NOT EXISTS last_sync_item_count INTEGER`;
+  await sql`ALTER TABLE roadmap_datasources ADD COLUMN IF NOT EXISTS last_sync_error TEXT`;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS roadmap_shares (
       roadmap_id TEXT NOT NULL REFERENCES roadmaps(id) ON DELETE CASCADE,
       user_id TEXT NOT NULL,

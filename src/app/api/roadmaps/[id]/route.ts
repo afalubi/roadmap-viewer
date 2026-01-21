@@ -22,9 +22,10 @@ export async function GET(
   }
 
   const rows = await sql`
-    SELECT id, name, csv_text, created_at, updated_at
-    FROM roadmaps
-    WHERE id = ${id}
+    SELECT r.id, r.name, r.csv_text, r.created_at, r.updated_at, ds.type AS datasource_type
+    FROM roadmaps r
+    LEFT JOIN roadmap_datasources ds ON ds.roadmap_id = r.id
+    WHERE r.id = ${id}
     LIMIT 1
   `;
   const row = rows[0] as
@@ -34,6 +35,7 @@ export async function GET(
         csv_text: string;
         created_at: string;
         updated_at: string;
+        datasource_type?: string | null;
       }
     | undefined;
 
@@ -49,6 +51,7 @@ export async function GET(
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       role,
+      datasourceType: row.datasource_type ?? 'csv',
     },
   });
 }
@@ -78,6 +81,23 @@ export async function PUT(
   const role = await getRoadmapRole(userId, id);
   if (!hasRoadmapRoleAtLeast(role, 'editor')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  if (hasCsv) {
+    const datasourceRows = await sql`
+      SELECT type
+      FROM roadmap_datasources
+      WHERE roadmap_id = ${id}
+      LIMIT 1
+    `;
+    const datasourceType = (datasourceRows[0] as { type?: string } | undefined)
+      ?.type;
+    if (datasourceType && datasourceType !== 'csv') {
+      return NextResponse.json(
+        { error: 'CSV updates are disabled for this datasource' },
+        { status: 400 },
+      );
+    }
   }
 
   const now = new Date().toISOString();

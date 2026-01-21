@@ -4,6 +4,7 @@ import { createHash } from 'crypto';
 import { sql } from '@/lib/neon';
 import { ensureRoadmapsSchema } from '@/lib/roadmapsDb';
 import { getRoadmapRole, type RoadmapRole } from '@/lib/roadmapsAccess';
+import { fetchDatasourceItems } from '@/lib/roadmapDatasourceServer';
 
 const hashPassword = (value: string) =>
   createHash('sha256').update(value).digest('hex');
@@ -33,10 +34,12 @@ export async function GET(
       r.csv_text,
       r.created_at,
       r.updated_at,
+      ds.type AS datasource_type,
       rl.slug,
       rl.password_hash
     FROM roadmap_links rl
     JOIN roadmaps r ON r.id = rl.roadmap_id
+    LEFT JOIN roadmap_datasources ds ON ds.roadmap_id = r.id
     WHERE rl.slug = ${slug}
     LIMIT 1
   `;
@@ -47,6 +50,7 @@ export async function GET(
         csv_text: string;
         created_at: string;
         updated_at: string;
+        datasource_type?: string | null;
         slug: string;
         password_hash: string | null;
       }
@@ -79,6 +83,15 @@ export async function GET(
     ? roleRank[shareRole] >= roleRank.viewer ? shareRole : 'viewer'
     : 'viewer';
 
+  const datasourceType = row.datasource_type ?? 'csv';
+  let items: unknown = null;
+  try {
+    const result = await fetchDatasourceItems(row.id, false);
+    items = result.items;
+  } catch {
+    items = null;
+  }
+
   return NextResponse.json({
     roadmap: {
       id: row.id,
@@ -88,6 +101,8 @@ export async function GET(
       updatedAt: row.updated_at,
       sharedSlug: row.slug,
       role: effectiveRole,
+      datasourceType,
+      items,
     },
   });
 }

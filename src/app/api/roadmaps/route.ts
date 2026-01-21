@@ -76,6 +76,11 @@ export async function POST(request: Request) {
     VALUES
       (${id}, ${userId}, 'owner', ${now}, ${now}, ${userId}, ${userId})
   `;
+  await sql`
+    INSERT INTO roadmap_datasources (roadmap_id, type, config_json)
+    VALUES (${id}, 'csv', '{}')
+    ON CONFLICT (roadmap_id) DO NOTHING
+  `;
 
   return NextResponse.json({
     roadmap: {

@@ -33,8 +33,8 @@ export function RoadmapItemDetailDialog({ item, onClose }: Props) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
           <div className="space-y-1">
-            <DetailField label="Start date" value={item.startDate} />
-            <DetailField label="End date" value={item.endDate} />
+            <DetailField label="Start date" value={formatDateOnly(item.startDate)} />
+            <DetailField label="End date" value={formatDateOnly(item.endDate)} />
             <DetailField label="T-shirt size" value={item.tShirtSize} />
             <DetailField label="Criticality" value={item.criticality} />
             {item.url ? (
@@ -97,6 +97,29 @@ function DetailField({
       <span>{value}</span>
     </p>
   );
+}
+
+function formatDateOnly(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+    const [year, month, day] = trimmed.slice(0, 10).split('-').map(Number);
+    const parsedLocal = new Date(year, month - 1, day);
+    if (!Number.isNaN(parsedLocal.getTime())) {
+      return parsedLocal.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+    }
+  }
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 function DetailBlock({ label, value }: { label: string; value: string }) {

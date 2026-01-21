@@ -3,7 +3,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { SignedIn, SignedOut, SignInButton } from '@clerk/nextjs';
-import type { RoadmapDetail, RoadmapRole, RoadmapSummary } from '@/types/roadmaps';
+import type { RoadmapRole, RoadmapSummary } from '@/types/roadmaps';
+import type {
+  AzureDevopsDatasourceConfig,
+  RoadmapDatasourceSummary,
+  RoadmapDatasourceType,
+} from '@/types/roadmapDatasources';
 import type { DirectoryUser } from '@/types/userDirectory';
 import { UserSearchInput } from '@/components/shared/UserSearchInput';
 
@@ -68,6 +73,36 @@ export function RoadmapManagerPanel({
   const [shareUserQuery, setShareUserQuery] = useState('');
   const [shareSelectedUser, setShareSelectedUser] = useState<DirectoryUser | null>(null);
   const [shareRole, setShareRole] = useState<RoadmapRole>('editor');
+  const [datasourceRoadmap, setDatasourceRoadmap] = useState<RoadmapSummary | null>(null);
+  const [datasourceType, setDatasourceType] = useState<RoadmapDatasourceType>('csv');
+  const [datasourceConfig, setDatasourceConfig] = useState<AzureDevopsDatasourceConfig>({
+    organizationUrl: '',
+    project: '',
+    team: '',
+    queryMode: 'simple',
+    queryTemplate: 'epics-features-active',
+    areaPath: '',
+    workItemTypes: [],
+    includeClosed: false,
+    stakeholderTagPrefix: '',
+    regionTagPrefix: '',
+    queryType: 'wiql',
+    queryText: '',
+    refreshMinutes: 15,
+    maxItems: 500,
+    missingDateStrategy: 'fallback',
+  });
+  const [datasourceHasSecret, setDatasourceHasSecret] = useState(false);
+  const [datasourcePat, setDatasourcePat] = useState('');
+  const [datasourceWorkItemUrl, setDatasourceWorkItemUrl] = useState('');
+  const [datasourceStatus, setDatasourceStatus] = useState<string | null>(null);
+  const [isDatasourceLoading, setIsDatasourceLoading] = useState(false);
+  const [isDatasourceSaving, setIsDatasourceSaving] = useState(false);
+  const [isDatasourceValidating, setIsDatasourceValidating] = useState(false);
+  const [projectOptions, setProjectOptions] = useState<string[]>([]);
+  const [datasourceOpenSection, setDatasourceOpenSection] = useState<
+    'quick' | 'derived' | 'connection' | 'query' | 'refresh' | 'mapping' | null
+  >(null);
   const [isDownloadingDelete, setIsDownloadingDelete] = useState(false);
 
   const sortedRoadmaps = useMemo(() => {
@@ -89,6 +124,7 @@ export function RoadmapManagerPanel({
   const canEdit = (role: RoadmapRole) => ROLE_ORDER[role] >= ROLE_ORDER.editor;
   const canDelete = (role: RoadmapRole) => role === 'owner';
   const canShare = (role: RoadmapRole) => ROLE_ORDER[role] >= ROLE_ORDER.editor;
+  const canConfigureDatasource = (role: RoadmapRole) => role === 'owner';
 
   const handleShare = (roadmap: RoadmapSummary) => {
     setShareRoadmap(roadmap);
@@ -131,10 +167,9 @@ export function RoadmapManagerPanel({
   const downloadRoadmapCsv = async (roadmapId: string, roadmapName: string) => {
     setIsDownloadingDelete(true);
     try {
-      const res = await fetch(`/api/roadmaps/${roadmapId}`);
+      const res = await fetch(`/api/roadmaps/${roadmapId}/datasource/items?format=csv`);
       if (!res.ok) return;
-      const data = (await res.json()) as { roadmap?: RoadmapDetail };
-      const csvText = data.roadmap?.csvText ?? '';
+      const csvText = await res.text();
       const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -150,6 +185,247 @@ export function RoadmapManagerPanel({
     } finally {
       setIsDownloadingDelete(false);
     }
+  };
+
+  const openDatasourceModal = async (roadmap: RoadmapSummary) => {
+    setDatasourceRoadmap(roadmap);
+    setDatasourceStatus(null);
+    setDatasourcePat('');
+    setDatasourceWorkItemUrl('');
+    setProjectOptions([]);
+    setDatasourceOpenSection(null);
+    setIsDatasourceLoading(true);
+    try {
+      const res = await fetch(`/api/roadmaps/${roadmap.id}/datasource`);
+      if (!res.ok) {
+        setDatasourceType('csv');
+        return;
+      }
+      const data = (await res.json()) as { datasource?: RoadmapDatasourceSummary };
+      const summary = data.datasource;
+      if (summary) {
+        setDatasourceType(summary.type);
+        setDatasourceHasSecret(summary.hasSecret);
+        setDatasourceConfig({
+          organizationUrl: summary.config?.organizationUrl ?? '',
+          project: summary.config?.project ?? '',
+          team: summary.config?.team ?? '',
+          queryMode: summary.config?.queryMode ?? 'simple',
+          queryTemplate: summary.config?.queryTemplate ?? 'epics-features-active',
+          areaPath: summary.config?.areaPath ?? '',
+          workItemTypes: summary.config?.workItemTypes ?? [],
+          includeClosed: summary.config?.includeClosed ?? false,
+          stakeholderTagPrefix: summary.config?.stakeholderTagPrefix ?? '',
+          regionTagPrefix: summary.config?.regionTagPrefix ?? '',
+          queryType: summary.config?.queryType ?? 'wiql',
+          queryText: summary.config?.queryText ?? '',
+          refreshMinutes: summary.config?.refreshMinutes ?? 15,
+          maxItems: summary.config?.maxItems ?? 500,
+          missingDateStrategy: summary.config?.missingDateStrategy ?? 'fallback',
+          fieldMap: summary.config?.fieldMap ?? undefined,
+        });
+      }
+    } catch {
+      setDatasourceType('csv');
+    } finally {
+      setIsDatasourceLoading(false);
+    }
+  };
+
+  const handleValidateDatasource = async () => {
+    if (!datasourceRoadmap) return;
+    setIsDatasourceValidating(true);
+    setDatasourceStatus(null);
+    try {
+      const res = await fetch(
+        `/api/roadmaps/${datasourceRoadmap.id}/datasource/validate`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: datasourceType,
+            config: datasourceConfig,
+            pat: datasourcePat || undefined,
+          }),
+        },
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        setDatasourceStatus(data.error ?? 'Validation failed.');
+        return;
+      }
+      setDatasourceStatus('Validation succeeded.');
+    } catch {
+      setDatasourceStatus('Validation failed.');
+    } finally {
+      setIsDatasourceValidating(false);
+    }
+  };
+
+  const handleSaveDatasource = async () => {
+    if (!datasourceRoadmap) return;
+    setIsDatasourceSaving(true);
+    setDatasourceStatus(null);
+    try {
+      const res = await fetch(`/api/roadmaps/${datasourceRoadmap.id}/datasource`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: datasourceType,
+          config: datasourceConfig,
+          pat: datasourcePat || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setDatasourceStatus(data.error ?? 'Save failed.');
+        return;
+      }
+      setDatasourceHasSecret(Boolean(data.datasource?.hasSecret));
+      setDatasourceStatus('Saved datasource settings.');
+      setDatasourcePat('');
+    } catch {
+      setDatasourceStatus('Save failed.');
+    } finally {
+      setIsDatasourceSaving(false);
+    }
+  };
+
+  const handleClearDatasourcePat = async () => {
+    if (!datasourceRoadmap) return;
+    setIsDatasourceSaving(true);
+    setDatasourceStatus(null);
+    try {
+      const res = await fetch(`/api/roadmaps/${datasourceRoadmap.id}/datasource`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: datasourceType,
+          config: datasourceConfig,
+          clearPat: true,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setDatasourceStatus(data.error ?? 'Clear failed.');
+        return;
+      }
+      setDatasourceHasSecret(Boolean(data.datasource?.hasSecret));
+      setDatasourceStatus('Cleared PAT.');
+    } catch {
+      setDatasourceStatus('Clear failed.');
+    } finally {
+      setIsDatasourceSaving(false);
+    }
+  };
+
+  const handleLoadProjects = async () => {
+    if (!datasourceRoadmap) return;
+    setDatasourceStatus(null);
+    try {
+      const res = await fetch(
+        `/api/roadmaps/${datasourceRoadmap.id}/datasource/projects`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            organizationUrl: datasourceConfig.organizationUrl,
+            pat: datasourcePat || undefined,
+          }),
+        },
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        setDatasourceStatus(data.error ?? 'Unable to load projects.');
+        return;
+      }
+      setProjectOptions(Array.isArray(data.projects) ? data.projects : []);
+      setDatasourceStatus('Loaded projects.');
+    } catch {
+      setDatasourceStatus('Unable to load projects.');
+    }
+  };
+
+  const handleApplyWorkItemUrl = async () => {
+    if (!datasourceRoadmap) return;
+    setDatasourceStatus(null);
+    try {
+      const res = await fetch(
+        `/api/roadmaps/${datasourceRoadmap.id}/datasource/work-item`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: datasourceWorkItemUrl, pat: datasourcePat || undefined }),
+        },
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        setDatasourceStatus(data.error ?? 'Unable to parse work item URL.');
+        return;
+      }
+      const result = data.result as {
+        organizationUrl: string;
+        project: string;
+        id: string;
+        workItemType: string | null;
+        areaPath: string | null;
+      };
+      setDatasourceStatus('Applied work item URL.');
+      setDatasourceType('azure-devops');
+      setDatasourceConfig((prev) => ({
+        ...prev,
+        organizationUrl: result.organizationUrl,
+        project: result.project,
+        areaPath: result.areaPath ?? prev.areaPath ?? '',
+        queryMode: result.workItemType ? 'simple' : 'advanced',
+        queryTemplate: prev.queryTemplate ?? 'epics-features-active',
+        workItemTypes: result.workItemType ? [result.workItemType] : prev.workItemTypes ?? [],
+        queryType: 'wiql',
+        queryText: result.workItemType
+          ? ''
+          : `SELECT [System.Id] FROM WorkItems WHERE [System.Id] = ${result.id}`,
+      }));
+    } catch {
+      setDatasourceStatus('Unable to parse work item URL.');
+    }
+  };
+
+  const buildSimpleWiqlPreview = (config: AzureDevopsDatasourceConfig) => {
+    const workItemTypes = config.workItemTypes ?? [];
+    const types =
+      workItemTypes.length > 0
+        ? workItemTypes
+        : config.queryTemplate === 'stories-active'
+          ? ['User Story', 'Product Backlog Item']
+          : config.queryTemplate === 'recently-changed'
+            ? ['Epic', 'Feature', 'User Story', 'Product Backlog Item']
+            : ['Epic', 'Feature'];
+    const whereParts = [
+      `[System.WorkItemType] IN (${types
+        .map((type) => `'${type.replace(/'/g, "''")}'`)
+        .join(', ')})`,
+    ];
+    if (!config.includeClosed) {
+      whereParts.push(`[System.State] <> 'Closed'`);
+    }
+    if (config.queryTemplate === 'recently-changed') {
+      whereParts.push(`[System.ChangedDate] >= @today - 90`);
+    }
+    if (config.areaPath) {
+      whereParts.push(
+        `[System.AreaPath] UNDER '${config.areaPath.replace(/'/g, "''")}'`,
+      );
+    }
+    return `SELECT [System.Id] FROM WorkItems WHERE ${whereParts.join(
+      ' AND ',
+    )} ORDER BY [System.ChangedDate] DESC`;
+  };
+
+  const getQueryPreview = (config: AzureDevopsDatasourceConfig) => {
+    if (config.queryMode === 'advanced') {
+      return config.queryText || '';
+    }
+    return buildSimpleWiqlPreview(config);
   };
 
   const MAX_NAME = 40;
@@ -289,6 +565,15 @@ export function RoadmapManagerPanel({
                 </svg>
               </button>
             ) : null}
+            {canConfigureDatasource(roadmap.role) ? (
+              <button
+                type="button"
+                className="rounded-full border border-slate-200 px-2 py-0.5 text-[0.65rem] text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                onClick={() => openDatasourceModal(roadmap)}
+              >
+                Data source
+              </button>
+            ) : null}
           </div>
         </div>
       </div>
@@ -391,6 +676,669 @@ export function RoadmapManagerPanel({
                         Delete
                       </button>
                     </div>
+                  </div>
+                </div>,
+                document.body,
+              )
+            : null}
+          {datasourceRoadmap && typeof document !== 'undefined'
+            ? createPortal(
+                <div className="fixed inset-0 z-[135] flex items-center justify-center bg-slate-900/40 px-4">
+                  <div className="w-full max-w-xl rounded-xl border border-slate-200 bg-white p-4 shadow-lg space-y-4 dark:border-slate-700 dark:bg-slate-900">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                          Datasource for “{datasourceRoadmap.name}”
+                        </div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">
+                          Owners can configure external data sources.
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="rounded-full border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                        onClick={() => setDatasourceRoadmap(null)}
+                      >
+                        Close
+                      </button>
+                    </div>
+
+                    {isDatasourceLoading ? (
+                      <div className="text-xs text-slate-500 dark:text-slate-400">Loading...</div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="space-y-1">
+                          <label className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            Datasource type
+                          </label>
+                          <select
+                            className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                            value={datasourceType}
+                            onChange={(event) =>
+                              setDatasourceType(event.target.value as RoadmapDatasourceType)
+                            }
+                          >
+                            <option value="csv">CSV</option>
+                            <option value="azure-devops">Azure DevOps</option>
+                          </select>
+                        </div>
+
+                        {datasourceType === 'azure-devops' ? (
+                            <div className="space-y-4">
+                              <details
+                                className="rounded-md border border-slate-200 px-3 py-2 text-xs dark:border-slate-700"
+                                open={datasourceOpenSection === 'quick'}
+                                onToggle={(event) => {
+                                  const isOpen = (event.currentTarget as HTMLDetailsElement).open;
+                                  setDatasourceOpenSection(isOpen ? 'quick' : null);
+                                }}
+                              >
+                                <summary className="cursor-pointer text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                  Quick setup from work item URL
+                                </summary>
+                                <div className="mt-2 space-y-3">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <input
+                                      type="text"
+                                      placeholder="Paste a DevOps work item URL"
+                                      value={datasourceWorkItemUrl}
+                                      onChange={(event) => setDatasourceWorkItemUrl(event.target.value)}
+                                      className="flex-1 rounded-md border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                    />
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <input
+                                      type="password"
+                                      placeholder={datasourceHasSecret ? 'PAT stored' : 'PAT'}
+                                      value={datasourcePat}
+                                      onChange={(event) => setDatasourcePat(event.target.value)}
+                                      className="flex-1 rounded-md border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                    />
+                                    {datasourceHasSecret ? (
+                                      <button
+                                        type="button"
+                                        className="rounded-full border border-rose-200 px-2 py-1 text-[0.65rem] text-rose-600 hover:border-rose-300 hover:bg-rose-50 dark:border-rose-700/60 dark:text-rose-200 dark:hover:bg-rose-900/40"
+                                        onClick={handleClearDatasourcePat}
+                                      >
+                                        Clear PAT
+                                      </button>
+                                    ) : null}
+                                    <button
+                                      type="button"
+                                      className="rounded-full border border-slate-300 px-3 py-1 text-[0.7rem] text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                                      onClick={handleApplyWorkItemUrl}
+                                      disabled={!datasourceWorkItemUrl.trim() || !datasourcePat.trim()}
+                                    >
+                                      Apply URL
+                                    </button>
+                                  </div>
+                                  <div className="text-[0.7rem] text-slate-500 dark:text-slate-400">
+                                    Paste a URL and PAT to auto-fill org/project and detect the work
+                                    item type.
+                                  </div>
+                                </div>
+                              </details>
+                            <details
+                              className="rounded-md border border-slate-200 px-3 py-2 text-xs dark:border-slate-700"
+                              open={datasourceOpenSection === 'derived'}
+                              onToggle={(event) => {
+                                const isOpen = (event.currentTarget as HTMLDetailsElement).open;
+                                setDatasourceOpenSection(isOpen ? 'derived' : null);
+                              }}
+                            >
+                              <summary className="cursor-pointer text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                Derived details
+                              </summary>
+                              <div className="mt-2 space-y-2">
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                  <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                    <span>Area path</span>
+                                    <input
+                                      readOnly
+                                      value={datasourceConfig.areaPath ?? ''}
+                                      className="w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                                    />
+                                  </label>
+                                  <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                    <span>Work item types</span>
+                                    <input
+                                      readOnly
+                                      value={(datasourceConfig.workItemTypes ?? []).join(', ')}
+                                      className="w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                                    />
+                                  </label>
+                                </div>
+                                <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                  <span>Generated query</span>
+                                  <textarea
+                                    readOnly
+                                    value={getQueryPreview(datasourceConfig)}
+                                    className="min-h-[80px] w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[0.7rem] text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                                  />
+                                </label>
+                              </div>
+                            </details>
+
+                            <details
+                              className="rounded-md border border-slate-200 px-3 py-2 text-xs dark:border-slate-700"
+                              open={datasourceOpenSection === 'connection'}
+                              onToggle={(event) => {
+                                const isOpen = (event.currentTarget as HTMLDetailsElement).open;
+                                setDatasourceOpenSection(isOpen ? 'connection' : null);
+                              }}
+                            >
+                              <summary className="cursor-pointer text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                Connection settings
+                              </summary>
+                              <div className="mt-2 space-y-2">
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                  <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                    <span>Organization URL</span>
+                                    <input
+                                      type="text"
+                                      placeholder="https://dev.azure.com/org"
+                                      value={datasourceConfig.organizationUrl}
+                                      onChange={(event) =>
+                                        setDatasourceConfig((prev) => ({
+                                          ...prev,
+                                          organizationUrl: event.target.value,
+                                        }))
+                                      }
+                                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                    />
+                                  </label>
+                                  <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                    <span>Project</span>
+                                    <input
+                                      type="text"
+                                      placeholder="Project name"
+                                      value={datasourceConfig.project}
+                                      onChange={(event) =>
+                                        setDatasourceConfig((prev) => ({
+                                          ...prev,
+                                          project: event.target.value,
+                                        }))
+                                      }
+                                      list="ado-projects"
+                                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                    />
+                                  </label>
+                                  <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                    <span>Team (optional)</span>
+                                    <input
+                                      type="text"
+                                      placeholder="Team"
+                                      value={datasourceConfig.team ?? ''}
+                                      onChange={(event) =>
+                                        setDatasourceConfig((prev) => ({
+                                          ...prev,
+                                          team: event.target.value,
+                                        }))
+                                      }
+                                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                    />
+                                  </label>
+                                  <div className="flex items-end">
+                                    <button
+                                      type="button"
+                                      className="rounded-md border border-slate-300 px-2 py-1 text-[0.7rem] text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                                      onClick={handleLoadProjects}
+                                    >
+                                      Load projects
+                                    </button>
+                                  </div>
+                                </div>
+                                {projectOptions.length > 0 ? (
+                                  <datalist id="ado-projects">
+                                    {projectOptions.map((project) => (
+                                      <option key={project} value={project} />
+                                    ))}
+                                  </datalist>
+                                ) : null}
+                              </div>
+                            </details>
+
+                            <details
+                              className="rounded-md border border-slate-200 px-3 py-2 text-xs dark:border-slate-700"
+                              open={datasourceOpenSection === 'query'}
+                              onToggle={(event) => {
+                                const isOpen = (event.currentTarget as HTMLDetailsElement).open;
+                                setDatasourceOpenSection(isOpen ? 'query' : null);
+                              }}
+                            >
+                              <summary className="cursor-pointer text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                Query settings
+                              </summary>
+                              <div className="mt-2 space-y-2">
+                                <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                  <span>Mode</span>
+                                  <select
+                                    className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                    value={datasourceConfig.queryMode ?? 'simple'}
+                                    onChange={(event) =>
+                                      setDatasourceConfig((prev) => ({
+                                        ...prev,
+                                        queryMode:
+                                          event.target.value === 'advanced'
+                                            ? 'advanced'
+                                            : 'simple',
+                                      }))
+                                    }
+                                  >
+                                    <option value="simple">Simple query</option>
+                                    <option value="advanced">Advanced (WIQL)</option>
+                                  </select>
+                                </label>
+
+                                {datasourceConfig.queryMode !== 'advanced' ? (
+                                  <div className="space-y-2">
+                                    <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                      <span>Template</span>
+                                      <select
+                                        className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                        value={
+                                          datasourceConfig.queryTemplate ??
+                                          'epics-features-active'
+                                        }
+                                        onChange={(event) =>
+                                          setDatasourceConfig((prev) => ({
+                                            ...prev,
+                                            queryTemplate:
+                                              event.target
+                                                .value as AzureDevopsDatasourceConfig['queryTemplate'],
+                                          }))
+                                        }
+                                      >
+                                        <option value="epics-features-active">
+                                          Active Epics + Features
+                                        </option>
+                                        <option value="stories-active">
+                                          Active Stories
+                                        </option>
+                                        <option value="recently-changed">
+                                          Recently changed (90 days)
+                                        </option>
+                                      </select>
+                                    </label>
+                                    <div className="grid gap-2 sm:grid-cols-2">
+                                      <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                        <span>Area path (optional)</span>
+                                        <input
+                                          type="text"
+                                          placeholder="Area path"
+                                          value={datasourceConfig.areaPath ?? ''}
+                                          onChange={(event) =>
+                                            setDatasourceConfig((prev) => ({
+                                              ...prev,
+                                              areaPath: event.target.value,
+                                            }))
+                                          }
+                                          className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                        />
+                                      </label>
+                                      <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                        <span>Work item types (comma)</span>
+                                        <input
+                                          type="text"
+                                          placeholder="Epic, Feature"
+                                          value={(datasourceConfig.workItemTypes ?? []).join(', ')}
+                                          onChange={(event) =>
+                                            setDatasourceConfig((prev) => ({
+                                              ...prev,
+                                              workItemTypes: event.target.value
+                                                .split(',')
+                                                .map((item) => item.trim())
+                                                .filter(Boolean),
+                                            }))
+                                          }
+                                          className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                        />
+                                      </label>
+                                    </div>
+                                    <label className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                                      <input
+                                        type="checkbox"
+                                        checked={Boolean(datasourceConfig.includeClosed)}
+                                        onChange={(event) =>
+                                          setDatasourceConfig((prev) => ({
+                                            ...prev,
+                                            includeClosed: event.target.checked,
+                                          }))
+                                        }
+                                      />
+                                      Include closed work items
+                                    </label>
+                                    <button
+                                      type="button"
+                                      className="rounded-full border border-slate-300 px-3 py-1 text-[0.7rem] text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                                      onClick={() =>
+                                        setDatasourceConfig((prev) => ({
+                                          ...prev,
+                                          queryMode: 'advanced',
+                                          queryType: 'wiql',
+                                          queryText: buildSimpleWiqlPreview(prev),
+                                        }))
+                                      }
+                                    >
+                                      Edit in advanced mode
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="space-y-2">
+                                    <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                      <span>Advanced query type</span>
+                                      <select
+                                        className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                        value={datasourceConfig.queryType}
+                                        onChange={(event) =>
+                                          setDatasourceConfig((prev) => ({
+                                            ...prev,
+                                            queryType:
+                                              event.target.value === 'saved'
+                                                ? 'saved'
+                                                : 'wiql',
+                                          }))
+                                        }
+                                      >
+                                        <option value="wiql">WIQL Query</option>
+                                        <option value="saved">Saved Query ID</option>
+                                      </select>
+                                    </label>
+                                    <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                      <span>
+                                        {datasourceConfig.queryType === 'saved'
+                                          ? 'Saved query ID'
+                                          : 'WIQL query'}
+                                      </span>
+                                      <textarea
+                                        placeholder={
+                                          datasourceConfig.queryType === 'saved'
+                                            ? 'Saved query ID'
+                                            : 'WIQL query'
+                                        }
+                                        value={datasourceConfig.queryText}
+                                        onChange={(event) =>
+                                          setDatasourceConfig((prev) => ({
+                                            ...prev,
+                                            queryText: event.target.value,
+                                          }))
+                                        }
+                                        className="min-h-[90px] w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                      />
+                                    </label>
+                                  </div>
+                                )}
+                              </div>
+                            </details>
+
+                            <details
+                              className="rounded-md border border-slate-200 px-3 py-2 text-xs dark:border-slate-700"
+                              open={datasourceOpenSection === 'refresh'}
+                              onToggle={(event) => {
+                                const isOpen = (event.currentTarget as HTMLDetailsElement).open;
+                                setDatasourceOpenSection(isOpen ? 'refresh' : null);
+                              }}
+                            >
+                              <summary className="cursor-pointer text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                Refresh & limits
+                              </summary>
+                              <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                                <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                  <span>Refresh minutes</span>
+                                  <input
+                                    type="number"
+                                    min={5}
+                                    max={60}
+                                    value={datasourceConfig.refreshMinutes ?? 15}
+                                    onChange={(event) =>
+                                      setDatasourceConfig((prev) => ({
+                                        ...prev,
+                                        refreshMinutes: Number(event.target.value) || 15,
+                                      }))
+                                    }
+                                    className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                  />
+                                </label>
+                                <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                  <span>Max items</span>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={2000}
+                                    value={datasourceConfig.maxItems ?? 500}
+                                    onChange={(event) =>
+                                      setDatasourceConfig((prev) => ({
+                                        ...prev,
+                                        maxItems: Number(event.target.value) || 500,
+                                      }))
+                                    }
+                                    className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                  />
+                                </label>
+                                <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                  <span>Date handling</span>
+                                  <select
+                                    className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                    value={datasourceConfig.missingDateStrategy ?? 'fallback'}
+                                    onChange={(event) =>
+                                      setDatasourceConfig((prev) => ({
+                                        ...prev,
+                                        missingDateStrategy:
+                                          event.target.value === 'skip'
+                                            ? 'skip'
+                                            : 'fallback',
+                                      }))
+                                    }
+                                  >
+                                    <option value="fallback">Fallback dates</option>
+                                    <option value="skip">Skip if missing</option>
+                                  </select>
+                                </label>
+                              </div>
+                            </details>
+
+                            <details
+                              className="rounded-md border border-slate-200 px-3 py-2 text-xs dark:border-slate-700"
+                              open={datasourceOpenSection === 'mapping'}
+                              onToggle={(event) => {
+                                const isOpen = (event.currentTarget as HTMLDetailsElement).open;
+                                setDatasourceOpenSection(isOpen ? 'mapping' : null);
+                              }}
+                            >
+                              <summary className="cursor-pointer text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                Field mapping
+                              </summary>
+                              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                                <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                  <span>Title field</span>
+                                  <input
+                                    type="text"
+                                    placeholder="System.Title"
+                                    value={datasourceConfig.fieldMap?.title ?? ''}
+                                    onChange={(event) =>
+                                      setDatasourceConfig((prev) => ({
+                                        ...prev,
+                                        fieldMap: {
+                                          ...(prev.fieldMap ?? {}),
+                                          title: event.target.value,
+                                        },
+                                      }))
+                                    }
+                                    className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                  />
+                                </label>
+                                <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                  <span>Start date field</span>
+                                  <input
+                                    type="text"
+                                    placeholder="Microsoft.VSTS.Scheduling.StartDate"
+                                    value={datasourceConfig.fieldMap?.startDate ?? ''}
+                                    onChange={(event) =>
+                                      setDatasourceConfig((prev) => ({
+                                        ...prev,
+                                        fieldMap: {
+                                          ...(prev.fieldMap ?? {}),
+                                          startDate: event.target.value,
+                                        },
+                                      }))
+                                    }
+                                    className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                  />
+                                </label>
+                                <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                  <span>End date field</span>
+                                  <input
+                                    type="text"
+                                    placeholder="Microsoft.VSTS.Scheduling.FinishDate"
+                                    value={datasourceConfig.fieldMap?.endDate ?? ''}
+                                    onChange={(event) =>
+                                      setDatasourceConfig((prev) => ({
+                                        ...prev,
+                                        fieldMap: {
+                                          ...(prev.fieldMap ?? {}),
+                                          endDate: event.target.value,
+                                        },
+                                      }))
+                                    }
+                                    className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                  />
+                                </label>
+                                <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                  <span>Pillar field</span>
+                                  <input
+                                    type="text"
+                                    placeholder="Custom.Pillar"
+                                    value={datasourceConfig.fieldMap?.pillar ?? ''}
+                                    onChange={(event) =>
+                                      setDatasourceConfig((prev) => ({
+                                        ...prev,
+                                        fieldMap: {
+                                          ...(prev.fieldMap ?? {}),
+                                          pillar: event.target.value,
+                                        },
+                                      }))
+                                    }
+                                    className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                  />
+                                </label>
+                                <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                  <span>Region field</span>
+                                  <input
+                                    type="text"
+                                    placeholder="Custom.Region"
+                                    value={datasourceConfig.fieldMap?.region ?? ''}
+                                    onChange={(event) =>
+                                      setDatasourceConfig((prev) => ({
+                                        ...prev,
+                                        fieldMap: {
+                                          ...(prev.fieldMap ?? {}),
+                                          region: event.target.value,
+                                        },
+                                      }))
+                                    }
+                                    className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                  />
+                                </label>
+                                <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                  <span>Criticality field</span>
+                                  <input
+                                    type="text"
+                                    placeholder="Custom.Criticality"
+                                    value={datasourceConfig.fieldMap?.criticality ?? ''}
+                                    onChange={(event) =>
+                                      setDatasourceConfig((prev) => ({
+                                        ...prev,
+                                        fieldMap: {
+                                          ...(prev.fieldMap ?? {}),
+                                          criticality: event.target.value,
+                                        },
+                                      }))
+                                    }
+                                    className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                  />
+                                </label>
+                                <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                  <span>Impacted stakeholders field</span>
+                                  <input
+                                    type="text"
+                                    placeholder="System.Tags"
+                                    value={datasourceConfig.fieldMap?.impactedStakeholders ?? ''}
+                                    onChange={(event) =>
+                                      setDatasourceConfig((prev) => ({
+                                        ...prev,
+                                        fieldMap: {
+                                          ...(prev.fieldMap ?? {}),
+                                          impactedStakeholders: event.target.value,
+                                        },
+                                      }))
+                                    }
+                                    className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                  />
+                                </label>
+                                <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                  <span>Stakeholder tag prefix</span>
+                                  <input
+                                    type="text"
+                                    placeholder="Stakeholder:"
+                                    value={datasourceConfig.stakeholderTagPrefix ?? ''}
+                                    onChange={(event) =>
+                                      setDatasourceConfig((prev) => ({
+                                        ...prev,
+                                        stakeholderTagPrefix: event.target.value,
+                                      }))
+                                    }
+                                    className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                  />
+                                </label>
+                                <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                  <span>Region tag prefix</span>
+                                  <input
+                                    type="text"
+                                    placeholder="Region:"
+                                    value={datasourceConfig.regionTagPrefix ?? ''}
+                                    onChange={(event) =>
+                                      setDatasourceConfig((prev) => ({
+                                        ...prev,
+                                        regionTagPrefix: event.target.value,
+                                      }))
+                                    }
+                                    className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                  />
+                                </label>
+                              </div>
+                            </details>
+                          </div>
+                        ) : (
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                            CSV is the default data source.
+                          </div>
+                        )}
+
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                            {datasourceStatus ?? ' '}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              className="rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 disabled:opacity-60 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                              onClick={handleValidateDatasource}
+                              disabled={isDatasourceValidating}
+                            >
+                              {isDatasourceValidating ? 'Validating...' : 'Validate'}
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 disabled:opacity-60 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                              onClick={handleSaveDatasource}
+                              disabled={isDatasourceSaving}
+                            >
+                              {isDatasourceSaving ? 'Saving...' : 'Save'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>,
                 document.body,

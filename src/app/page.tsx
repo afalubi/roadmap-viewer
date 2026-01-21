@@ -14,6 +14,7 @@ import { parseRegions, type Region } from "@/lib/region";
 import { getQuarterStartDate } from "@/lib/timeScale";
 import { parseStakeholders } from "@/lib/stakeholders";
 import { parseRoadmapCsv } from "@/lib/loadRoadmapFromCsv";
+import { buildCsvFromItems } from "@/lib/roadmapCsv";
 import { RoadmapFilters } from "@/components/roadmap/RoadmapFilters";
 import { RoadmapTimeline } from "@/components/roadmap/RoadmapTimeline";
 import { RoadmapManagerPanel } from "@/components/roadmap/RoadmapManagerPanel";
@@ -80,6 +81,16 @@ export default function HomePage() {
   const [activeRoadmapRole, setActiveRoadmapRole] = useState<
     RoadmapSummary["role"] | null
   >(null);
+  const [activeDatasourceType, setActiveDatasourceType] = useState<
+    RoadmapDetail["datasourceType"] | null
+  >(null);
+  const [datasourceDebug, setDatasourceDebug] = useState<{
+    count: number;
+    stale: boolean;
+    truncated: boolean;
+    warning: string | null;
+    error: string | null;
+  } | null>(null);
   const [loadedRoadmapSlug, setLoadedRoadmapSlug] = useState("");
   const [isRoadmapManageOpen, setIsRoadmapManageOpen] = useState(false);
   const [shareRoadmapId, setShareRoadmapId] = useState<string | null>(null);
@@ -259,6 +270,7 @@ export default function HomePage() {
       setRoadmaps([]);
       setActiveRoadmapId(null);
       setActiveRoadmapRole(null);
+      setActiveDatasourceType(null);
       return;
     }
     setIsLoadingRoadmaps(true);
@@ -270,6 +282,7 @@ export default function HomePage() {
       if (list.length === 0) {
         setActiveRoadmapId(null);
         setActiveRoadmapRole(null);
+        setActiveDatasourceType(null);
         setViews([]);
         setLoadedView(null);
         setLoadedSharedSlug("");
@@ -285,6 +298,7 @@ export default function HomePage() {
         setActiveRoadmapRole(activeMatch.role);
       } else if (activeRoadmapId) {
         setActiveRoadmapRole(null);
+        setActiveDatasourceType(null);
       }
     } catch {
       setRoadmaps([]);
@@ -293,17 +307,77 @@ export default function HomePage() {
     }
   };
 
+  const applyRoadmapItems = (nextItems: RoadmapItem[], csvText = "") => {
+    setItems(nextItems);
+    setFilteredItems(nextItems);
+    setSelectedPillars([]);
+    setSelectedRegions([]);
+    setSelectedCriticalities([]);
+    setSelectedImpactedStakeholders([]);
+    setCurrentCsvText(csvText);
+  };
+
+  const fetchDatasourceItems = async (roadmapId: string, forceRefresh = false) => {
+    try {
+      const res = await fetch(
+        `/api/roadmaps/${roadmapId}/datasource/items${forceRefresh ? "?refresh=1" : ""}`
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setDatasourceDebug({
+          count: 0,
+          stale: false,
+          truncated: false,
+          warning: null,
+          error: data?.error ?? `Datasource fetch failed (${res.status}).`,
+        });
+        return null;
+      }
+      const data = (await res.json()) as {
+        items?: RoadmapItem[];
+        stale?: boolean;
+        truncated?: boolean;
+        warning?: string | null;
+      };
+      const items = Array.isArray(data.items) ? data.items : [];
+      setDatasourceDebug({
+        count: items.length,
+        stale: Boolean(data.stale),
+        truncated: Boolean(data.truncated),
+        warning: data.warning ?? null,
+        error: null,
+      });
+      return items;
+    } catch {
+      setDatasourceDebug({
+        count: 0,
+        stale: false,
+        truncated: false,
+        warning: null,
+        error: "Datasource fetch failed.",
+      });
+      return null;
+    }
+  };
+
   const loadRoadmapById = async (roadmapId: string) => {
     try {
       const res = await fetch(`/api/roadmaps/${roadmapId}`);
       if (!res.ok) return;
       const data = (await res.json()) as { roadmap?: RoadmapDetail };
-      if (data.roadmap && typeof data.roadmap.csvText === "string") {
-        applyCsvText(data.roadmap.csvText);
-      }
       if (data.roadmap) {
+        const datasourceType = data.roadmap.datasourceType ?? "csv";
+        setActiveDatasourceType(datasourceType);
         setActiveRoadmapId(data.roadmap.id);
         setActiveRoadmapRole(data.roadmap.role);
+        const items = await fetchDatasourceItems(data.roadmap.id, true);
+        if (items) {
+          applyRoadmapItems(items);
+          return;
+        }
+        if (typeof data.roadmap.csvText === "string") {
+          applyCsvText(data.roadmap.csvText);
+        }
       }
     } catch {
       // Ignore load errors.
@@ -329,16 +403,28 @@ export default function HomePage() {
       }
       if (!res.ok) return;
       const data = (await res.json()) as { roadmap?: RoadmapDetail };
-      if (data.roadmap && typeof data.roadmap.csvText === "string") {
-        applyCsvText(data.roadmap.csvText);
-      }
       if (data.roadmap) {
         setActiveRoadmapId(data.roadmap.id);
         setActiveRoadmapRole(data.roadmap.role);
+        setActiveDatasourceType(data.roadmap.datasourceType ?? "csv");
         setLoadedRoadmapSlug(slug);
         setLoadedView(null);
         setLoadedSharedSlug("");
         setShareRoadmapId(null);
+        if (Array.isArray((data.roadmap as any).items)) {
+          applyRoadmapItems((data.roadmap as any).items as RoadmapItem[]);
+          setDatasourceDebug({
+            count: (data.roadmap as any).items.length,
+            stale: false,
+            truncated: false,
+            warning: null,
+            error: null,
+          });
+          return;
+        }
+        if (typeof data.roadmap.csvText === "string") {
+          applyCsvText(data.roadmap.csvText);
+        }
       }
     } catch {
       // Ignore load errors.
@@ -486,6 +572,7 @@ export default function HomePage() {
     if (activeRoadmapId === id && typeof window !== "undefined") {
       setActiveRoadmapId(null);
       setActiveRoadmapRole(null);
+      setActiveDatasourceType(null);
       setViews([]);
       setShareRoadmapId(null);
       const nextUrl = new URL(window.location.href);
@@ -559,6 +646,7 @@ export default function HomePage() {
       setRoadmaps([]);
       setActiveRoadmapId(null);
       setActiveRoadmapRole(null);
+      setActiveDatasourceType(null);
       setViews([]);
       setLoadedView(null);
       setLoadedSharedSlug("");
@@ -690,8 +778,17 @@ export default function HomePage() {
 
   const handleCsvUploadText = async (text: string) => {
     applyCsvText(text);
+    const parsedItems = parseRoadmapCsv(text);
+    setDatasourceDebug({
+      count: parsedItems.length,
+      stale: false,
+      truncated: false,
+      warning: null,
+      error: null,
+    });
     if (!isSignedIn || !activeRoadmapId) return;
     if (!activeRoadmapRole || activeRoadmapRole === "viewer") return;
+    if (activeDatasourceType && activeDatasourceType !== "csv") return;
     try {
       await fetch(`/api/roadmaps/${activeRoadmapId}`, {
         method: "PUT",
@@ -1098,6 +1195,59 @@ export default function HomePage() {
           {isLoadingRoadmaps ? (
             <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
               Loading roadmaps...
+            </div>
+          ) : null}
+          {activeRoadmapId && showDebugOutlines ? (
+            <div className="rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="font-semibold text-slate-700 dark:text-slate-200">
+                  Datasource debug
+                </div>
+                <button
+                  type="button"
+                  className="rounded-full border border-slate-300 px-3 py-1 text-[0.7rem] text-slate-600 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                  onClick={async () => {
+                    if (!activeRoadmapId) return;
+                    const items = await fetchDatasourceItems(activeRoadmapId, true);
+                    if (items) applyRoadmapItems(items);
+                  }}
+                >
+                  Refresh datasource
+                </button>
+              </div>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <div>
+                  <span className="text-[0.7rem] uppercase tracking-wide text-slate-400">
+                    Type
+                  </span>
+                  <div className="font-semibold text-slate-700 dark:text-slate-200">
+                    {activeDatasourceType ?? "csv"}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-[0.7rem] uppercase tracking-wide text-slate-400">
+                    Items
+                  </span>
+                  <div className="font-semibold text-slate-700 dark:text-slate-200">
+                    {datasourceDebug?.count ?? items.length}
+                  </div>
+                </div>
+                {datasourceDebug?.warning ? (
+                  <div className="sm:col-span-2 text-[0.7rem] text-amber-600 dark:text-amber-300">
+                    {datasourceDebug.warning}
+                  </div>
+                ) : null}
+                {datasourceDebug?.error ? (
+                  <div className="sm:col-span-2 text-[0.7rem] text-rose-600 dark:text-rose-300">
+                    {datasourceDebug.error}
+                  </div>
+                ) : null}
+                {datasourceDebug?.stale ? (
+                  <div className="sm:col-span-2 text-[0.7rem] text-slate-500 dark:text-slate-400">
+                    Showing cached data.
+                  </div>
+                ) : null}
+              </div>
             </div>
           ) : null}
           {!isLoadingRoadmaps && roadmaps.length === 0 ? (
@@ -1518,59 +1668,3 @@ function formatDateInput(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function buildCsvFromItems(items: RoadmapItem[]): string {
-  const headers = [
-    "id",
-    "title",
-    "url",
-    "impactedStakeholders",
-    "submitterName",
-    "submitterDepartment",
-    "submitterPriority",
-    "shortDescription",
-    "longDescription",
-    "criticality",
-    "executiveSponsor",
-    "startDate",
-    "endDate",
-    "tShirtSize",
-    "pillar",
-    "region",
-    "expenseType",
-    "pointOfContact",
-    "lead",
-  ];
-  const escapeValue = (value: string) => {
-    const safe = value ?? "";
-    if (/[",\n]/.test(safe)) {
-      return `"${safe.replace(/"/g, '""')}"`;
-    }
-    return safe;
-  };
-  const rows = items.map((item) =>
-    [
-      item.id,
-      item.title,
-      item.url,
-      item.impactedStakeholders,
-      item.submitterName,
-      item.submitterDepartment,
-      item.submitterPriority,
-      item.shortDescription,
-      item.longDescription,
-      item.criticality,
-      item.executiveSponsor,
-      item.startDate,
-      item.endDate,
-      item.tShirtSize,
-      item.pillar,
-      item.region,
-      item.expenseType,
-      item.pointOfContact,
-      item.lead,
-    ]
-      .map(escapeValue)
-      .join(",")
-  );
-  return [headers.join(","), ...rows].join("\n");
-}
