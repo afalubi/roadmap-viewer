@@ -97,17 +97,22 @@ export const mapAzureDevopsItem = (
   const createdDate = getFieldValue(fields, 'System.CreatedDate');
   const targetDate = getFieldValue(fields, 'Microsoft.VSTS.Scheduling.TargetDate');
 
-  let startDate = startCandidate || (missingDateStrategy === 'fallback' ? createdDate : '');
-  let endDate =
-    endCandidate ||
-    (missingDateStrategy === 'fallback' ? targetDate || startDate : '');
+  let startDate = startCandidate;
+  let endDate = endCandidate;
+
+  if (missingDateStrategy === 'fallback') {
+    startDate = startDate || createdDate;
+    endDate = endDate || targetDate || startDate;
+  }
 
   if (missingDateStrategy === 'skip' && (!startDate || !endDate)) {
     return null;
   }
 
   if (!startDate) startDate = '';
-  if (!endDate) endDate = startDate || '';
+  if (!endDate) {
+    endDate = missingDateStrategy === 'fallback' ? startDate || '' : '';
+  }
 
   const urlField = getFieldValue(fields, fieldMap.url);
   const url = urlField || buildWorkItemUrl(baseUrl, config.project, item.id);

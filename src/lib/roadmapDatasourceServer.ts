@@ -70,7 +70,12 @@ export const sanitizeAzureConfig = (input: Record<string, unknown>): AzureDevops
   const queryText = typeof input.queryText === 'string' ? input.queryText.trim() : '';
   const refreshMinutes = typeof input.refreshMinutes === 'number' ? input.refreshMinutes : undefined;
   const maxItems = typeof input.maxItems === 'number' ? input.maxItems : undefined;
-  const missingDateStrategy = input.missingDateStrategy === 'skip' ? 'skip' : 'fallback';
+  const missingDateStrategy =
+    input.missingDateStrategy === 'skip'
+      ? 'skip'
+      : input.missingDateStrategy === 'unplanned'
+        ? 'unplanned'
+        : 'fallback';
   const fieldMap = typeof input.fieldMap === 'object' && input.fieldMap ? input.fieldMap : undefined;
   return {
     organizationUrl,

@@ -24,7 +24,7 @@ export type RoadmapFieldMap = Partial<{
 
 export type AzureDevopsQueryType = 'wiql' | 'saved';
 
-export type AzureDevopsDateStrategy = 'fallback' | 'skip';
+export type AzureDevopsDateStrategy = 'fallback' | 'skip' | 'unplanned';
 
 export type AzureDevopsQueryMode = 'simple' | 'advanced';
 

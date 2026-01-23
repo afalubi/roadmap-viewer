@@ -1132,6 +1132,7 @@ export function RoadmapManagerPanel({
                                   >
                                     <option value="fallback">Fallback dates</option>
                                     <option value="skip">Skip if missing</option>
+                                    <option value="unplanned">Send to unplanned</option>
                                   </select>
                                 </label>
                               </div>
