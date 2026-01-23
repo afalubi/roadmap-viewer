@@ -177,6 +177,20 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    const key = getScrollStorageKey(
+      mode === "unplanned" ? "/unplanned" : "/"
+    );
+    const raw = window.sessionStorage.getItem(key);
+    if (!raw) return;
+    const value = Number(raw);
+    if (!Number.isFinite(value)) return;
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: value, behavior: "auto" });
+    });
+  }, [mode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
     setShareBaseUrl(window.location.origin);
   }, []);
 
@@ -1203,6 +1217,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
             <Link
               href={getToggleViewHref(isUnplanned)}
               className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              onClick={() => saveScrollPosition(isUnplanned)}
             >
               {isUnplanned ? "Back to roadmap" : "Unplanned work"}
             </Link>
@@ -1812,5 +1827,15 @@ function getToggleViewHref(isUnplanned: boolean): string {
   const params = new URLSearchParams(window.location.search);
   const query = params.toString();
   return query ? `${basePath}?${query}` : basePath;
+}
+
+function saveScrollPosition(isUnplanned: boolean) {
+  if (typeof window === "undefined") return;
+  const key = getScrollStorageKey(isUnplanned ? "/unplanned" : "/");
+  window.sessionStorage.setItem(key, String(window.scrollY || 0));
+}
+
+function getScrollStorageKey(pathname: string): string {
+  return `roadmap-scroll:${pathname}`;
 }
 
