@@ -16,6 +16,7 @@ const DEFAULT_FIELD_MAP: RoadmapFieldMap = {
   pillar: 'Custom.Pillar',
   region: 'Custom.Region',
   criticality: 'Custom.Criticality',
+  disposition: 'Custom.Status',
   tShirtSize: 'Custom.TShirtSize',
 };
 
@@ -150,6 +151,7 @@ export const mapAzureDevopsItem = (
     shortDescription: getFieldValue(fields, fieldMap.shortDescription),
     longDescription: getFieldValue(fields, fieldMap.longDescription),
     criticality: getFieldValue(fields, fieldMap.criticality),
+    disposition: getFieldValue(fields, fieldMap.disposition),
     executiveSponsor: getFieldValue(fields, fieldMap.executiveSponsor),
     startDate,
     endDate,

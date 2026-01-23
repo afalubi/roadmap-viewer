@@ -1258,6 +1258,24 @@ export function RoadmapManagerPanel({
                                   />
                                 </label>
                                 <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                  <span>Disposition field</span>
+                                  <input
+                                    type="text"
+                                    placeholder="System.State"
+                                    value={datasourceConfig.fieldMap?.disposition ?? ''}
+                                    onChange={(event) =>
+                                      setDatasourceConfig((prev) => ({
+                                        ...prev,
+                                        fieldMap: {
+                                          ...(prev.fieldMap ?? {}),
+                                          disposition: event.target.value,
+                                        },
+                                      }))
+                                    }
+                                    className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                  />
+                                </label>
+                                <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
                                   <span>Impacted stakeholders field</span>
                                   <input
                                     type="text"

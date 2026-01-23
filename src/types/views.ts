@@ -27,13 +27,19 @@ export type ThemeOption =
   | 'metro-dark'
   | 'executive';
 
-export type GroupByOption = 'pillar' | 'stakeholder' | 'criticality' | 'region';
+export type GroupByOption =
+  | 'pillar'
+  | 'stakeholder'
+  | 'criticality'
+  | 'region'
+  | 'disposition';
 
 export interface ViewPayload {
   filters: {
     pillars: string[];
     regions: Region[];
     criticalities: string[];
+    dispositions: string[];
     impactedStakeholders: string[];
   };
   display: {

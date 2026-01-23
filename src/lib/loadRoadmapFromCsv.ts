@@ -39,6 +39,7 @@ export function parseRoadmapCsv(text: string): RoadmapItem[] {
     shortDescription: row.shortDescription ?? '',
     longDescription: row.longDescription ?? '',
     criticality: row.criticality ?? '',
+    disposition: row.disposition ?? '',
     executiveSponsor: row.executiveSponsor ?? '',
     startDate: row.startDate ?? '',
     endDate: row.endDate ?? '',

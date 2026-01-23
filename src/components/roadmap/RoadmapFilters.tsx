@@ -13,11 +13,18 @@ interface Props {
   setSelectedRegions: (value: Region[]) => void;
   selectedCriticalities: string[];
   setSelectedCriticalities: (value: string[]) => void;
+  selectedDispositions: string[];
+  setSelectedDispositions: (value: string[]) => void;
   selectedImpactedStakeholders: string[];
   setSelectedImpactedStakeholders: (value: string[]) => void;
-  selectedGroupBy: 'pillar' | 'stakeholder' | 'criticality' | 'region';
+  selectedGroupBy:
+    | 'pillar'
+    | 'stakeholder'
+    | 'criticality'
+    | 'region'
+    | 'disposition';
   setSelectedGroupBy: (
-    value: 'pillar' | 'stakeholder' | 'criticality' | 'region',
+    value: 'pillar' | 'stakeholder' | 'criticality' | 'region' | 'disposition',
   ) => void;
   displayOptions: {
     showRegionEmojis: boolean;
@@ -85,6 +92,8 @@ export function RoadmapFilters({
   setSelectedRegions,
   selectedCriticalities,
   setSelectedCriticalities,
+  selectedDispositions,
+  setSelectedDispositions,
   selectedImpactedStakeholders,
   setSelectedImpactedStakeholders,
   selectedGroupBy,
@@ -109,6 +118,9 @@ export function RoadmapFilters({
   const criticalities = Array.from(
     new Set(items.map((i) => i.criticality).filter(Boolean)),
   ).sort();
+  const dispositions = Array.from(
+    new Set(items.map((i) => i.disposition).filter(Boolean)),
+  ).sort();
   const impactedStakeholders = Array.from(
     new Set(
       items.flatMap((item) => parseStakeholders(item.impactedStakeholders)),
@@ -119,6 +131,7 @@ export function RoadmapFilters({
     setSelectedPillars([]);
     setSelectedRegions([]);
     setSelectedCriticalities([]);
+    setSelectedDispositions([]);
     setSelectedImpactedStakeholders([]);
   };
 
@@ -272,7 +285,8 @@ export function RoadmapFilters({
                         | 'pillar'
                         | 'stakeholder'
                         | 'criticality'
-                        | 'region',
+                        | 'region'
+                        | 'disposition',
                     )
                   }
                 >
@@ -280,6 +294,7 @@ export function RoadmapFilters({
                   <option value="stakeholder">Primary stakeholder</option>
                   <option value="criticality">Criticality</option>
                   <option value="region">Region</option>
+                  <option value="disposition">Disposition</option>
                 </select>
               </div>
 
@@ -335,6 +350,20 @@ export function RoadmapFilters({
                 {renderSelectedChips(selectedCriticalities, (value) =>
                   setSelectedCriticalities(
                     selectedCriticalities.filter((item) => item !== value),
+                  ),
+                )}
+
+                {renderCheckboxDropdown(
+                  'Disposition',
+                  dispositions,
+                  selectedDispositions,
+                  setSelectedDispositions,
+                  'Select disposition',
+                  { singular: 'disposition', plural: 'dispositions' },
+                )}
+                {renderSelectedChips(selectedDispositions, (value) =>
+                  setSelectedDispositions(
+                    selectedDispositions.filter((item) => item !== value),
                   ),
                 )}
 

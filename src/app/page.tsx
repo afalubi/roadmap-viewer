@@ -40,6 +40,9 @@ export default function HomePage() {
   const [selectedCriticalities, setSelectedCriticalities] = useState<string[]>(
     []
   );
+  const [selectedDispositions, setSelectedDispositions] = useState<string[]>(
+    []
+  );
   const [selectedImpactedStakeholders, setSelectedImpactedStakeholders] =
     useState<string[]>([]);
   const [selectedGroupBy, setSelectedGroupBy] =
@@ -173,6 +176,7 @@ export default function HomePage() {
       pillars: selectedPillars,
       regions: selectedRegions,
       criticalities: selectedCriticalities,
+      dispositions: selectedDispositions,
       impactedStakeholders: selectedImpactedStakeholders,
     },
     display: {
@@ -191,6 +195,7 @@ export default function HomePage() {
     setSelectedPillars(payload.filters?.pillars ?? []);
     setSelectedRegions(payload.filters?.regions ?? []);
     setSelectedCriticalities(payload.filters?.criticalities ?? []);
+    setSelectedDispositions(payload.filters?.dispositions ?? []);
     setSelectedImpactedStakeholders(
       payload.filters?.impactedStakeholders ?? []
     );
@@ -875,6 +880,7 @@ export default function HomePage() {
     stakeholder: "Primary stakeholder",
     criticality: "Criticality",
     region: "Region",
+    disposition: "Disposition",
   }[selectedGroupBy];
 
   const appliedFilters = [
@@ -882,6 +888,9 @@ export default function HomePage() {
     selectedRegions.length ? `Regions: ${selectedRegions.join(", ")}` : null,
     selectedCriticalities.length
       ? `Criticality: ${selectedCriticalities.join(", ")}`
+      : null,
+    selectedDispositions.length
+      ? `Disposition: ${selectedDispositions.join(", ")}`
       : null,
     selectedImpactedStakeholders.length
       ? `Stakeholders: ${selectedImpactedStakeholders.join(", ")}`
@@ -933,8 +942,14 @@ export default function HomePage() {
         selectedPillars: string[];
         selectedRegions: Region[];
         selectedCriticalities: string[];
+        selectedDispositions: string[];
         selectedImpactedStakeholders: string[];
-        selectedGroupBy: "pillar" | "stakeholder" | "criticality" | "region";
+        selectedGroupBy:
+          | "pillar"
+          | "stakeholder"
+          | "criticality"
+          | "region"
+          | "disposition";
         selectedTheme:
           | "coastal"
           | "orchard"
@@ -968,6 +983,8 @@ export default function HomePage() {
       if (parsed.selectedRegions) setSelectedRegions(parsed.selectedRegions);
       if (parsed.selectedCriticalities)
         setSelectedCriticalities(parsed.selectedCriticalities);
+      if (parsed.selectedDispositions)
+        setSelectedDispositions(parsed.selectedDispositions);
       if (parsed.selectedImpactedStakeholders)
         setSelectedImpactedStakeholders(parsed.selectedImpactedStakeholders);
       if (parsed.selectedGroupBy) setSelectedGroupBy(parsed.selectedGroupBy);
@@ -997,6 +1014,7 @@ export default function HomePage() {
       selectedPillars,
       selectedRegions,
       selectedCriticalities,
+      selectedDispositions,
       selectedImpactedStakeholders,
       selectedGroupBy,
       selectedTheme,
@@ -1012,6 +1030,7 @@ export default function HomePage() {
     selectedPillars,
     selectedRegions,
     selectedCriticalities,
+    selectedDispositions,
     selectedImpactedStakeholders,
     selectedGroupBy,
     selectedTheme,
@@ -1039,6 +1058,11 @@ export default function HomePage() {
         selectedCriticalities.includes(i.criticality)
       );
     }
+    if (selectedDispositions.length > 0) {
+      result = result.filter((i) =>
+        selectedDispositions.includes(i.disposition)
+      );
+    }
     if (selectedImpactedStakeholders.length > 0) {
       result = result.filter((i) => {
         const stakeholders = parseStakeholders(i.impactedStakeholders);
@@ -1053,6 +1077,7 @@ export default function HomePage() {
     selectedPillars,
     selectedRegions,
     selectedCriticalities,
+    selectedDispositions,
     selectedImpactedStakeholders,
   ]);
 
@@ -1602,10 +1627,12 @@ export default function HomePage() {
                         items={items}
                         selectedPillars={selectedPillars}
                         setSelectedPillars={setSelectedPillars}
-                        selectedRegions={selectedRegions}
+                      selectedRegions={selectedRegions}
                       setSelectedRegions={setSelectedRegions}
                       selectedCriticalities={selectedCriticalities}
                       setSelectedCriticalities={setSelectedCriticalities}
+                      selectedDispositions={selectedDispositions}
+                      setSelectedDispositions={setSelectedDispositions}
                       selectedImpactedStakeholders={selectedImpactedStakeholders}
                       setSelectedImpactedStakeholders={
                         setSelectedImpactedStakeholders

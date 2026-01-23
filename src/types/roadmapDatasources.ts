@@ -7,6 +7,7 @@ export type RoadmapFieldMap = Partial<{
   pillar: string;
   region: string;
   criticality: string;
+  disposition: string;
   url: string;
   impactedStakeholders: string;
   submitterName: string;

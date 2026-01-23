@@ -14,7 +14,7 @@ import { RoadmapItemDetailDialog } from './RoadmapItemDetailDialog';
 
 interface Props {
   items: RoadmapItem[];
-  groupBy: 'pillar' | 'stakeholder' | 'criticality' | 'region';
+  groupBy: 'pillar' | 'stakeholder' | 'criticality' | 'region' | 'disposition';
   displayOptions: {
     showRegionEmojis: boolean;
     showShortDescription: boolean;
@@ -49,13 +49,14 @@ interface Props {
 }
 
 const GROUP_LABELS: Record<
-  'pillar' | 'stakeholder' | 'criticality' | 'region',
+  'pillar' | 'stakeholder' | 'criticality' | 'region' | 'disposition',
   string
 > = {
   pillar: 'Pillar',
   stakeholder: 'Primary stakeholder',
   criticality: 'Criticality',
   region: 'Region',
+  disposition: 'Disposition',
 };
 
 function getGroupKey(item: RoadmapItem, groupBy: Props['groupBy']): string {
@@ -67,6 +68,9 @@ function getGroupKey(item: RoadmapItem, groupBy: Props['groupBy']): string {
   }
   if (groupBy === 'region') {
     return item.region || '';
+  }
+  if (groupBy === 'disposition') {
+    return item.disposition || '';
   }
   return item.pillar || '';
 }

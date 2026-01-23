@@ -37,6 +37,7 @@ export function RoadmapItemDetailDialog({ item, onClose }: Props) {
             <DetailField label="End date" value={formatDateOnly(item.endDate)} />
             <DetailField label="T-shirt size" value={item.tShirtSize} />
             <DetailField label="Criticality" value={item.criticality} />
+            <DetailField label="Disposition" value={item.disposition} />
             {item.url ? (
               <p className="text-slate-700 dark:text-slate-200">
                 <span className="font-semibold text-slate-600 mr-1 dark:text-slate-300">

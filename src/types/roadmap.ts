@@ -11,6 +11,7 @@ export interface RoadmapItem {
   shortDescription: string;
   longDescription: string;
   criticality: string;
+  disposition: string;
   executiveSponsor: string;
   startDate: string;
   endDate: string;
