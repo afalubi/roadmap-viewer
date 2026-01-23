@@ -1812,13 +1812,26 @@ function formatDateInput(date: Date): string {
 }
 
 function hasValidTimelineDates(item: RoadmapItem): boolean {
-  return isValidDateValue(item.startDate) && isValidDateValue(item.endDate);
+  const start = parseDateValue(item.startDate);
+  const end = parseDateValue(item.endDate);
+  if (!start || !end) return false;
+  if (getDateKey(start) === getDateKey(end)) return false;
+  if (end.getTime() < start.getTime()) return false;
+  return true;
 }
 
-function isValidDateValue(value: string): boolean {
-  if (!value) return false;
+function parseDateValue(value: string): Date | null {
+  if (!value) return null;
   const parsed = new Date(value);
-  return !Number.isNaN(parsed.getTime());
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
+function getDateKey(value: Date): string {
+  const year = value.getUTCFullYear();
+  const month = String(value.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(value.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function getToggleViewHref(isUnplanned: boolean): string {
