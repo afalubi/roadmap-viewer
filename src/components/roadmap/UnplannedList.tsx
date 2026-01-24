@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { RoadmapItem } from '@/types/roadmap';
 import { getRegionFlagAssets } from '@/lib/region';
 import { RoadmapItemDetailDialog } from '@/components/roadmap/RoadmapItemDetailDialog';
@@ -149,14 +149,18 @@ export function UnplannedList({
                 ))}
               </div>
               {layout === "board" ? (
-                <label className="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-                  <input
-                    type="checkbox"
-                    checked={fullWidth}
-                    onChange={(event) => onFullWidthChange(event.target.checked)}
-                    className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                  />
-                  Use full width
+                <label className="inline-flex items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
+                  <span>Use full width</span>
+                  <span className="relative inline-flex h-5 w-10 items-center">
+                    <input
+                      type="checkbox"
+                      checked={fullWidth}
+                      onChange={(event) => onFullWidthChange(event.target.checked)}
+                      className="peer sr-only"
+                    />
+                    <span className="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-sky-600 dark:bg-slate-700 dark:peer-checked:bg-sky-400" />
+                    <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5 dark:bg-slate-900 dark:peer-checked:bg-slate-900" />
+                  </span>
                 </label>
               ) : null}
             </div>
@@ -309,6 +313,68 @@ function UnplannedCard({
         </div>
         <div className="flex flex-col items-end gap-2" />
       </div>
+    </div>
+  );
+}
+
+function ChevronIcon({ isOpen }: { isOpen: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className={[
+        'h-3 w-3 transition-transform duration-300',
+        isOpen ? 'rotate-180' : '',
+      ].join(' ')}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
+}
+
+function AnimatedSection({
+  isOpen,
+  children,
+}: {
+  isOpen: boolean;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const targetHeight = isOpen ? el.scrollHeight : 0;
+    el.style.maxHeight = `${targetHeight}px`;
+    el.style.opacity = isOpen ? '1' : '0';
+    el.style.transform = isOpen
+      ? 'translateY(0px) scale(1)'
+      : 'translateY(-8px) scale(0.98)';
+    el.style.marginTop = isOpen ? '0.6rem' : '0';
+    el.style.pointerEvents = isOpen ? 'auto' : 'none';
+  }, [isOpen, children]);
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        maxHeight: '0px',
+        opacity: 0,
+        transform: 'translateY(-8px) scale(0.98)',
+        marginTop: '0',
+        transition:
+          'max-height 650ms ease-in-out, opacity 420ms ease-in-out, transform 420ms ease-in-out, margin 420ms ease-in-out',
+        overflow: 'hidden',
+        willChange: 'max-height, opacity, transform, margin',
+      }}
+      aria-hidden={!isOpen}
+    >
+      {children}
     </div>
   );
 }

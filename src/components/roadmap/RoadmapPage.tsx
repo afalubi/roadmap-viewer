@@ -1558,10 +1558,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
             >
             <div
               className={[
-                "flex flex-wrap items-center gap-3",
-                displayOptions.showDynamicHeader
-                  ? "justify-between"
-                  : "justify-end",
+                "grid gap-3 md:grid-cols-[20rem_minmax(0,1fr)] md:gap-6",
                 showDebugOutlines
                   ? "relative outline outline-1 outline-dashed outline-sky-300/80"
                   : "",
@@ -1572,84 +1569,81 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                   CONTROLS
                 </span>
               ) : null}
-              {displayOptions.showDynamicHeader ? (
-                <div className="flex items-center gap-2 min-w-0">
-                  {isEditingTitle ? (
-                    <input
-                      type="text"
-                      value={titleDraft}
-                      onChange={(event) => setTitleDraft(event.target.value)}
-                      onBlur={() => {
-                        const nextTitle = titleDraft.trim();
-                        if (nextTitle) {
-                          setTitlePrefix(nextTitle);
-                        } else {
-                          setTitleDraft(titlePrefix);
-                        }
-                        setIsEditingTitle(false);
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.currentTarget.blur();
-                        }
-                        if (event.key === "Escape") {
-                          setTitleDraft(titlePrefix);
+              <div className="px-1 py-1">
+                {displayOptions.showDynamicHeader ? (
+                  <div className="flex items-center gap-2 min-w-0">
+                    {isEditingTitle ? (
+                      <input
+                        type="text"
+                        value={titleDraft}
+                        onChange={(event) => setTitleDraft(event.target.value)}
+                        onBlur={() => {
+                          const nextTitle = titleDraft.trim();
+                          if (nextTitle) {
+                            setTitlePrefix(nextTitle);
+                          } else {
+                            setTitleDraft(titlePrefix);
+                          }
                           setIsEditingTitle(false);
-                        }
-                      }}
-                      className="w-full max-w-md rounded-md border border-slate-200 bg-white px-2 py-1 text-xl font-semibold text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-sky-700"
-                      aria-label="Edit roadmap title"
-                      autoFocus
-                    />
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        className="text-left text-xl font-semibold text-slate-900 hover:text-slate-700 dark:text-slate-100 dark:hover:text-slate-200 truncate"
-                        onClick={() => {
-                          setTitleDraft(titlePrefix);
-                          setIsEditingTitle(true);
                         }}
-                        title="Edit title"
-                        aria-label="Edit roadmap title"
-                      >
-                        {titlePrefix}
-                      </button>
-                      <button
-                        type="button"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
-                        onClick={() => {
-                          setTitleDraft(titlePrefix);
-                          setIsEditingTitle(true);
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.currentTarget.blur();
+                          }
+                          if (event.key === "Escape") {
+                            setTitleDraft(titlePrefix);
+                            setIsEditingTitle(false);
+                          }
                         }}
-                        title="Edit title"
+                        className="w-full max-w-md rounded-md border border-slate-200 bg-white px-2 py-1 text-xl font-semibold text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-sky-700"
                         aria-label="Edit roadmap title"
-                      >
-                        <svg
-                          viewBox="0 0 24 24"
-                          aria-hidden="true"
-                          className="h-3.5 w-3.5"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.6"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
+                        autoFocus
+                      />
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          className="text-left text-xl font-semibold text-slate-900 hover:text-slate-700 dark:text-slate-100 dark:hover:text-slate-200 truncate"
+                          onClick={() => {
+                            setTitleDraft(titlePrefix);
+                            setIsEditingTitle(true);
+                          }}
+                          title="Edit title"
+                          aria-label="Edit roadmap title"
                         >
-                          <path d="M12 20h9" />
-                          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z" />
-                        </svg>
-                      </button>
-                    </>
-                  )}
-                </div>
-              ) : null}
-              <div
-                className="flex flex-wrap items-center gap-3"
-                style={{
-                  marginLeft: isHeaderCollapsed ? 0 : "calc(20rem + 1.5rem)",
-                }}
-              >
-                <div className="flex flex-wrap items-center gap-6">
+                          {titlePrefix}
+                        </button>
+                        <button
+                          type="button"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                          onClick={() => {
+                            setTitleDraft(titlePrefix);
+                            setIsEditingTitle(true);
+                          }}
+                          title="Edit title"
+                          aria-label="Edit roadmap title"
+                        >
+                          <svg
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                            className="h-3.5 w-3.5"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.6"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M12 20h9" />
+                            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z" />
+                          </svg>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+              <div className="px-1 py-1">
+                <div className="flex flex-wrap items-center justify-between gap-4">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                       View
@@ -1688,56 +1682,25 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                       </div>
                     </details>
                   </div>
-                  <button
-                    type="button"
-                    className={[
-                      "inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800",
-                    ].join(" ")}
-                    onClick={() => {
-                      if (activeRoadmapId) {
-                        setShareRoadmapId(activeRoadmapId);
-                      }
-                    }}
-                    disabled={
-                      !activeRoadmapId ||
-                      !activeRoadmapRole ||
-                      activeRoadmapRole === "viewer"
-                    }
-                    title="Share current roadmap"
-                  >
-                    <span className="inline-flex h-4 w-4 items-center justify-center text-sky-600">
-                      <svg
-                        viewBox="0 0 24 24"
-                        aria-hidden="true"
-                        className="h-4 w-4"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.6"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <circle cx="18" cy="5" r="2" />
-                        <circle cx="6" cy="12" r="2" />
-                        <circle cx="18" cy="19" r="2" />
-                        <path d="M8 12l8-6" />
-                        <path d="M8 12l8 6" />
-                      </svg>
-                    </span>
-                    Share
-                  </button>
-                  {activeDatasourceType === "azure-devops" ? (
+                  <div className="flex flex-wrap items-center gap-3">
                     <button
                       type="button"
-                      className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
-                      onClick={handleRefreshDatasource}
-                      disabled={!activeRoadmapId || !isOnline || isRefreshingDatasource}
-                      title={
-                        !isOnline
-                          ? "Offline. Refresh paused."
-                          : "Refresh datasource"
+                      className={[
+                        "inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800",
+                      ].join(" ")}
+                      onClick={() => {
+                        if (activeRoadmapId) {
+                          setShareRoadmapId(activeRoadmapId);
+                        }
+                      }}
+                      disabled={
+                        !activeRoadmapId ||
+                        !activeRoadmapRole ||
+                        activeRoadmapRole === "viewer"
                       }
+                      title="Share current roadmap"
                     >
-                      <span className="inline-flex h-4 w-4 items-center justify-center text-emerald-600">
+                      <span className="inline-flex h-4 w-4 items-center justify-center text-sky-600">
                         <svg
                           viewBox="0 0 24 24"
                           aria-hidden="true"
@@ -1748,133 +1711,125 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                           strokeLinecap="round"
                           strokeLinejoin="round"
                         >
-                          <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-                          <path d="M21 3v6h-6" />
+                          <circle cx="18" cy="5" r="2" />
+                          <circle cx="6" cy="12" r="2" />
+                          <circle cx="18" cy="19" r="2" />
+                          <path d="M8 12l8-6" />
+                          <path d="M8 12l8 6" />
                         </svg>
                       </span>
-                      {isRefreshingDatasource ? "Refreshing..." : "Refresh data"}
+                      Share
                     </button>
-                  ) : null}
-                </div>
-                <details className="relative">
-                  <summary className="list-none inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 cursor-pointer dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800">
-                    <span className="inline-flex h-4 w-4 items-center justify-center text-sky-600">
+                    {activeDatasourceType === "azure-devops" ? (
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                        onClick={handleRefreshDatasource}
+                        disabled={!activeRoadmapId || !isOnline || isRefreshingDatasource}
+                        title={
+                          !isOnline
+                            ? "Offline. Refresh paused."
+                            : "Refresh datasource"
+                        }
+                      >
+                        <span className="inline-flex h-4 w-4 items-center justify-center text-emerald-600">
+                          <svg
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.6"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                            <path d="M21 3v6h-6" />
+                          </svg>
+                        </span>
+                        {isRefreshingDatasource ? "Refreshing..." : "Refresh data"}
+                      </button>
+                    ) : null}
+                    <details className="relative">
+                    <summary className="list-none inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 cursor-pointer dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800">
+                      <span className="inline-flex h-4 w-4 items-center justify-center text-sky-600">
+                        <svg
+                          viewBox="0 0 24 24"
+                          aria-hidden="true"
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M12 21V9" />
+                          <path d="M7 14l5-5 5 5" />
+                          <path d="M5 3h14" />
+                        </svg>
+                      </span>
+                      Import
                       <svg
                         viewBox="0 0 24 24"
                         aria-hidden="true"
-                        className="h-4 w-4"
+                        className="h-3 w-3 text-slate-400"
                         fill="none"
                         stroke="currentColor"
-                        strokeWidth="1.6"
+                        strokeWidth="2"
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       >
-                        <path d="M12 21V9" />
-                        <path d="M7 14l5-5 5 5" />
-                        <path d="M5 3h14" />
+                        <path d="M6 9l6 6 6-6" />
                       </svg>
-                    </span>
-                    Import
-                    <svg
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                      className="h-3 w-3 text-slate-400"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M6 9l6 6 6-6" />
-                    </svg>
-                  </summary>
-                  <div className="absolute right-0 z-20 mt-2 w-52 rounded-lg border border-slate-200 bg-white p-1 text-xs shadow-lg dark:border-slate-700 dark:bg-slate-900">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (csvInputRef.current) {
-                          csvInputRef.current.value = "";
-                          csvInputRef.current.click();
-                        }
-                      }}
-                      className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
-                    >
-                      Import CSV
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (excelInputRef.current) {
-                          excelInputRef.current.value = "";
-                          excelInputRef.current.click();
-                        }
-                      }}
-                      className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
-                    >
-                      Import Excel
-                    </button>
-                  </div>
-                  <input
-                    ref={csvInputRef}
-                    type="file"
-                    accept=".csv,text/csv"
-                    className="sr-only"
-                    onChange={(event) =>
-                      handleCsvFile(event.target.files?.[0])
-                    }
-                  />
-                  <input
-                    ref={excelInputRef}
-                    type="file"
-                    accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-                    className="sr-only"
-                    onChange={(event) =>
-                      handleExcelFile(event.target.files?.[0])
-                    }
-                  />
-                </details>
-                <details className="relative">
-                  <summary className="list-none inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 cursor-pointer dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800">
-                    <span className="inline-flex h-4 w-4 items-center justify-center text-slate-500">
-                      <svg
-                        viewBox="0 0 24 24"
-                        aria-hidden="true"
-                        className="h-4 w-4"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.6"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
+                    </summary>
+                    <div className="absolute right-0 z-20 mt-2 w-52 rounded-lg border border-slate-200 bg-white p-1 text-xs shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (csvInputRef.current) {
+                            csvInputRef.current.value = "";
+                            csvInputRef.current.click();
+                          }
+                        }}
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
                       >
-                        <path d="M12 3v12" />
-                        <path d="M7 10l5 5 5-5" />
-                        <path d="M5 21h14" />
-                      </svg>
-                    </span>
-                    Export
-                    <svg
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                      className="h-3 w-3 text-slate-400"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M6 9l6 6 6-6" />
-                    </svg>
-                  </summary>
-                  <div className="absolute right-0 z-20 mt-2 w-48 rounded-lg border border-slate-200 bg-white p-1 text-xs shadow-lg dark:border-slate-700 dark:bg-slate-900">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handleCsvDownload();
-                        (document.activeElement as HTMLElement | null)?.blur();
-                      }}
-                      className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
-                    >
-                      <span className="inline-flex h-4 w-4 items-center justify-center text-emerald-600">
+                        Import CSV
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (excelInputRef.current) {
+                            excelInputRef.current.value = "";
+                            excelInputRef.current.click();
+                          }
+                        }}
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+                      >
+                        Import Excel
+                      </button>
+                    </div>
+                    <input
+                      ref={csvInputRef}
+                      type="file"
+                      accept=".csv,text/csv"
+                      className="sr-only"
+                      onChange={(event) =>
+                        handleCsvFile(event.target.files?.[0])
+                      }
+                    />
+                    <input
+                      ref={excelInputRef}
+                      type="file"
+                      accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                      className="sr-only"
+                      onChange={(event) =>
+                        handleExcelFile(event.target.files?.[0])
+                      }
+                    />
+                    </details>
+                    <details className="relative">
+                    <summary className="list-none inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 cursor-pointer dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800">
+                      <span className="inline-flex h-4 w-4 items-center justify-center text-slate-500">
                         <svg
                           viewBox="0 0 24 24"
                           aria-hidden="true"
@@ -1890,37 +1845,78 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                           <path d="M5 21h14" />
                         </svg>
                       </span>
-                      Download CSV
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handleExportImage();
-                        (document.activeElement as HTMLElement | null)?.blur();
-                      }}
-                      className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-200 dark:hover:bg-slate-800"
-                      disabled={isExporting}
-                    >
-                      <span className="inline-flex h-4 w-4 items-center justify-center text-amber-600">
-                        <svg
-                          viewBox="0 0 24 24"
-                          aria-hidden="true"
-                          className="h-4 w-4"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.6"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <rect x="3" y="5" width="18" height="14" rx="2" />
-                          <path d="M8 13l2-2 3 3 3-4 2 3" />
-                          <circle cx="8.5" cy="9" r="1" />
-                        </svg>
-                      </span>
-                      {isExporting ? "Exporting..." : "Export image"}
-                    </button>
+                      Export
+                      <svg
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                        className="h-3 w-3 text-slate-400"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M6 9l6 6 6-6" />
+                      </svg>
+                    </summary>
+                    <div className="absolute right-0 z-20 mt-2 w-48 rounded-lg border border-slate-200 bg-white p-1 text-xs shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleCsvDownload();
+                          (document.activeElement as HTMLElement | null)?.blur();
+                        }}
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+                      >
+                        <span className="inline-flex h-4 w-4 items-center justify-center text-emerald-600">
+                          <svg
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.6"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M12 3v12" />
+                            <path d="M7 10l5 5 5-5" />
+                            <path d="M5 21h14" />
+                          </svg>
+                        </span>
+                        Download CSV
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleExportImage();
+                          (document.activeElement as HTMLElement | null)?.blur();
+                        }}
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-200 dark:hover:bg-slate-800"
+                        disabled={isExporting}
+                      >
+                        <span className="inline-flex h-4 w-4 items-center justify-center text-amber-600">
+                          <svg
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.6"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <rect x="3" y="5" width="18" height="14" rx="2" />
+                            <path d="M8 13l2-2 3 3 3-4 2 3" />
+                            <circle cx="8.5" cy="9" r="1" />
+                          </svg>
+                        </span>
+                        {isExporting ? "Exporting..." : "Export image"}
+                      </button>
+                    </div>
+                    </details>
                   </div>
-                </details>
+                </div>
               </div>
             </div>
 
@@ -2050,14 +2046,18 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                       filters: appliedFilters,
                     }}
                     headerRight={
-                      <label className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-                        <input
-                          type="checkbox"
-                          checked={fullWidth}
-                          onChange={(event) => setFullWidth(event.target.checked)}
-                          className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                        />
-                        Use full width
+                      <label className="inline-flex items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
+                        <span>Use full width</span>
+                        <span className="relative inline-flex h-5 w-10 items-center">
+                          <input
+                            type="checkbox"
+                            checked={fullWidth}
+                            onChange={(event) => setFullWidth(event.target.checked)}
+                            className="peer sr-only"
+                          />
+                          <span className="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-sky-600 dark:bg-slate-700 dark:peer-checked:bg-sky-400" />
+                          <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5 dark:bg-slate-900 dark:peer-checked:bg-slate-900" />
+                        </span>
                       </label>
                     }
                     isExporting={isExporting}
