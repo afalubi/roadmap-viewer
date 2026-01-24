@@ -1363,16 +1363,6 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-              onClick={() => {
-                saveScrollPosition(isUnplanned);
-                router.push(getToggleViewHref(isUnplanned));
-              }}
-            >
-              {isUnplanned ? "Back to roadmap" : "Unplanned work"}
-            </button>
             <SignedIn>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -1455,6 +1445,74 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                     </div>
                   </div>
                 </details>
+                <button
+                  type="button"
+                  className={[
+                    "inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800",
+                  ].join(" ")}
+                  onClick={() => {
+                    if (activeRoadmapId) {
+                      setShareRoadmapId(activeRoadmapId);
+                      setIsRoadmapManageOpen(true);
+                    }
+                  }}
+                  disabled={
+                    !activeRoadmapId ||
+                    !activeRoadmapRole ||
+                    activeRoadmapRole === "viewer"
+                  }
+                  title="Share current roadmap"
+                >
+                  <span className="inline-flex h-4 w-4 items-center justify-center text-sky-600">
+                    <svg
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="18" cy="5" r="2" />
+                      <circle cx="6" cy="12" r="2" />
+                      <circle cx="18" cy="19" r="2" />
+                      <path d="M8 12l8-6" />
+                      <path d="M8 12l8 6" />
+                    </svg>
+                  </span>
+                  Share
+                </button>
+                {activeDatasourceType === "azure-devops" ? (
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                    onClick={handleRefreshDatasource}
+                    disabled={!activeRoadmapId || !isOnline || isRefreshingDatasource}
+                    title={
+                      !isOnline
+                        ? "Offline. Refresh paused."
+                        : "Refresh datasource"
+                    }
+                  >
+                    <span className="inline-flex h-4 w-4 items-center justify-center text-emerald-600">
+                      <svg
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                        <path d="M21 3v6h-6" />
+                      </svg>
+                    </span>
+                    {isRefreshingDatasource ? "Refreshing..." : "Refresh data"}
+                  </button>
+                ) : null}
               </div>
             </SignedIn>
             <SignedOut>
@@ -1724,15 +1782,53 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
               <div className="px-1 py-1">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                      onClick={() => {
+                        saveScrollPosition(isUnplanned);
+                        router.push(getToggleViewHref(isUnplanned));
+                      }}
+                    >
+                      {isUnplanned ? "Back to roadmap" : "Unplanned work"}
+                    </button>
                     <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                      View
+                      Saved Views:
                     </span>
                     <details className="relative" data-dropdown>
-                      <summary className="list-none rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 cursor-pointer hover:border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800">
+                      <summary className="list-none inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 cursor-pointer hover:border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800">
+                        <span className="inline-flex h-4 w-4 items-center justify-center text-sky-600">
+                          <svg
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.6"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M4 6h16" />
+                            <path d="M4 12h16" />
+                            <path d="M4 18h10" />
+                          </svg>
+                        </span>
                         {selectedViewValue
                           ? viewOptions.find((option) => option.value === selectedViewValue)
-                              ?.label ?? "Select view"
-                          : "Select view"}
+                              ?.label ?? "Select"
+                          : "Select"}
+                        <svg
+                          viewBox="0 0 24 24"
+                          aria-hidden="true"
+                          className="h-3 w-3 text-slate-400"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M6 9l6 6 6-6" />
+                        </svg>
                       </summary>
                       <div className="absolute left-0 z-[120] mt-2 w-96 max-w-[90vw] rounded-lg border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-700 dark:bg-slate-900">
                         <SavedViewsPanel
@@ -1753,74 +1849,6 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                     </details>
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
-                    <button
-                      type="button"
-                      className={[
-                        "inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800",
-                      ].join(" ")}
-                    onClick={() => {
-                      if (activeRoadmapId) {
-                        setShareRoadmapId(activeRoadmapId);
-                        setIsRoadmapManageOpen(true);
-                      }
-                    }}
-                      disabled={
-                        !activeRoadmapId ||
-                        !activeRoadmapRole ||
-                        activeRoadmapRole === "viewer"
-                      }
-                      title="Share current roadmap"
-                    >
-                      <span className="inline-flex h-4 w-4 items-center justify-center text-sky-600">
-                        <svg
-                          viewBox="0 0 24 24"
-                          aria-hidden="true"
-                          className="h-4 w-4"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.6"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <circle cx="18" cy="5" r="2" />
-                          <circle cx="6" cy="12" r="2" />
-                          <circle cx="18" cy="19" r="2" />
-                          <path d="M8 12l8-6" />
-                          <path d="M8 12l8 6" />
-                        </svg>
-                      </span>
-                      Share
-                    </button>
-                    {activeDatasourceType === "azure-devops" ? (
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
-                        onClick={handleRefreshDatasource}
-                        disabled={!activeRoadmapId || !isOnline || isRefreshingDatasource}
-                        title={
-                          !isOnline
-                            ? "Offline. Refresh paused."
-                            : "Refresh datasource"
-                        }
-                      >
-                        <span className="inline-flex h-4 w-4 items-center justify-center text-emerald-600">
-                          <svg
-                            viewBox="0 0 24 24"
-                            aria-hidden="true"
-                            className="h-4 w-4"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.6"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-                            <path d="M21 3v6h-6" />
-                          </svg>
-                        </span>
-                        {isRefreshingDatasource ? "Refreshing..." : "Refresh data"}
-                      </button>
-                    ) : null}
                     <details className="relative" data-dropdown>
                       <summary className="list-none inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 cursor-pointer dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800">
                       <span className="inline-flex h-4 w-4 items-center justify-center text-sky-600">
