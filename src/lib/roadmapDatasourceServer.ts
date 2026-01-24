@@ -62,10 +62,12 @@ export const sanitizeAzureConfig = (input: Record<string, unknown>): AzureDevops
     ? input.workItemTypes.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
     : [];
   const includeClosed = typeof input.includeClosed === 'boolean' ? input.includeClosed : false;
-  const stakeholderTagPrefix =
+  const stakeholderTagPrefixRaw =
     typeof input.stakeholderTagPrefix === 'string' ? input.stakeholderTagPrefix.trim() : '';
-  const regionTagPrefix =
+  const regionTagPrefixRaw =
     typeof input.regionTagPrefix === 'string' ? input.regionTagPrefix.trim() : '';
+  const stakeholderTagPrefix = stakeholderTagPrefixRaw || 'Stakeholder:';
+  const regionTagPrefix = regionTagPrefixRaw || 'Region:';
   const queryType = input.queryType === 'saved' ? 'saved' : 'wiql';
   const queryText = typeof input.queryText === 'string' ? input.queryText.trim() : '';
   const refreshMinutes = typeof input.refreshMinutes === 'number' ? input.refreshMinutes : undefined;
@@ -377,6 +379,87 @@ export async function fetchDatasourceItems(
     }
     throw error;
   }
+}
+
+export async function fetchAzureDevopsDebugPayload(
+  roadmapId: string,
+  sampleSize: number,
+): Promise<{
+  config: AzureDevopsDatasourceConfig;
+  wiql: string;
+  fields: string[];
+  sampleIds: number[];
+  totalWorkItems: number;
+  wiqlResponse: unknown;
+  batchResponse: unknown | null;
+}> {
+  const record = await getDatasourceRecord(roadmapId);
+  const type = resolveDatasourceType(record?.type);
+  if (type !== 'azure-devops') {
+    throw new Error('Datasource is not Azure DevOps.');
+  }
+
+  const config = sanitizeAzureConfig(parseConfig(record?.config_json));
+  const normalizedUrl = normalizeOrganizationUrl(config.organizationUrl);
+  if (!normalizedUrl || !config.project) {
+    throw new Error('Azure DevOps configuration is incomplete.');
+  }
+  if (!record?.secret_encrypted) {
+    throw new Error('Azure DevOps PAT is missing.');
+  }
+
+  const pat = decryptSecret(record.secret_encrypted);
+  const headers = buildAzureDevopsRequestHeaders(pat);
+  const wiql = await buildAzureDevopsWiql(normalizedUrl, config, pat);
+  if (!wiql) {
+    throw new Error('WIQL query is required.');
+  }
+
+  const wiqlUrl = `${normalizedUrl}/${encodeURIComponent(config.project)}/_apis/wit/wiql?api-version=7.1-preview.2`;
+  const wiqlRes = await fetch(wiqlUrl, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ query: wiql }),
+  });
+  if (!wiqlRes.ok) {
+    const errorText = await wiqlRes.text().catch(() => '');
+    throw new Error(
+      `Azure DevOps WIQL query failed (${wiqlRes.status}). ${errorText}`.trim(),
+    );
+  }
+  const wiqlResponse = (await wiqlRes.json()) as {
+    workItems?: Array<{ id: number }>;
+  };
+  const ids = (wiqlResponse.workItems ?? []).map((item) => item.id);
+  const sampleIds = ids.slice(0, Math.max(1, sampleSize));
+  const fields = getFieldListForConfig(config);
+
+  let batchResponse: unknown | null = null;
+  if (sampleIds.length > 0) {
+    const batchUrl = `${normalizedUrl}/${encodeURIComponent(config.project)}/_apis/wit/workitemsbatch?api-version=7.1-preview.1`;
+    const batchRes = await fetch(batchUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ ids: sampleIds, fields }),
+    });
+    if (!batchRes.ok) {
+      const errorText = await batchRes.text().catch(() => '');
+      throw new Error(
+        `Azure DevOps work item batch failed (${batchRes.status}). ${errorText}`.trim(),
+      );
+    }
+    batchResponse = await batchRes.json();
+  }
+
+  return {
+    config,
+    wiql,
+    fields,
+    sampleIds,
+    totalWorkItems: ids.length,
+    wiqlResponse,
+    batchResponse,
+  };
 }
 
 export async function validateAzureDevopsConfig(

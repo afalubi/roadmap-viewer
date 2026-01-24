@@ -1,13 +1,16 @@
 'use client';
 
+import DOMPurify from 'dompurify';
 import type { RoadmapItem } from '@/types/roadmap';
+import { getRegionFlagAssets } from '@/lib/region';
 
 interface Props {
   item: RoadmapItem | null;
   onClose: () => void;
+  hideDates?: boolean;
 }
 
-export function RoadmapItemDetailDialog({ item, onClose }: Props) {
+export function RoadmapItemDetailDialog({ item, onClose, hideDates = false }: Props) {
   if (!item) return null;
 
   return (
@@ -15,10 +18,23 @@ export function RoadmapItemDetailDialog({ item, onClose }: Props) {
       <div className="bg-white rounded-xl shadow-2xl max-w-xl w-full p-6 space-y-4 dark:bg-slate-900">
         <div className="flex justify-between items-start gap-4">
           <div className="space-y-1">
-            <h2 className="text-lg font-semibold dark:text-slate-100">{item.title}</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-semibold dark:text-slate-100">{item.title}</h2>
+              {getRegionFlagAssets(item.region).length ? (
+                <span className="inline-flex items-center gap-1">
+                  {getRegionFlagAssets(item.region).map((flag) => (
+                    <img
+                      key={`${item.id}-${flag.region}`}
+                      src={flag.src}
+                      alt={flag.alt}
+                      className="h-4 w-4 rounded-sm border border-white/60 shadow-sm"
+                    />
+                  ))}
+                </span>
+              ) : null}
+            </div>
             <p className="text-xs text-slate-600 dark:text-slate-300">
               Pillar: <span className="font-medium">{item.pillar}</span> ·
-              Region: <span className="font-medium">{item.region}</span> ·
               Expense: <span className="font-medium">{item.expenseType}</span>
             </p>
           </div>
@@ -33,8 +49,12 @@ export function RoadmapItemDetailDialog({ item, onClose }: Props) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
           <div className="space-y-1">
-            <DetailField label="Start date" value={formatDateOnly(item.startDate)} />
-            <DetailField label="End date" value={formatDateOnly(item.endDate)} />
+            {!hideDates ? (
+              <>
+                <DetailField label="Start date" value={formatDateOnly(item.startDate)} />
+                <DetailField label="End date" value={formatDateOnly(item.endDate)} />
+              </>
+            ) : null}
             <DetailField label="T-shirt size" value={item.tShirtSize} />
             <DetailField label="Criticality" value={item.criticality} />
             <DetailField label="Disposition" value={item.disposition} />
@@ -56,8 +76,10 @@ export function RoadmapItemDetailDialog({ item, onClose }: Props) {
           </div>
 
           <div className="space-y-1">
-            <DetailField label="Submitter" value={item.submitterName} />
-            <DetailField label="Department" value={item.submitterDepartment} />
+            <SubmitterField
+              name={item.submitterName}
+              department={item.submitterDepartment}
+            />
             <DetailField
               label="Submitter priority"
               value={item.submitterPriority}
@@ -100,6 +122,27 @@ function DetailField({
   );
 }
 
+function SubmitterField({
+  name,
+  department,
+}: {
+  name: string;
+  department: string;
+}) {
+  if (!name) return null;
+  return (
+    <p className="text-slate-700 dark:text-slate-200">
+      <span className="font-semibold text-slate-600 mr-1 dark:text-slate-300">
+        Submitted by:
+      </span>
+      <span>
+        {name}
+        {department ? ` (${department})` : ''}
+      </span>
+    </p>
+  );
+}
+
 function formatDateOnly(value: string) {
   const trimmed = value.trim();
   if (!trimmed) return '';
@@ -125,12 +168,48 @@ function formatDateOnly(value: string) {
 
 function DetailBlock({ label, value }: { label: string; value: string }) {
   if (!value) return null;
+  const trimmed = value.trim();
+  const hasHtml = /<[^>]+>/.test(trimmed);
+  const content = hasHtml ? sanitizeRichText(trimmed) : trimmed;
   return (
     <div>
       <div className="font-semibold text-slate-600 mb-0.5 dark:text-slate-300">{label}</div>
-      <p className="text-slate-800 text-xs leading-relaxed whitespace-pre-line dark:text-slate-100">
-        {value}
-      </p>
+      {hasHtml ? (
+        <div
+          className="text-slate-800 text-xs leading-relaxed prose prose-slate max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 dark:text-slate-100 dark:prose-invert"
+          dangerouslySetInnerHTML={{ __html: content }}
+        />
+      ) : (
+        <p className="text-slate-800 text-xs leading-relaxed whitespace-pre-line dark:text-slate-100">
+          {content}
+        </p>
+      )}
     </div>
   );
+}
+
+function sanitizeRichText(value: string): string {
+  return DOMPurify.sanitize(value, {
+    ALLOWED_TAGS: [
+      'p',
+      'br',
+      'strong',
+      'b',
+      'em',
+      'i',
+      'u',
+      'ul',
+      'ol',
+      'li',
+      'a',
+      'span',
+      'div',
+      'blockquote',
+      'h1',
+      'h2',
+      'h3',
+      'h4',
+    ],
+    ALLOWED_ATTR: ['href', 'target', 'rel', 'style'],
+  });
 }

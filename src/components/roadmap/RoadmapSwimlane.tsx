@@ -248,7 +248,7 @@ export function RoadmapSwimlane({
                         useDarkItemText ? 'dark:text-slate-700' : 'dark:text-slate-200',
                       ].join(' ')}
                     >
-                      {item.shortDescription}
+                      {stripHtml(item.shortDescription)}
                     </div>
                   ) : null}
                 </button>
@@ -298,7 +298,7 @@ export function RoadmapSwimlane({
                   {tooltip.item.title}
                 </div>
                 <div className="text-slate-600 dark:text-slate-300">
-                  {tooltip.item.shortDescription}
+                  {stripHtml(tooltip.item.shortDescription)}
                 </div>
               </div>,
               document.body,
@@ -314,6 +314,11 @@ function stripBgClasses(classes: string): string {
     .split(' ')
     .filter((cls) => !cls.startsWith('bg-') && !cls.startsWith('hover:bg-'))
     .join(' ');
+}
+
+function stripHtml(value: string): string {
+  if (!value) return '';
+  return value.replace(/<[^>]*>/g, '').trim();
 }
 
 function buildLaneRows(

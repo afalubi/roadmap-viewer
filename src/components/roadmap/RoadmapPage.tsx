@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   SignedIn,
   SignedOut,
@@ -33,8 +35,11 @@ import type {
 type RoadmapPageMode = "planned" | "unplanned";
 
 export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
+  const router = useRouter();
   const { isLoaded, isSignedIn, userId } = useAuth();
   const lastUserIdRef = useRef<string | null>(null);
+  const csvInputRef = useRef<HTMLInputElement | null>(null);
+  const excelInputRef = useRef<HTMLInputElement | null>(null);
   const [settingsKey, setSettingsKey] = useState<string | null>(null);
   const [items, setItems] = useState<RoadmapItem[]>([]);
   const [filteredItems, setFilteredItems] = useState<RoadmapItem[]>([]);
@@ -78,12 +83,18 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
   const [isHydrated, setIsHydrated] = useState(false);
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const [isDraggingCsv, setIsDraggingCsv] = useState(false);
+  const [isRefreshingDatasource, setIsRefreshingDatasource] = useState(false);
+  const [isItemsLoading, setIsItemsLoading] = useState(false);
   const [showDebugOutlines, setShowDebugOutlines] = useState(false);
+  const [unplannedLayout, setUnplannedLayout] = useState<"list" | "board">(
+    "list"
+  );
+  const [fullWidth, setFullWidth] = useState(false);
   const [views, setViews] = useState<SavedView[]>([]);
   const [isLoadingViews, setIsLoadingViews] = useState(false);
   const [roadmaps, setRoadmaps] = useState<RoadmapSummary[]>([]);
   const [isLoadingRoadmaps, setIsLoadingRoadmaps] = useState(false);
+  const [isRoadmapMenuOpen, setIsRoadmapMenuOpen] = useState(false);
   const [activeRoadmapId, setActiveRoadmapId] = useState<string | null>(null);
   const [activeRoadmapRole, setActiveRoadmapRole] = useState<
     RoadmapSummary["role"] | null
@@ -98,6 +109,11 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     warning: string | null;
     error: string | null;
   } | null>(null);
+  const [isDebugItemsOpen, setIsDebugItemsOpen] = useState(false);
+  const [isDebugItemsLoading, setIsDebugItemsLoading] = useState(false);
+  const [debugItemsPayload, setDebugItemsPayload] = useState<RoadmapItem[] | null>(
+    null
+  );
   const [loadedRoadmapSlug, setLoadedRoadmapSlug] = useState("");
   const [isRoadmapManageOpen, setIsRoadmapManageOpen] = useState(false);
   const [shareRoadmapId, setShareRoadmapId] = useState<string | null>(null);
@@ -130,6 +146,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     }
     if (!isSignedIn) {
       if (!isOnline) return;
+      setIsItemsLoading(true);
       loadRoadmap()
         .then((data) => {
           setItems(data);
@@ -138,7 +155,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
         .catch(() => {
           setItems([]);
           setFilteredItems([]);
-        });
+        })
+        .finally(() => setIsItemsLoading(false));
     }
   }, [isLoaded, isSignedIn, isOnline]);
 
@@ -368,6 +386,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     setSelectedCriticalities([]);
     setSelectedImpactedStakeholders([]);
     setCurrentCsvText(csvText);
+    setIsItemsLoading(false);
   };
 
   const fetchDatasourceItems = async (roadmapId: string, forceRefresh = false) => {
@@ -425,6 +444,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
 
   const loadRoadmapById = async (roadmapId: string) => {
     if (!isOnline) return;
+    setIsItemsLoading(true);
     try {
       const res = await fetch(`/api/roadmaps/${roadmapId}`);
       if (!res.ok) return;
@@ -445,11 +465,14 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       }
     } catch {
       // Ignore load errors.
+    } finally {
+      setIsItemsLoading(false);
     }
   };
 
   const loadRoadmapBySlug = async (slug: string, password?: string) => {
     if (!isOnline) return;
+    setIsItemsLoading(true);
     try {
       const res = await fetch(`/api/roadmaps/slug/${slug}`, {
         headers: password
@@ -493,6 +516,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       }
     } catch {
       // Ignore load errors.
+    } finally {
+      setIsItemsLoading(false);
     }
   };
 
@@ -850,6 +875,19 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     URL.revokeObjectURL(url);
   };
 
+  const handleRefreshDatasource = async () => {
+    if (!activeRoadmapId || isRefreshingDatasource || !isOnline) return;
+    setIsRefreshingDatasource(true);
+    try {
+      const nextItems = await fetchDatasourceItems(activeRoadmapId, true);
+      if (nextItems) {
+        applyRoadmapItems(nextItems);
+      }
+    } finally {
+      setIsRefreshingDatasource(false);
+    }
+  };
+
   const applyCsvText = (text: string) => {
     const parsedItems = parseRoadmapCsv(text);
     setItems(parsedItems);
@@ -859,6 +897,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     setSelectedCriticalities([]);
     setSelectedImpactedStakeholders([]);
     setCurrentCsvText(text);
+    setIsItemsLoading(false);
   };
 
   const handleCsvUploadText = async (text: string) => {
@@ -893,13 +932,17 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     handleCsvUploadText(text);
   };
 
-  const handleCsvDrop = async (event: React.DragEvent<HTMLLabelElement>) => {
-    event.preventDefault();
-    setIsDraggingCsv(false);
-    const file = event.dataTransfer.files?.[0];
-    if (file) {
-      await handleCsvFile(file);
-    }
+  const handleExcelFile = async (file?: File | null) => {
+    if (!file) return;
+    const buffer = await file.arrayBuffer();
+    const XLSX = await import("xlsx");
+    const workbook = XLSX.read(buffer, { type: "array" });
+    const sheetName = workbook.SheetNames[0];
+    if (!sheetName) return;
+    const csv = XLSX.utils.sheet_to_csv(workbook.Sheets[sheetName], {
+      blankrows: false,
+    });
+    handleCsvUploadText(csv);
   };
 
   const handleExportImage = async () => {
@@ -1004,6 +1047,9 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     roadmapOptions.some((option) => option.value === activeRoadmapId)
       ? activeRoadmapId
       : "";
+  const selectedRoadmapOption = selectedRoadmapValue
+    ? roadmapOptions.find((option) => option.value === selectedRoadmapValue) ?? null
+    : null;
   const handleRoadmapSelect = (value: string) => {
     const match = roadmapOptions.find((option) => option.value === value);
     if (match) {
@@ -1058,6 +1104,9 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
         startDate: string;
         quartersToShow: number;
         isHeaderCollapsed: boolean;
+        unplannedLayout: "list" | "board";
+        fullWidth: boolean;
+        unplannedFullWidth: boolean;
       }>;
 
       if (parsed.selectedPillars) setSelectedPillars(parsed.selectedPillars);
@@ -1082,6 +1131,14 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       if (typeof parsed.isHeaderCollapsed === "boolean") {
         setIsHeaderCollapsed(parsed.isHeaderCollapsed);
       }
+      if (parsed.unplannedLayout) {
+        setUnplannedLayout(parsed.unplannedLayout);
+      }
+      if (typeof parsed.fullWidth === "boolean") {
+        setFullWidth(parsed.fullWidth);
+      } else if (typeof parsed.unplannedFullWidth === "boolean") {
+        setFullWidth(parsed.unplannedFullWidth);
+      }
     } catch {
       // Ignore corrupted storage entries.
     } finally {
@@ -1104,6 +1161,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       startDate,
       quartersToShow,
       isHeaderCollapsed,
+      unplannedLayout,
+      fullWidth,
     };
     localStorage.setItem(settingsKey, JSON.stringify(payload));
   }, [
@@ -1120,13 +1179,18 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     startDate,
     quartersToShow,
     isHeaderCollapsed,
+    unplannedLayout,
+    fullWidth,
     settingsKey,
   ]);
 
   useEffect(() => {
     let result = [...items];
     if (selectedPillars.length > 0) {
-      result = result.filter((i) => selectedPillars.includes(i.pillar));
+      const selected = new Set(selectedPillars.map(normalizeFilterValue));
+      result = result.filter((i) =>
+        selected.has(normalizeFilterValue(i.pillar))
+      );
     }
     if (selectedRegions.length > 0) {
       result = result.filter((i) => {
@@ -1135,21 +1199,26 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       });
     }
     if (selectedCriticalities.length > 0) {
+      const selected = new Set(selectedCriticalities.map(normalizeFilterValue));
       result = result.filter((i) =>
-        selectedCriticalities.includes(i.criticality)
+        selected.has(normalizeFilterValue(i.criticality))
       );
     }
     if (selectedDispositions.length > 0) {
+      const selected = new Set(selectedDispositions.map(normalizeFilterValue));
       result = result.filter((i) =>
-        selectedDispositions.includes(i.disposition)
+        selected.has(normalizeFilterValue(i.disposition))
       );
     }
     if (selectedImpactedStakeholders.length > 0) {
+      const selected = new Set(
+        selectedImpactedStakeholders.map(normalizeFilterValue)
+      );
       result = result.filter((i) => {
-        const stakeholders = parseStakeholders(i.impactedStakeholders);
-        return selectedImpactedStakeholders.some((stakeholder) =>
-          stakeholders.includes(stakeholder)
+        const stakeholders = parseStakeholders(i.impactedStakeholders).map(
+          normalizeFilterValue
         );
+        return stakeholders.some((stakeholder) => selected.has(stakeholder));
       });
     }
     setFilteredItems(result);
@@ -1172,7 +1241,9 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <div
         className={[
-          "max-w-screen-2xl mx-auto px-4 py-8 space-y-6",
+          fullWidth
+            ? "max-w-none w-full px-4 py-8 space-y-6"
+            : "max-w-screen-2xl mx-auto px-4 py-8 space-y-6",
           showDebugOutlines
             ? "relative outline outline-1 outline-dashed outline-rose-300/80"
             : "",
@@ -1214,59 +1285,95 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href={getToggleViewHref(isUnplanned)}
+            <button
+              type="button"
               className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-              onClick={() => saveScrollPosition(isUnplanned)}
+              onClick={() => {
+                saveScrollPosition(isUnplanned);
+                router.push(getToggleViewHref(isUnplanned));
+              }}
             >
               {isUnplanned ? "Back to roadmap" : "Unplanned work"}
-            </Link>
+            </button>
             <SignedIn>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   Roadmap
                 </span>
-                <select
-                  className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
-                  value={selectedRoadmapValue}
-                  onChange={(e) => handleRoadmapSelect(e.target.value)}
-                >
-                  <option value="">Select roadmap</option>
-                  {roadmapOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
                 <details
                   className="relative"
-                  open={isRoadmapManageOpen}
+                  open={isRoadmapMenuOpen}
                   onToggle={(event) =>
-                    setIsRoadmapManageOpen(
+                    setIsRoadmapMenuOpen(
                       (event.target as HTMLDetailsElement).open
                     )
                   }
                 >
-                  <summary className="list-none rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 cursor-pointer hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800">
-                    Manage
+                  <summary className="list-none inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 cursor-pointer hover:border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800">
+                    <span className="max-w-[220px] truncate">
+                      {selectedRoadmapOption?.roadmap.name ?? "Select roadmap"}
+                    </span>
+                    <svg
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                      className="h-3 w-3 text-slate-400"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M6 9l6 6 6-6" />
+                    </svg>
                   </summary>
-                  <div className="absolute right-0 z-[120] mt-2 w-[28rem] max-w-[90vw] rounded-lg border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-700 dark:bg-slate-900">
-                        <RoadmapManagerPanel
-                          isLoading={isLoadingRoadmaps}
-                          roadmaps={roadmaps}
-                          currentUserId={userId ?? null}
-                          activeRoadmapId={activeRoadmapId}
-                          shareRoadmapId={shareRoadmapId}
-                          onShareRoadmapClose={() => setShareRoadmapId(null)}
-                          onLoadRoadmap={handleLoadRoadmap}
-                          onCreateRoadmap={handleCreateRoadmap}
-                          onRenameRoadmap={handleRenameRoadmap}
-                          onDeleteRoadmap={handleDeleteRoadmap}
-                          onShareUser={handleShareRoadmapUser}
-                          onUpdateShare={handleUpdateRoadmapShare}
-                          onRevokeShare={handleRevokeRoadmapShare}
-                          variant="plain"
-                        />
+                  <div className="absolute right-0 z-[120] mt-2 w-[22rem] max-w-[90vw] rounded-lg border border-slate-200 bg-white p-2 text-xs shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                    <div className="max-h-72 overflow-auto">
+                      {roadmapOptions.map((option) => (
+                        <div
+                          key={option.value}
+                          className="flex items-center justify-between gap-2 rounded-md px-2 py-2 hover:bg-slate-50 dark:hover:bg-slate-800"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleRoadmapSelect(option.value);
+                              setIsRoadmapMenuOpen(false);
+                            }}
+                            className="flex-1 text-left"
+                          >
+                            <div className="text-xs font-semibold text-slate-800 dark:text-slate-100">
+                              {option.roadmap.name}
+                            </div>
+                            <div className="text-[0.65rem] uppercase tracking-wide text-slate-400">
+                              {option.roadmap.role}
+                            </div>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleRoadmapSelect(option.value);
+                              setIsRoadmapMenuOpen(false);
+                              setIsRoadmapManageOpen(true);
+                            }}
+                            className="rounded-full border border-slate-200 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800"
+                          >
+                            Manage
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-2 border-t border-slate-200 pt-2 dark:border-slate-700">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsRoadmapMenuOpen(false);
+                          setIsRoadmapManageOpen(true);
+                        }}
+                        className="w-full rounded-md border border-slate-200 px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                      >
+                        Create new roadmap
+                      </button>
+                    </div>
                   </div>
                 </details>
               </div>
@@ -1325,9 +1432,14 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
           ) : null}
           {activeRoadmapId && showDebugOutlines ? (
             <div className="rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="font-semibold text-slate-700 dark:text-slate-200">
-                  Datasource debug
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                    Debug
+                  </span>
+                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                    Datasource
+                  </span>
                 </div>
                 <button
                   type="button"
@@ -1341,35 +1453,69 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                   Refresh datasource
                 </button>
               </div>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                <div>
-                  <span className="text-[0.7rem] uppercase tracking-wide text-slate-400">
+              <div className="mt-3 grid gap-3 sm:grid-cols-[180px,1fr]">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/50">
+                  <div className="text-[0.65rem] uppercase tracking-wide text-slate-400">
                     Type
-                  </span>
-                  <div className="font-semibold text-slate-700 dark:text-slate-200">
+                  </div>
+                  <div className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-100">
                     {activeDatasourceType ?? "csv"}
                   </div>
                 </div>
-                <div>
-                  <span className="text-[0.7rem] uppercase tracking-wide text-slate-400">
-                    Items
-                  </span>
-                  <div className="font-semibold text-slate-700 dark:text-slate-200">
-                    {datasourceDebug?.count ?? items.length}
+                <button
+                  type="button"
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-left shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                  onClick={async () => {
+                    if (!activeRoadmapId) return;
+                    const nextOpen = !isDebugItemsOpen;
+                    setIsDebugItemsOpen(nextOpen);
+                    if (!nextOpen) return;
+                    if (debugItemsPayload) return;
+                    setIsDebugItemsLoading(true);
+                    const result = await fetchDatasourceItems(activeRoadmapId, true);
+                    setDebugItemsPayload(result ?? []);
+                    setIsDebugItemsLoading(false);
+                  }}
+                  title="View items payload"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-[0.65rem] uppercase tracking-wide text-slate-400">
+                        Items
+                      </div>
+                      <div className="mt-1 text-lg font-semibold text-slate-700 dark:text-slate-100">
+                        {datasourceDebug?.count ?? items.length}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-500">
+                      View payload
+                      <svg
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                        className="h-3 w-3 text-slate-400"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M9 6l6 6-6 6" />
+                      </svg>
+                    </div>
                   </div>
-                </div>
+                </button>
                 {datasourceDebug?.warning ? (
-                  <div className="sm:col-span-2 text-[0.7rem] text-amber-600 dark:text-amber-300">
+                  <div className="sm:col-span-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[0.7rem] text-amber-700 dark:border-amber-700/60 dark:bg-amber-900/20 dark:text-amber-200">
                     {datasourceDebug.warning}
                   </div>
                 ) : null}
                 {datasourceDebug?.error ? (
-                  <div className="sm:col-span-2 text-[0.7rem] text-rose-600 dark:text-rose-300">
+                  <div className="sm:col-span-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-[0.7rem] text-rose-700 dark:border-rose-700/60 dark:bg-rose-900/20 dark:text-rose-200">
                     {datasourceDebug.error}
                   </div>
                 ) : null}
                 {datasourceDebug?.stale ? (
-                  <div className="sm:col-span-2 text-[0.7rem] text-slate-500 dark:text-slate-400">
+                  <div className="sm:col-span-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-[0.7rem] text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                     Showing cached data.
                   </div>
                 ) : null}
@@ -1577,24 +1723,99 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                         <path d="M8 12l8 6" />
                       </svg>
                     </span>
-                    Share roadmap
+                    Share
                   </button>
+                  {activeDatasourceType === "azure-devops" ? (
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                      onClick={handleRefreshDatasource}
+                      disabled={!activeRoadmapId || !isOnline || isRefreshingDatasource}
+                      title={
+                        !isOnline
+                          ? "Offline. Refresh paused."
+                          : "Refresh datasource"
+                      }
+                    >
+                      <span className="inline-flex h-4 w-4 items-center justify-center text-emerald-600">
+                        <svg
+                          viewBox="0 0 24 24"
+                          aria-hidden="true"
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                          <path d="M21 3v6h-6" />
+                        </svg>
+                      </span>
+                      {isRefreshingDatasource ? "Refreshing..." : "Refresh data"}
+                    </button>
+                  ) : null}
                 </div>
-                <label
-                  className={[
-                    "relative flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-slate-700",
-                    isDraggingCsv
-                      ? "border-sky-400 bg-sky-50 dark:border-sky-500/70 dark:bg-sky-950/40"
-                      : "border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600",
-                  ].join(" ")}
-                  onDragOver={(event) => {
-                    event.preventDefault();
-                    setIsDraggingCsv(true);
-                  }}
-                  onDragLeave={() => setIsDraggingCsv(false)}
-                  onDrop={handleCsvDrop}
-                >
+                <details className="relative">
+                  <summary className="list-none inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 cursor-pointer dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800">
+                    <span className="inline-flex h-4 w-4 items-center justify-center text-sky-600">
+                      <svg
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M12 21V9" />
+                        <path d="M7 14l5-5 5 5" />
+                        <path d="M5 3h14" />
+                      </svg>
+                    </span>
+                    Import
+                    <svg
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                      className="h-3 w-3 text-slate-400"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M6 9l6 6 6-6" />
+                    </svg>
+                  </summary>
+                  <div className="absolute right-0 z-20 mt-2 w-52 rounded-lg border border-slate-200 bg-white p-1 text-xs shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (csvInputRef.current) {
+                          csvInputRef.current.value = "";
+                          csvInputRef.current.click();
+                        }
+                      }}
+                      className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+                    >
+                      Import CSV
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (excelInputRef.current) {
+                          excelInputRef.current.value = "";
+                          excelInputRef.current.click();
+                        }
+                      }}
+                      className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+                    >
+                      Import Excel
+                    </button>
+                  </div>
                   <input
+                    ref={csvInputRef}
                     type="file"
                     accept=".csv,text/csv"
                     className="sr-only"
@@ -1602,72 +1823,104 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                       handleCsvFile(event.target.files?.[0])
                     }
                   />
-                  <span className="inline-flex h-4 w-4 items-center justify-center text-sky-600">
+                  <input
+                    ref={excelInputRef}
+                    type="file"
+                    accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                    className="sr-only"
+                    onChange={(event) =>
+                      handleExcelFile(event.target.files?.[0])
+                    }
+                  />
+                </details>
+                <details className="relative">
+                  <summary className="list-none inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 cursor-pointer dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800">
+                    <span className="inline-flex h-4 w-4 items-center justify-center text-slate-500">
+                      <svg
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M12 3v12" />
+                        <path d="M7 10l5 5 5-5" />
+                        <path d="M5 21h14" />
+                      </svg>
+                    </span>
+                    Export
                     <svg
                       viewBox="0 0 24 24"
                       aria-hidden="true"
-                      className="h-4 w-4"
+                      className="h-3 w-3 text-slate-400"
                       fill="none"
                       stroke="currentColor"
-                      strokeWidth="1.6"
+                      strokeWidth="2"
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     >
-                      <path d="M12 21V9" />
-                      <path d="M7 14l5-5 5 5" />
-                      <path d="M5 3h14" />
+                      <path d="M6 9l6 6 6-6" />
                     </svg>
-                  </span>
-                  <span>Upload CSV</span>
-                  <span className="text-slate-400 dark:text-slate-500">or drop</span>
-                </label>
-                <button
-                  type="button"
-                  onClick={handleCsvDownload}
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
-                >
-                  <span className="inline-flex h-4 w-4 items-center justify-center text-emerald-600">
-                    <svg
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+                  </summary>
+                  <div className="absolute right-0 z-20 mt-2 w-48 rounded-lg border border-slate-200 bg-white p-1 text-xs shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleCsvDownload();
+                        (document.activeElement as HTMLElement | null)?.blur();
+                      }}
+                      className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
                     >
-                      <path d="M12 3v12" />
-                      <path d="M7 10l5 5 5-5" />
-                      <path d="M5 21h14" />
-                    </svg>
-                  </span>
-                  Download CSV
-                </button>
-                <button
-                  type="button"
-                  onClick={handleExportImage}
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
-                  disabled={isExporting}
-                >
-                  <span className="inline-flex h-4 w-4 items-center justify-center text-amber-600">
-                    <svg
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+                      <span className="inline-flex h-4 w-4 items-center justify-center text-emerald-600">
+                        <svg
+                          viewBox="0 0 24 24"
+                          aria-hidden="true"
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M12 3v12" />
+                          <path d="M7 10l5 5 5-5" />
+                          <path d="M5 21h14" />
+                        </svg>
+                      </span>
+                      Download CSV
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleExportImage();
+                        (document.activeElement as HTMLElement | null)?.blur();
+                      }}
+                      className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-200 dark:hover:bg-slate-800"
+                      disabled={isExporting}
                     >
-                      <rect x="3" y="5" width="18" height="14" rx="2" />
-                      <path d="M8 13l2-2 3 3 3-4 2 3" />
-                      <circle cx="8.5" cy="9" r="1" />
-                    </svg>
-                  </span>
-                  {isExporting ? "Exporting..." : "Export Image"}
-                </button>
+                      <span className="inline-flex h-4 w-4 items-center justify-center text-amber-600">
+                        <svg
+                          viewBox="0 0 24 24"
+                          aria-hidden="true"
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <rect x="3" y="5" width="18" height="14" rx="2" />
+                          <path d="M8 13l2-2 3 3 3-4 2 3" />
+                          <circle cx="8.5" cy="9" r="1" />
+                        </svg>
+                      </span>
+                      {isExporting ? "Exporting..." : "Export image"}
+                    </button>
+                  </div>
+                </details>
               </div>
             </div>
 
@@ -1738,14 +1991,14 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                       setSelectedImpactedStakeholders={
                         setSelectedImpactedStakeholders
                       }
-                      selectedGroupBy={selectedGroupBy}
+                        selectedGroupBy={selectedGroupBy}
                       setSelectedGroupBy={setSelectedGroupBy}
                       displayOptions={displayOptions}
                       setDisplayOptions={setDisplayOptions}
                       selectedTheme={selectedTheme}
                       setSelectedTheme={setSelectedTheme}
-                        startDate={startDate}
-                        setStartDate={setStartDate}
+                      startDate={startDate}
+                      setStartDate={setStartDate}
                         quartersToShow={quartersToShow}
                         setQuartersToShow={setQuartersToShow}
                         showDebugOutlines={showDebugOutlines}
@@ -1769,12 +2022,18 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                     items={unplannedItems}
                     groupBy={selectedGroupBy}
                     showShortDescription={displayOptions.showShortDescription}
+                    showRegionEmojis={displayOptions.showRegionEmojis}
+                    layout={unplannedLayout}
+                    onLayoutChange={setUnplannedLayout}
+                    fullWidth={fullWidth}
+                    onFullWidthChange={setFullWidth}
                     exportSummary={{
                       viewBy: summaryViewBy,
                       titlePrefix,
                       filters: appliedFilters,
                     }}
                     isExporting={isExporting}
+                    isLoading={isItemsLoading}
                     showDebugOutlines={showDebugOutlines}
                   />
                 ) : (
@@ -1790,15 +2049,98 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                       titlePrefix,
                       filters: appliedFilters,
                     }}
+                    headerRight={
+                      <label className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                        <input
+                          type="checkbox"
+                          checked={fullWidth}
+                          onChange={(event) => setFullWidth(event.target.checked)}
+                          className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                        />
+                        Use full width
+                      </label>
+                    }
                     isExporting={isExporting}
                     showDebugOutlines={showDebugOutlines}
                   />
                 )}
               </div>
             </div>
+          </div>
+        ) : null}
+        {isDebugItemsOpen ? (
+          <div className="fixed inset-0 z-[140] flex items-center justify-center bg-slate-900/40 px-4">
+            <div className="w-full max-w-3xl rounded-xl border border-slate-200 bg-white p-4 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                    Datasource items payload
+                  </div>
+                  <div className="text-[0.7rem] text-slate-500 dark:text-slate-400">
+                    {datasourceDebug?.count ?? items.length} items
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                  onClick={() => setIsDebugItemsOpen(false)}
+                >
+                  Close
+                </button>
+              </div>
+              <div className="mt-3 max-h-[70vh] overflow-auto rounded-md border border-slate-200 bg-slate-50 p-3 text-[11px] text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
+                {isDebugItemsLoading ? (
+                  <div>Loading items payload...</div>
+                ) : (
+                  <pre className="whitespace-pre-wrap break-words">
+                    {JSON.stringify(debugItemsPayload ?? [], null, 2)}
+                  </pre>
+                )}
+              </div>
             </div>
-          ) : null}
+          </div>
+        ) : null}
         </SignedIn>
+        {isRoadmapManageOpen && typeof document !== "undefined"
+          ? createPortal(
+              <div className="fixed inset-0 z-[140] flex items-center justify-center bg-slate-900/40 px-4">
+                <div className="w-full max-w-3xl rounded-xl border border-slate-200 bg-white p-4 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                      Manage roadmaps
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsRoadmapManageOpen(false)}
+                      className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                    >
+                      Close
+                    </button>
+                  </div>
+                  <div className="mt-3">
+                    <RoadmapManagerPanel
+                      isLoading={isLoadingRoadmaps}
+                      roadmaps={roadmaps}
+                      currentUserId={userId ?? null}
+                      activeRoadmapId={activeRoadmapId}
+                      shareRoadmapId={shareRoadmapId}
+                      onShareRoadmapClose={() => setShareRoadmapId(null)}
+                      onLoadRoadmap={handleLoadRoadmap}
+                      onCreateRoadmap={handleCreateRoadmap}
+                      onRenameRoadmap={handleRenameRoadmap}
+                      onDeleteRoadmap={handleDeleteRoadmap}
+                      onShareUser={handleShareRoadmapUser}
+                      onUpdateShare={handleUpdateRoadmapShare}
+                      onRevokeShare={handleRevokeRoadmapShare}
+                      showDebug={showDebugOutlines}
+                      variant="plain"
+                    />
+                  </div>
+                </div>
+              </div>,
+              document.body
+            )
+          : null}
       </div>
     </main>
   );
@@ -1834,6 +2176,10 @@ function getDateKey(value: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+function normalizeFilterValue(value: string): string {
+  return (value || "").trim().toLowerCase();
+}
+
 function getToggleViewHref(isUnplanned: boolean): string {
   const basePath = isUnplanned ? "/" : "/unplanned";
   if (typeof window === "undefined") return basePath;
@@ -1845,7 +2191,11 @@ function getToggleViewHref(isUnplanned: boolean): string {
 function saveScrollPosition(isUnplanned: boolean) {
   if (typeof window === "undefined") return;
   const key = getScrollStorageKey(isUnplanned ? "/unplanned" : "/");
-  window.sessionStorage.setItem(key, String(window.scrollY || 0));
+  try {
+    window.sessionStorage.setItem(key, String(window.scrollY || 0));
+  } catch {
+    // Ignore storage errors so navigation still works.
+  }
 }
 
 function getScrollStorageKey(pathname: string): string {

@@ -111,21 +111,15 @@ export function RoadmapFilters({
   isCollapsed = false,
   onToggleCollapsed,
 }: Props) {
-  const pillars = Array.from(
-    new Set(items.map((i) => i.pillar).filter(Boolean)),
-  ).sort();
+  const pillars = uniqueNormalizedOptions(items.map((i) => i.pillar));
   const regions: Region[] = ['US', 'Canada'];
-  const criticalities = Array.from(
-    new Set(items.map((i) => i.criticality).filter(Boolean)),
-  ).sort();
-  const dispositions = Array.from(
-    new Set(items.map((i) => i.disposition).filter(Boolean)),
-  ).sort();
-  const impactedStakeholders = Array.from(
-    new Set(
-      items.flatMap((item) => parseStakeholders(item.impactedStakeholders)),
-    ),
-  ).sort();
+  const criticalities = uniqueNormalizedOptions(
+    items.map((i) => i.criticality),
+  );
+  const dispositions = uniqueNormalizedOptions(items.map((i) => i.disposition));
+  const impactedStakeholders = uniqueNormalizedOptions(
+    items.flatMap((item) => parseStakeholders(item.impactedStakeholders)),
+  );
 
   const clearFilters = () => {
     setSelectedPillars([]);
@@ -722,4 +716,22 @@ export function RoadmapFilters({
       </div>
     </section>
   );
+}
+
+function normalizeFilterValue(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function uniqueNormalizedOptions(values: Array<string | undefined | null>): string[] {
+  const map = new Map<string, string>();
+  for (const value of values) {
+    if (!value) continue;
+    const trimmed = value.trim();
+    if (!trimmed) continue;
+    const key = normalizeFilterValue(trimmed);
+    if (!map.has(key)) {
+      map.set(key, trimmed);
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => a.localeCompare(b));
 }

@@ -45,6 +45,7 @@ interface Props {
     filters: string[];
   };
   isExporting: boolean;
+  headerRight?: React.ReactNode;
   showDebugOutlines?: boolean;
 }
 
@@ -84,6 +85,7 @@ export function RoadmapTimeline({
   quartersToShow,
   exportSummary,
   isExporting,
+  headerRight,
   showDebugOutlines = false,
 }: Props) {
   const labelWidth = 160;
@@ -133,6 +135,9 @@ export function RoadmapTimeline({
         <span className="absolute -top-3 left-2 rounded bg-cyan-100 px-1 text-[10px] font-semibold text-cyan-800">
           ROADMAP
         </span>
+      ) : null}
+      {headerRight ? (
+        <div className="flex justify-end">{headerRight}</div>
       ) : null}
       {isExporting ? (
         <div className="space-y-1 border border-slate-200 rounded-md bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">

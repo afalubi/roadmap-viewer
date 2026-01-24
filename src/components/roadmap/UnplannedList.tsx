@@ -1,17 +1,26 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
 import type { RoadmapItem } from '@/types/roadmap';
+import { getRegionFlagAssets } from '@/lib/region';
+import { RoadmapItemDetailDialog } from '@/components/roadmap/RoadmapItemDetailDialog';
 
 interface Props {
   items: RoadmapItem[];
   groupBy: 'pillar' | 'stakeholder' | 'criticality' | 'region' | 'disposition';
   showShortDescription: boolean;
+  showRegionEmojis: boolean;
+  layout: 'list' | 'board';
+  onLayoutChange: (value: 'list' | 'board') => void;
+  fullWidth: boolean;
+  onFullWidthChange: (value: boolean) => void;
   exportSummary: {
     viewBy: string;
     titlePrefix: string;
     filters: string[];
   };
   isExporting: boolean;
+  isLoading: boolean;
   showDebugOutlines?: boolean;
 }
 
@@ -25,7 +34,9 @@ const GROUP_LABELS: Record<Props['groupBy'], string> = {
 
 function getGroupKey(item: RoadmapItem, groupBy: Props['groupBy']): string {
   if (groupBy === 'stakeholder') {
-    return item.submitterDepartment || '';
+    const value = (item.submitterDepartment || '').trim();
+    if (!value || value === '0') return 'Unspecified';
+    return value;
   }
   if (groupBy === 'criticality') {
     return item.criticality || '';
@@ -43,10 +54,18 @@ export function UnplannedList({
   items,
   groupBy,
   showShortDescription,
+  showRegionEmojis,
+  layout,
+  onLayoutChange,
+  fullWidth,
+  onFullWidthChange,
   exportSummary,
   isExporting,
+  isLoading,
   showDebugOutlines = false,
 }: Props) {
+  const [selectedItem, setSelectedItem] = useState<RoadmapItem | null>(null);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const grouped = new Map<string, RoadmapItem[]>();
   for (const item of items) {
     const key = getGroupKey(item, groupBy) || 'Unassigned';
@@ -54,6 +73,20 @@ export function UnplannedList({
     grouped.get(key)!.push(item);
   }
   const groups = Array.from(grouped.keys()).sort();
+  const groupsKey = useMemo(() => groups.join('|'), [groups]);
+
+  useEffect(() => {
+    if (groups.length === 0) return;
+    setOpenGroups((prev) => {
+      const next = { ...prev };
+      for (const group of groups) {
+        if (next[group] === undefined) {
+          next[group] = true;
+        }
+      }
+      return next;
+    });
+  }, [groupsKey]);
 
   return (
     <section
@@ -83,79 +116,199 @@ export function UnplannedList({
         </div>
       ) : null}
 
-      {items.length === 0 ? (
+      {isLoading ? (
+        <div className="rounded-md border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-300">
+          Loading unplanned work items...
+        </div>
+      ) : items.length === 0 ? (
         <div className="rounded-md border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-300">
           No unplanned items match the current filters.
         </div>
       ) : (
         <div className="space-y-4">
-          {groups.map((group) => {
-            const groupItems = grouped.get(group) ?? [];
-            return (
-              <div
-                key={group}
-                className="rounded-lg border border-slate-200 bg-slate-50/60 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/40"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
-                    {GROUP_LABELS[groupBy]}: {group}
-                  </div>
-                  <div className="text-[0.7rem] text-slate-500 dark:text-slate-400">
-                    {groupItems.length} item{groupItems.length === 1 ? '' : 's'}
-                  </div>
-                </div>
-                <div className="mt-3 grid gap-2">
-                  {groupItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div className="space-y-1">
-                          <div className="font-semibold text-slate-800 dark:text-slate-100">
-                            {item.title}
-                          </div>
-                          {showShortDescription && item.shortDescription ? (
-                            <div className="text-slate-600 dark:text-slate-300">
-                              {item.shortDescription}
-                            </div>
-                          ) : null}
-                        </div>
-                        {item.url ? (
-                          <a
-                            href={item.url}
-                            className="text-sky-700 hover:text-sky-900 underline underline-offset-2 dark:text-sky-300 dark:hover:text-sky-200"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            Open in DevOps
-                          </a>
-                        ) : null}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm font-semibold tracking-wide text-slate-700 dark:text-slate-100">
+              Unplanned Work By {GROUP_LABELS[groupBy]}
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="inline-flex rounded-full border border-slate-200 bg-white p-0.5 text-xs dark:border-slate-700 dark:bg-slate-900">
+                {(["list", "board"] as const).map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => onLayoutChange(value)}
+                    className={[
+                      "px-3 py-1 rounded-full transition-colors",
+                      layout === value
+                        ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                        : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100",
+                    ].join(" ")}
+                  >
+                    {value === "list" ? "List" : "Board"}
+                  </button>
+                ))}
+              </div>
+              {layout === "board" ? (
+                <label className="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={fullWidth}
+                    onChange={(event) => onFullWidthChange(event.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                  />
+                  Use full width
+                </label>
+              ) : null}
+            </div>
+          </div>
+
+          {layout === "board" ? (
+            <div className="flex gap-4 overflow-x-auto pb-2">
+              {groups.map((group) => {
+                const groupItems = grouped.get(group) ?? [];
+                return (
+                  <div
+                    key={group}
+                    className="min-w-[240px] w-64 flex-1 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-3 dark:border-slate-700 dark:bg-slate-800/40"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
+                        {group}
                       </div>
-                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[0.7rem] text-slate-500 dark:text-slate-400">
-                        {item.pillar ? <span>Pillar: {item.pillar}</span> : null}
-                        {item.region ? <span>Region: {item.region}</span> : null}
-                        {item.criticality ? (
-                          <span>Criticality: {item.criticality}</span>
-                        ) : null}
-                        {item.disposition ? (
-                          <span>Disposition: {item.disposition}</span>
-                        ) : null}
-                        {item.submitterDepartment ? (
-                          <span>Dept: {item.submitterDepartment}</span>
-                        ) : null}
-                        {item.submitterName ? (
-                          <span>Submitter: {item.submitterName}</span>
-                        ) : null}
+                      <div className="text-[0.7rem] text-slate-500 dark:text-slate-400">
+                        {groupItems.length} item{groupItems.length === 1 ? '' : 's'}
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
+                    <div className="mt-3 space-y-2">
+                      {groupItems.map((item) => (
+                        <UnplannedCard
+                          key={item.id}
+                          item={item}
+                          showShortDescription={showShortDescription}
+                          showRegionEmojis={showRegionEmojis}
+                          onOpen={setSelectedItem}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {groups.map((group) => {
+                const groupItems = grouped.get(group) ?? [];
+                const isOpen = openGroups[group] ?? true;
+                return (
+                  <div
+                    key={group}
+                    className="rounded-lg border border-slate-200 bg-slate-50/60 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/40"
+                  >
+                    <button
+                      type="button"
+                      className="flex w-full flex-wrap items-center justify-between gap-2 text-left"
+                      onClick={() =>
+                        setOpenGroups((prev) => ({
+                          ...prev,
+                          [group]: !(prev[group] ?? true),
+                        }))
+                      }
+                    >
+                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-300">
+                        {group}
+                      </div>
+                      <div className="flex items-center gap-2 text-[0.7rem] text-slate-500 dark:text-slate-400">
+                        <span>
+                          {groupItems.length} item{groupItems.length === 1 ? '' : 's'}
+                        </span>
+                        <ChevronIcon isOpen={isOpen} />
+                      </div>
+                    </button>
+                    <AnimatedSection isOpen={isOpen}>
+                      <div className="grid gap-2">
+                        {groupItems.map((item) => (
+                          <UnplannedCard
+                            key={item.id}
+                            item={item}
+                            showShortDescription={showShortDescription}
+                            showRegionEmojis={showRegionEmojis}
+                            onOpen={setSelectedItem}
+                          />
+                        ))}
+                      </div>
+                    </AnimatedSection>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
+      <RoadmapItemDetailDialog
+        item={selectedItem}
+        onClose={() => setSelectedItem(null)}
+        hideDates
+      />
     </section>
+  );
+}
+
+function UnplannedCard({
+  item,
+  showShortDescription,
+  showRegionEmojis,
+  onOpen,
+}: {
+  item: RoadmapItem;
+  showShortDescription: boolean;
+  showRegionEmojis: boolean;
+  onOpen: (item: RoadmapItem) => void;
+}) {
+  const criticality = (item.criticality || '').trim();
+  const disposition = (item.disposition || '').trim();
+  const regionFlags = showRegionEmojis ? getRegionFlagAssets(item.region) : [];
+
+  return (
+    <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onOpen(item)}
+              className="text-left font-semibold text-slate-800 hover:text-slate-900 underline-offset-2 hover:underline dark:text-slate-100 dark:hover:text-white"
+            >
+              {item.title}
+            </button>
+            {regionFlags.length ? (
+              <span className="inline-flex items-center gap-1">
+                {regionFlags.map((flag) => (
+                  <img
+                    key={`${item.id}-${flag.region}`}
+                    src={flag.src}
+                    alt={flag.alt}
+                    className="h-4 w-4 rounded-sm border border-white/60 shadow-sm"
+                  />
+                ))}
+              </span>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-[0.7rem] text-slate-500 dark:text-slate-400">
+            {criticality ? (
+              <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[0.65rem] font-semibold text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-200">
+                {criticality}
+              </span>
+            ) : null}
+            {disposition ? (
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[0.65rem] font-semibold text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
+                {disposition}
+              </span>
+            ) : null}
+          </div>
+          {showShortDescription ? null : null}
+        </div>
+        <div className="flex flex-col items-end gap-2" />
+      </div>
+    </div>
   );
 }

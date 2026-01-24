@@ -1,5 +1,10 @@
 import Papa from 'papaparse';
 import type { RoadmapItem, TShirtSize } from '@/types/roadmap';
+import {
+  normalizeRegionList,
+  normalizeStakeholders,
+  normalizeTitleCase,
+} from '@/lib/normalizeFields';
 
 const TSHIRT_NORMALIZATION: Record<string, TShirtSize> = {
   xs: 'XS',
@@ -32,20 +37,20 @@ export function parseRoadmapCsv(text: string): RoadmapItem[] {
     id: row.id || String(index),
     title: row.title ?? '',
     url: row.url ?? '',
-    impactedStakeholders: row.impactedStakeholders ?? '',
+    impactedStakeholders: normalizeStakeholders(row.impactedStakeholders ?? ''),
     submitterName: row.submitterName ?? '',
     submitterDepartment: row.submitterDepartment ?? '',
     submitterPriority: row.submitterPriority ?? '',
     shortDescription: row.shortDescription ?? '',
     longDescription: row.longDescription ?? '',
-    criticality: row.criticality ?? '',
-    disposition: row.disposition ?? '',
+    criticality: normalizeTitleCase(row.criticality ?? ''),
+    disposition: normalizeTitleCase(row.disposition ?? ''),
     executiveSponsor: row.executiveSponsor ?? '',
     startDate: row.startDate ?? '',
     endDate: row.endDate ?? '',
     tShirtSize: normalizeTShirt(row.tShirtSize ?? 'M'),
-    pillar: row.pillar ?? '',
-    region: row.region ?? '',
+    pillar: normalizeTitleCase(row.pillar ?? ''),
+    region: normalizeRegionList(row.region ?? ''),
     expenseType: row.expenseType ?? '',
     pointOfContact: row.pointOfContact ?? '',
     lead: row.lead ?? '',

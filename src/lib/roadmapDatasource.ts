@@ -5,19 +5,32 @@ import type {
   RoadmapDatasourceType,
   RoadmapFieldMap,
 } from '@/types/roadmapDatasources';
+import {
+  normalizeRegionList,
+  normalizeStakeholders,
+  normalizeTitleCase,
+} from '@/lib/normalizeFields';
 
 const DEFAULT_REFRESH_MINUTES = 15;
 const DEFAULT_MAX_ITEMS = 500;
 
 const DEFAULT_FIELD_MAP: RoadmapFieldMap = {
   title: 'System.Title',
+  shortDescription: 'Custom.ShortDescription',
+  longDescription: 'System.Description',
   startDate: 'Microsoft.VSTS.Scheduling.StartDate',
   endDate: 'Microsoft.VSTS.Scheduling.FinishDate',
   pillar: 'Custom.Pillar',
-  region: 'Custom.Region',
+  region: 'System.Tags',
   criticality: 'Custom.Criticality',
   disposition: 'Custom.Status',
   tShirtSize: 'Custom.TShirtSize',
+  submitterName: 'Custom.SubmitterName',
+  submitterDepartment: 'Custom.SubmitterDepartment',
+  submitterPriority: 'Custom.SubmitterPriority',
+  expenseType: 'Custom.ExpenseType',
+  pointOfContact: 'Custom.PointOfContact',
+  lead: 'Custom.Lead',
 };
 
 const normalizeTShirt = (value: string | undefined): RoadmapItem['tShirtSize'] => {
@@ -71,11 +84,41 @@ const collectFields = (fieldMap: RoadmapFieldMap) => {
 const buildWorkItemUrl = (baseUrl: string, project: string, id: number | string) =>
   `${baseUrl}/${encodeURIComponent(project)}/_workitems/edit/${id}`;
 
+const extractFieldValue = (value: unknown): string => {
+  if (value === undefined || value === null) return '';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => extractFieldValue(entry))
+      .filter((entry) => entry.length > 0)
+      .join(', ');
+  }
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    const candidates = ['displayName', 'name', 'uniqueName', 'mail', 'email', 'value'];
+    for (const key of candidates) {
+      const candidate = record[key];
+      const extracted = extractFieldValue(candidate);
+      if (extracted) return extracted;
+    }
+  }
+  return '';
+};
+
 const getFieldValue = (fields: Record<string, unknown>, key?: string) => {
   if (!key) return '';
-  const value = fields[key];
-  if (value === undefined || value === null) return '';
-  return String(value);
+  return extractFieldValue(fields[key]);
+};
+
+const getFirstFieldValue = (fields: Record<string, unknown>, keys: Array<string | undefined>) => {
+  for (const key of keys) {
+    if (!key) continue;
+    const value = getFieldValue(fields, key);
+    if (value) return value;
+  }
+  return '';
 };
 
 export const mapAzureDevopsItem = (
@@ -149,23 +192,56 @@ export const mapAzureDevopsItem = (
     id: String(item.id),
     title: title || `Work Item ${item.id}`,
     url,
-    impactedStakeholders,
-    submitterName: getFieldValue(fields, fieldMap.submitterName),
-    submitterDepartment: getFieldValue(fields, fieldMap.submitterDepartment),
-    submitterPriority: getFieldValue(fields, fieldMap.submitterPriority),
-    shortDescription: getFieldValue(fields, fieldMap.shortDescription),
-    longDescription: getFieldValue(fields, fieldMap.longDescription),
-    criticality: getFieldValue(fields, fieldMap.criticality),
-    disposition: getFieldValue(fields, fieldMap.disposition),
+    impactedStakeholders: normalizeStakeholders(impactedStakeholders),
+    submitterName: getFirstFieldValue(fields, [
+      fieldMap.submitterName,
+      'Custom.SubmitterName',
+      'Custom.Submitter_x0020_Name',
+    ]),
+    submitterDepartment: getFirstFieldValue(fields, [
+      fieldMap.submitterDepartment,
+      'Custom.SubmitterDepartment',
+      'Custom.Submitter_x0020_Department',
+    ]),
+    submitterPriority: getFirstFieldValue(fields, [
+      fieldMap.submitterPriority,
+      'Custom.SubmitterPriority',
+      'Custom.Submitter_x0020_Priority',
+    ]),
+    shortDescription: getFirstFieldValue(fields, [
+      fieldMap.shortDescription,
+      'Custom.ShortDescription',
+      'Custom.Summary',
+      'System.Description',
+    ]),
+    longDescription: getFirstFieldValue(fields, [
+      fieldMap.longDescription,
+      'System.Description',
+      'Custom.LongDescription',
+      'Custom.Description',
+    ]),
+    criticality: normalizeTitleCase(getFieldValue(fields, fieldMap.criticality)),
+    disposition: normalizeTitleCase(getFieldValue(fields, fieldMap.disposition)),
     executiveSponsor: getFieldValue(fields, fieldMap.executiveSponsor),
     startDate,
     endDate,
     tShirtSize: normalizeTShirt(getFieldValue(fields, fieldMap.tShirtSize)),
-    pillar: getFieldValue(fields, fieldMap.pillar),
-    region,
-    expenseType: getFieldValue(fields, fieldMap.expenseType),
-    pointOfContact: getFieldValue(fields, fieldMap.pointOfContact),
-    lead: getFieldValue(fields, fieldMap.lead),
+    pillar: normalizeTitleCase(getFieldValue(fields, fieldMap.pillar)),
+    region: normalizeRegionList(region),
+    expenseType: getFirstFieldValue(fields, [
+      fieldMap.expenseType,
+      'Custom.ExpenseType',
+      'Custom.Expense_x0020_Type',
+    ]),
+    pointOfContact: getFirstFieldValue(fields, [
+      fieldMap.pointOfContact,
+      'Custom.PointOfContact',
+      'Custom.Point_x0020_Of_x0020_Contact',
+    ]),
+    lead: getFirstFieldValue(fields, [
+      fieldMap.lead,
+      'Custom.Lead',
+    ]),
   };
 };
 
