@@ -191,6 +191,7 @@ export function UnplannedList({
                           showShortDescription={showShortDescription}
                           showRegionEmojis={showRegionEmojis}
                           onOpen={setSelectedItem}
+                          groupBy={groupBy}
                         />
                       ))}
                     </div>
@@ -237,6 +238,7 @@ export function UnplannedList({
                             showShortDescription={showShortDescription}
                             showRegionEmojis={showRegionEmojis}
                             onOpen={setSelectedItem}
+                            groupBy={groupBy}
                           />
                         ))}
                       </div>
@@ -262,15 +264,19 @@ function UnplannedCard({
   showShortDescription,
   showRegionEmojis,
   onOpen,
+  groupBy,
 }: {
   item: RoadmapItem;
   showShortDescription: boolean;
   showRegionEmojis: boolean;
   onOpen: (item: RoadmapItem) => void;
+  groupBy: Props['groupBy'];
 }) {
   const criticality = (item.criticality || '').trim();
   const disposition = (item.disposition || '').trim();
   const regionFlags = showRegionEmojis ? getRegionFlagAssets(item.region) : [];
+  const showCriticalityBadge = groupBy !== 'criticality';
+  const showDispositionBadge = groupBy !== 'disposition';
 
   return (
     <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
@@ -298,12 +304,12 @@ function UnplannedCard({
             ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2 text-[0.7rem] text-slate-500 dark:text-slate-400">
-            {criticality ? (
+            {criticality && showCriticalityBadge ? (
               <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[0.65rem] font-semibold text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-200">
                 {criticality}
               </span>
             ) : null}
-            {disposition ? (
+            {disposition && showDispositionBadge ? (
               <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[0.65rem] font-semibold text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
                 {disposition}
               </span>

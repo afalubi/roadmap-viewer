@@ -86,6 +86,9 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
   const [isRefreshingDatasource, setIsRefreshingDatasource] = useState(false);
   const [isItemsLoading, setIsItemsLoading] = useState(false);
   const [showDebugOutlines, setShowDebugOutlines] = useState(false);
+  const [exportPageSize, setExportPageSize] = useState<"letter" | "legal">(
+    "letter"
+  );
   const [unplannedLayout, setUnplannedLayout] = useState<"list" | "board">(
     "list"
   );
@@ -216,6 +219,21 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     setShowDebugOutlines(params.get("debug") === "1");
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("[data-dropdown]")) return;
+      document.querySelectorAll("details[data-dropdown][open]").forEach((el) => {
+        (el as HTMLDetailsElement).open = false;
+      });
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+    };
   }, []);
 
   useEffect(() => {
@@ -526,6 +544,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       const nextUrl = new URL(window.location.href);
       nextUrl.searchParams.set("roadmapId", roadmap.id);
       nextUrl.searchParams.delete("roadmap");
+      nextUrl.searchParams.delete("viewId");
+      nextUrl.searchParams.delete("view");
       window.history.replaceState(null, "", nextUrl.toString());
     }
     setLoadedRoadmapSlug("");
@@ -843,6 +863,14 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     const params = new URLSearchParams(window.location.search);
     const viewId = params.get("viewId") ?? "";
     if (!viewId || loadedView?.id === viewId) return;
+    if (
+      typeof window !== "undefined" &&
+      activeRoadmapId &&
+      params.get("roadmapId") &&
+      params.get("roadmapId") !== activeRoadmapId
+    ) {
+      return;
+    }
     const match = views.find((view) => view.id === viewId);
     if (!match) return;
     handleLoadView(match);
@@ -871,6 +899,39 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       .replace(/[\\/:*?"<>|]+/g, "-");
     const dateSuffix = new Date().toISOString().slice(0, 10);
     link.download = `${safeName || "roadmap"}-${dateSuffix}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExcelDownload = async () => {
+    const csv = currentCsvText || buildCsvFromItems(items);
+    const XLSX = await import("xlsx");
+    const csvWorkbook = XLSX.read(csv, { type: "string" });
+    const sheetName = csvWorkbook.SheetNames[0];
+    const worksheet = sheetName
+      ? csvWorkbook.Sheets[sheetName]
+      : XLSX.utils.aoa_to_sheet([]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Roadmap");
+    const excelBuffer = XLSX.write(workbook, {
+      bookType: "xlsx",
+      type: "array",
+    });
+    const blob = new Blob([excelBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const roadmapName =
+      roadmaps.find((roadmap) => roadmap.id === activeRoadmapId)?.name ??
+      "roadmap";
+    const safeName = roadmapName
+      .trim()
+      .replace(/\s+/g, "-")
+      .replace(/[\\/:*?\"<>|]+/g, "-");
+    const dateSuffix = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `${safeName || "roadmap"}-${dateSuffix}.xlsx`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -958,10 +1019,6 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     const scrollContainer = exportNode.querySelector<HTMLElement>(
       "[data-roadmap-scroll]"
     );
-    const maxWidthContainer = exportNode.closest<HTMLElement>(".max-w-7xl");
-    const computedMaxWidth = maxWidthContainer
-      ? parseFloat(window.getComputedStyle(maxWidthContainer).maxWidth)
-      : NaN;
     const previousExportWidth = exportNode.style.width;
     const previousExportMaxWidth = exportNode.style.maxWidth;
     const previousScrollWidth = scrollContainer?.style.width;
@@ -970,10 +1027,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       scrollContainer?.scrollWidth ||
       exportNode.scrollWidth ||
       exportNode.clientWidth;
-    const targetWidth =
-      Number.isFinite(computedMaxWidth) && computedMaxWidth > 0
-        ? computedMaxWidth
-        : fullWidth;
+    const pageWidthInches = exportPageSize === "legal" ? 14 : 11;
+    const targetWidth = Math.max(fullWidth, pageWidthInches * 300);
 
     exportNode.style.width = `${targetWidth}px`;
     exportNode.style.maxWidth = "none";
@@ -982,10 +1037,33 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       scrollContainer.style.overflowX = "visible";
     }
     const { toPng } = await import("html-to-image");
-    const dataUrl = await toPng(exportNode, {
-      backgroundColor: "#ffffff",
-      pixelRatio: 2,
-    });
+    const disabledSheets: CSSStyleSheet[] = [];
+    if (typeof document !== "undefined") {
+      for (const sheet of Array.from(document.styleSheets)) {
+        try {
+          if (!sheet.href) continue;
+          const sheetUrl = new URL(sheet.href, window.location.origin);
+          if (sheetUrl.origin !== window.location.origin) {
+            sheet.disabled = true;
+            disabledSheets.push(sheet);
+          }
+        } catch {
+          // Ignore stylesheet parsing errors.
+        }
+      }
+    }
+    let dataUrl = "";
+    try {
+      dataUrl = await toPng(exportNode, {
+        backgroundColor: "#ffffff",
+        pixelRatio: 2,
+        skipFonts: true,
+      });
+    } finally {
+      disabledSheets.forEach((sheet) => {
+        sheet.disabled = false;
+      });
+    }
     exportNode.style.width = previousExportWidth;
     exportNode.style.maxWidth = previousExportMaxWidth;
     if (scrollContainer) {
@@ -1301,6 +1379,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                   Roadmap
                 </span>
                 <details
+                  data-dropdown
                   className="relative"
                   open={isRoadmapMenuOpen}
                   onToggle={(event) =>
@@ -1648,21 +1727,12 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                     <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                       View
                     </span>
-                    <select
-                      className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
-                      value={selectedViewValue}
-                      onChange={(e) => handleViewSelect(e.target.value)}
-                    >
-                      <option value="">Select view</option>
-                      {viewOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                    <details className="relative">
-                      <summary className="list-none rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 cursor-pointer hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800">
-                        Manage
+                    <details className="relative" data-dropdown>
+                      <summary className="list-none rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 cursor-pointer hover:border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800">
+                        {selectedViewValue
+                          ? viewOptions.find((option) => option.value === selectedViewValue)
+                              ?.label ?? "Select view"
+                          : "Select view"}
                       </summary>
                       <div className="absolute left-0 z-[120] mt-2 w-96 max-w-[90vw] rounded-lg border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-700 dark:bg-slate-900">
                         <SavedViewsPanel
@@ -1688,11 +1758,12 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                       className={[
                         "inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800",
                       ].join(" ")}
-                      onClick={() => {
-                        if (activeRoadmapId) {
-                          setShareRoadmapId(activeRoadmapId);
-                        }
-                      }}
+                    onClick={() => {
+                      if (activeRoadmapId) {
+                        setShareRoadmapId(activeRoadmapId);
+                        setIsRoadmapManageOpen(true);
+                      }
+                    }}
                       disabled={
                         !activeRoadmapId ||
                         !activeRoadmapRole ||
@@ -1750,8 +1821,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                         {isRefreshingDatasource ? "Refreshing..." : "Refresh data"}
                       </button>
                     ) : null}
-                    <details className="relative">
-                    <summary className="list-none inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 cursor-pointer dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800">
+                    <details className="relative" data-dropdown>
+                      <summary className="list-none inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 cursor-pointer dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800">
                       <span className="inline-flex h-4 w-4 items-center justify-center text-sky-600">
                         <svg
                           viewBox="0 0 24 24"
@@ -1827,10 +1898,10 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                       }
                     />
                     </details>
-                    <details className="relative">
-                    <summary className="list-none inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 cursor-pointer dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800">
-                      <span className="inline-flex h-4 w-4 items-center justify-center text-slate-500">
-                        <svg
+                    <details className="relative" data-dropdown>
+                      <summary className="list-none inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 cursor-pointer dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800">
+                    <span className="inline-flex h-4 w-4 items-center justify-center text-slate-500">
+                      <svg
                           viewBox="0 0 24 24"
                           aria-hidden="true"
                           className="h-4 w-4"
@@ -1845,8 +1916,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                           <path d="M5 21h14" />
                         </svg>
                       </span>
-                      Export
-                      <svg
+                    Export
+                    <svg
                         viewBox="0 0 24 24"
                         aria-hidden="true"
                         className="h-3 w-3 text-slate-400"
@@ -1858,18 +1929,18 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                       >
                         <path d="M6 9l6 6 6-6" />
                       </svg>
-                    </summary>
-                    <div className="absolute right-0 z-20 mt-2 w-48 rounded-lg border border-slate-200 bg-white p-1 text-xs shadow-lg dark:border-slate-700 dark:bg-slate-900">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleCsvDownload();
-                          (document.activeElement as HTMLElement | null)?.blur();
-                        }}
-                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
-                      >
-                        <span className="inline-flex h-4 w-4 items-center justify-center text-emerald-600">
-                          <svg
+                  </summary>
+                  <div className="absolute right-0 z-20 mt-2 w-52 rounded-lg border border-slate-200 bg-white p-1 text-xs shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleCsvDownload();
+                        (document.activeElement as HTMLElement | null)?.blur();
+                      }}
+                      className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+                    >
+                      <span className="inline-flex h-4 w-4 items-center justify-center text-emerald-600">
+                        <svg
                             viewBox="0 0 24 24"
                             aria-hidden="true"
                             className="h-4 w-4"
@@ -1882,21 +1953,53 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                             <path d="M12 3v12" />
                             <path d="M7 10l5 5 5-5" />
                             <path d="M5 21h14" />
-                          </svg>
-                        </span>
-                        Download CSV
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleExportImage();
-                          (document.activeElement as HTMLElement | null)?.blur();
-                        }}
-                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-200 dark:hover:bg-slate-800"
-                        disabled={isExporting}
-                      >
-                        <span className="inline-flex h-4 w-4 items-center justify-center text-amber-600">
-                          <svg
+                        </svg>
+                      </span>
+                      Export CSV
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleExcelDownload();
+                        (document.activeElement as HTMLElement | null)?.blur();
+                      }}
+                      className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+                    >
+                      <span className="inline-flex h-4 w-4 items-center justify-center text-emerald-600">
+                        <svg
+                          viewBox="0 0 24 24"
+                          aria-hidden="true"
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <rect x="4" y="3" width="16" height="18" rx="2" />
+                          <path d="M8 7h8" />
+                          <path d="M8 11h8" />
+                          <path d="M8 15h6" />
+                        </svg>
+                      </span>
+                      Export Excel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleExportImage();
+                        (document.activeElement as HTMLElement | null)?.blur();
+                      }}
+                      className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-200 dark:hover:bg-slate-800"
+                      disabled={isExporting || isUnplanned}
+                      title={
+                        isUnplanned
+                          ? "Export image is only available on the roadmap view."
+                          : undefined
+                      }
+                    >
+                      <span className="inline-flex h-4 w-4 items-center justify-center text-amber-600">
+                        <svg
                             viewBox="0 0 24 24"
                             aria-hidden="true"
                             className="h-4 w-4"
@@ -1909,12 +2012,41 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                             <rect x="3" y="5" width="18" height="14" rx="2" />
                             <path d="M8 13l2-2 3 3 3-4 2 3" />
                             <circle cx="8.5" cy="9" r="1" />
-                          </svg>
-                        </span>
-                        {isExporting ? "Exporting..." : "Export image"}
-                      </button>
-                    </div>
-                    </details>
+                        </svg>
+                      </span>
+                      {isExporting ? "Exporting..." : "Export image"}
+                    </button>
+                    {!isUnplanned ? (
+                      <div className="mt-1 border-t border-slate-200 pt-2 dark:border-slate-700">
+                        <div className="px-2 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-400">
+                          Print size
+                        </div>
+                        <div className="mt-2 flex items-center gap-3 px-2 pb-1">
+                          <label className="flex items-center gap-2 text-[0.7rem] text-slate-600 dark:text-slate-300">
+                            <input
+                              type="radio"
+                              name="export-size"
+                              value="letter"
+                              checked={exportPageSize === "letter"}
+                              onChange={() => setExportPageSize("letter")}
+                            />
+                            Letter (11")
+                          </label>
+                          <label className="flex items-center gap-2 text-[0.7rem] text-slate-600 dark:text-slate-300">
+                            <input
+                              type="radio"
+                              name="export-size"
+                              value="legal"
+                              checked={exportPageSize === "legal"}
+                              onChange={() => setExportPageSize("legal")}
+                            />
+                            Legal (14")
+                          </label>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </details>
                   </div>
                 </div>
               </div>
@@ -2046,19 +2178,21 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                       filters: appliedFilters,
                     }}
                     headerRight={
-                      <label className="inline-flex items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
-                        <span>Use full width</span>
-                        <span className="relative inline-flex h-5 w-10 items-center">
-                          <input
-                            type="checkbox"
-                            checked={fullWidth}
-                            onChange={(event) => setFullWidth(event.target.checked)}
-                            className="peer sr-only"
-                          />
-                          <span className="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-sky-600 dark:bg-slate-700 dark:peer-checked:bg-sky-400" />
-                          <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5 dark:bg-slate-900 dark:peer-checked:bg-slate-900" />
-                        </span>
-                      </label>
+                      !isExporting ? (
+                        <label className="inline-flex items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
+                          <span>Use full width</span>
+                          <span className="relative inline-flex h-5 w-10 items-center">
+                            <input
+                              type="checkbox"
+                              checked={fullWidth}
+                              onChange={(event) => setFullWidth(event.target.checked)}
+                              className="peer sr-only"
+                            />
+                            <span className="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-sky-600 dark:bg-slate-700 dark:peer-checked:bg-sky-400" />
+                            <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5 dark:bg-slate-900 dark:peer-checked:bg-slate-900" />
+                          </span>
+                        </label>
+                      ) : null
                     }
                     isExporting={isExporting}
                     showDebugOutlines={showDebugOutlines}

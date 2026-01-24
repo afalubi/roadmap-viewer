@@ -11,6 +11,7 @@ import type {
 } from '@/types/roadmapDatasources';
 import type { DirectoryUser } from '@/types/userDirectory';
 import { UserSearchInput } from '@/components/shared/UserSearchInput';
+import { buildCsvFromItems } from '@/lib/roadmapCsv';
 
 type ShareEntry = {
   userId: string;
@@ -218,6 +219,43 @@ export function RoadmapManagerPanel({
       const dateSuffix = new Date().toISOString().slice(0, 10);
       link.href = url;
       link.download = `${safeName || 'roadmap'}-${dateSuffix}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsDownloadingDelete(false);
+    }
+  };
+
+  const downloadRoadmapExcel = async (roadmapId: string, roadmapName: string) => {
+    setIsDownloadingDelete(true);
+    try {
+      const res = await fetch(`/api/roadmaps/${roadmapId}/datasource/items`);
+      if (!res.ok) return;
+      const data = (await res.json()) as { items?: unknown[] };
+      const items = Array.isArray(data.items) ? data.items : [];
+      const csvText = buildCsvFromItems(items as any[]);
+      const XLSX = await import('xlsx');
+      const csvWorkbook = XLSX.read(csvText, { type: 'string' });
+      const sheetName = csvWorkbook.SheetNames[0];
+      const worksheet = sheetName ? csvWorkbook.Sheets[sheetName] : XLSX.utils.aoa_to_sheet([]);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Roadmap');
+      const excelBuffer = XLSX.write(workbook, {
+        bookType: 'xlsx',
+        type: 'array',
+      });
+      const blob = new Blob([excelBuffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const safeName = roadmapName
+        .trim()
+        .replace(/\s+/g, '-')
+        .replace(/[\\/:*?"<>|]+/g, '-');
+      const dateSuffix = new Date().toISOString().slice(0, 10);
+      link.href = url;
+      link.download = `${safeName || 'roadmap'}-${dateSuffix}.xlsx`;
       link.click();
       URL.revokeObjectURL(url);
     } finally {
@@ -720,16 +758,41 @@ export function RoadmapManagerPanel({
                       undone.
                     </p>
                     <div className="flex justify-end gap-2">
-                      <button
-                        type="button"
-                        className="rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
-                        onClick={() =>
-                          downloadRoadmapCsv(pendingDelete.id, pendingDelete.name)
-                        }
-                        disabled={isDownloadingDelete}
-                      >
-                        {isDownloadingDelete ? 'Preparing...' : 'Download CSV'}
-                      </button>
+                      <details className="relative" data-dropdown>
+                        <summary className="list-none rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-700 cursor-pointer hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">
+                          Export
+                        </summary>
+                        <div className="absolute right-0 z-20 mt-2 w-48 rounded-lg border border-slate-200 bg-white p-1 text-xs shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              downloadRoadmapCsv(pendingDelete.id, pendingDelete.name)
+                            }
+                            disabled={isDownloadingDelete}
+                            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-200 dark:hover:bg-slate-800"
+                          >
+                            {isDownloadingDelete ? 'Preparing...' : 'Export CSV'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              downloadRoadmapExcel(pendingDelete.id, pendingDelete.name)
+                            }
+                            disabled={isDownloadingDelete}
+                            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-200 dark:hover:bg-slate-800"
+                          >
+                            {isDownloadingDelete ? 'Preparing...' : 'Export Excel'}
+                          </button>
+                          <button
+                            type="button"
+                            disabled
+                            title="Export image is available from the roadmap view."
+                            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-slate-400 cursor-not-allowed dark:text-slate-500"
+                          >
+                            Export image
+                          </button>
+                        </div>
+                      </details>
                       <button
                         type="button"
                         className="rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"

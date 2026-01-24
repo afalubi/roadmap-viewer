@@ -20,7 +20,10 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
         />
       </head>
-      <body className="bg-slate-50 text-slate-900">
+      <body
+        className="bg-slate-50 text-slate-900"
+        suppressHydrationWarning={process.env.NODE_ENV === 'development'}
+      >
         <ClerkProvider>{children}</ClerkProvider>
       </body>
     </html>
