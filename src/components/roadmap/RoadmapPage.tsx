@@ -1782,16 +1782,40 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
               <div className="px-1 py-1">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-                      onClick={() => {
-                        saveScrollPosition(isUnplanned);
-                        router.push(getToggleViewHref(isUnplanned));
-                      }}
-                    >
-                      {isUnplanned ? "Back to roadmap" : "Unplanned work"}
-                    </button>
+                    <div className="inline-flex rounded-full border border-slate-200 bg-white p-0.5 text-xs dark:border-slate-700 dark:bg-slate-900">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!isUnplanned) return;
+                          saveScrollPosition(isUnplanned);
+                          router.push(getToggleViewHref(isUnplanned));
+                        }}
+                        className={[
+                          "px-3 py-1 rounded-full transition-colors",
+                          !isUnplanned
+                            ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                            : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100",
+                        ].join(" ")}
+                      >
+                        Roadmap
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isUnplanned) return;
+                          saveScrollPosition(isUnplanned);
+                          router.push(getToggleViewHref(isUnplanned));
+                        }}
+                        className={[
+                          "px-3 py-1 rounded-full transition-colors",
+                          isUnplanned
+                            ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                            : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100",
+                        ].join(" ")}
+                      >
+                        Unplanned
+                      </button>
+                    </div>
                     <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                       Saved Views:
                     </span>
@@ -2117,7 +2141,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
               ) : null}
               <aside
                 className={[
-                  "relative transition-[width] duration-300 ease-out",
+                  "relative transition-[width] duration-[650ms] ease-in-out",
                   isHeaderCollapsed ? "w-0" : "w-80",
                   "shrink-0",
                   "overflow-visible",
@@ -2131,37 +2155,40 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                     DRAWER
                   </span>
                 ) : null}
-                <div className="sticky top-6 space-y-4">
-                  {isHeaderCollapsed ? null : (
-                      <RoadmapFilters
-                        items={items}
-                        selectedPillars={selectedPillars}
-                        setSelectedPillars={setSelectedPillars}
-                      selectedRegions={selectedRegions}
-                      setSelectedRegions={setSelectedRegions}
-                      selectedCriticalities={selectedCriticalities}
-                      setSelectedCriticalities={setSelectedCriticalities}
-                      selectedDispositions={selectedDispositions}
-                      setSelectedDispositions={setSelectedDispositions}
-                      selectedImpactedStakeholders={selectedImpactedStakeholders}
-                      setSelectedImpactedStakeholders={
-                        setSelectedImpactedStakeholders
-                      }
-                        selectedGroupBy={selectedGroupBy}
-                      setSelectedGroupBy={setSelectedGroupBy}
-                      displayOptions={displayOptions}
-                      setDisplayOptions={setDisplayOptions}
-                      selectedTheme={selectedTheme}
-                      setSelectedTheme={setSelectedTheme}
-                      startDate={startDate}
-                      setStartDate={setStartDate}
-                        quartersToShow={quartersToShow}
-                        setQuartersToShow={setQuartersToShow}
-                        showDebugOutlines={showDebugOutlines}
-                        isCollapsed={false}
-                        onToggleCollapsed={() => setIsHeaderCollapsed(true)}
-                      />
-                  )}
+                <div
+                  className={[
+                    "sticky top-6 space-y-4 transition-[opacity,transform] duration-[650ms] ease-in-out",
+                    isHeaderCollapsed ? "opacity-0 -translate-x-2 pointer-events-none" : "opacity-100 translate-x-0",
+                  ].join(" ")}
+                >
+                  <RoadmapFilters
+                    items={items}
+                    selectedPillars={selectedPillars}
+                    setSelectedPillars={setSelectedPillars}
+                    selectedRegions={selectedRegions}
+                    setSelectedRegions={setSelectedRegions}
+                    selectedCriticalities={selectedCriticalities}
+                    setSelectedCriticalities={setSelectedCriticalities}
+                    selectedDispositions={selectedDispositions}
+                    setSelectedDispositions={setSelectedDispositions}
+                    selectedImpactedStakeholders={selectedImpactedStakeholders}
+                    setSelectedImpactedStakeholders={
+                      setSelectedImpactedStakeholders
+                    }
+                    selectedGroupBy={selectedGroupBy}
+                    setSelectedGroupBy={setSelectedGroupBy}
+                    displayOptions={displayOptions}
+                    setDisplayOptions={setDisplayOptions}
+                    selectedTheme={selectedTheme}
+                    setSelectedTheme={setSelectedTheme}
+                    startDate={startDate}
+                    setStartDate={setStartDate}
+                    quartersToShow={quartersToShow}
+                    setQuartersToShow={setQuartersToShow}
+                    showDebugOutlines={showDebugOutlines}
+                    isCollapsed={false}
+                    onToggleCollapsed={() => setIsHeaderCollapsed(true)}
+                  />
                 </div>
               </aside>
 
