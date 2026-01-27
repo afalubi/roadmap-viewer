@@ -31,8 +31,15 @@ export async function GET(request: Request) {
       v.roadmap_id,
       v.payload,
       v.created_at,
-      v.updated_at
+      v.updated_at,
+      vl.shared_slug
     FROM views v
+    LEFT JOIN (
+      SELECT view_id, MIN(slug) AS shared_slug
+      FROM view_links
+      GROUP BY view_id
+    ) vl
+      ON vl.view_id = v.id
     WHERE v.roadmap_id = ${roadmapId}
     ORDER BY v.updated_at DESC
   `;
@@ -42,6 +49,7 @@ export async function GET(request: Request) {
     name: row.name,
     roadmapId: row.roadmap_id ?? '',
     payload: JSON.parse(row.payload),
+    sharedSlug: row.shared_slug,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     role: roadmapRole,

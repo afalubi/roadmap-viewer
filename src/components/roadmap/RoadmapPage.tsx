@@ -88,6 +88,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
   const [isRefreshingDatasource, setIsRefreshingDatasource] = useState(false);
   const [isItemsLoading, setIsItemsLoading] = useState(false);
   const [showDebugOutlines, setShowDebugOutlines] = useState(false);
+  const [shareBaseUrl, setShareBaseUrl] = useState("");
   const [exportPageSize, setExportPageSize] = useState<"letter" | "legal">(
     "letter"
   );
@@ -120,6 +121,9 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     null
   );
   const [loadedRoadmapSlug, setLoadedRoadmapSlug] = useState("");
+  const [loadedSharedSlug, setLoadedSharedSlug] = useState("");
+  const [isSharedViewActive, setIsSharedViewActive] = useState(false);
+  const [sharedViewSlug, setSharedViewSlug] = useState("");
   const [isRoadmapManageOpen, setIsRoadmapManageOpen] = useState(false);
   const [shareRoadmapId, setShareRoadmapId] = useState<string | null>(null);
   const [loadedView, setLoadedView] = useState<SavedView | null>(null);
@@ -162,7 +166,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     if (!isLoaded) return;
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
-      if (params.get("roadmap") || params.get("roadmapId")) {
+      if (params.get("roadmap") || params.get("roadmapId") || params.get("view")) {
         return;
       }
     }
@@ -233,6 +237,29 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     setShowDebugOutlines(params.get("debug") === "1");
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const slug = params.get("view") ?? "";
+    if (slug) {
+      window.sessionStorage.setItem("sharedViewSlug", slug);
+      setSharedViewSlug(slug);
+      return;
+    }
+    const stored = window.sessionStorage.getItem("sharedViewSlug") ?? "";
+    setSharedViewSlug(stored);
+    if (stored && !params.get("viewId") && !params.get("roadmapId")) {
+      params.set("view", stored);
+      const nextUrl = `${window.location.pathname}?${params.toString()}`;
+      window.history.replaceState(null, "", nextUrl);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setShareBaseUrl(window.location.origin);
   }, []);
 
   useEffect(() => {
@@ -336,6 +363,12 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     }
     applyViewPayload(view.payload);
     setLoadedView(view);
+    setIsSharedViewActive(false);
+    setLoadedSharedSlug("");
+    if (typeof window !== "undefined") {
+      window.sessionStorage.removeItem("sharedViewSlug");
+    }
+    setSharedViewSlug("");
     if (typeof window !== "undefined") {
       const nextUrl = new URL(window.location.href);
       nextUrl.searchParams.set("viewId", view.id);
@@ -391,11 +424,21 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       const list = (data.roadmaps ?? []) as RoadmapSummary[];
       setRoadmaps(list);
       if (list.length === 0) {
+        const hasSharedLink =
+          typeof window !== "undefined" &&
+          (new URLSearchParams(window.location.search).get("view") ||
+            window.sessionStorage.getItem("sharedViewSlug"));
+        if (isSharedViewActive || hasSharedLink) {
+          return;
+        }
         setActiveRoadmapId(null);
         setActiveRoadmapRole(null);
         setActiveDatasourceType(null);
         setViews([]);
         setLoadedView(null);
+        setIsSharedViewActive(false);
+        setLoadedSharedSlug("");
+        setSharedViewSlug("");
         setLoadedRoadmapSlug("");
         setItems([]);
         setFilteredItems([]);
@@ -570,6 +613,12 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     }
     setLoadedRoadmapSlug("");
     setLoadedView(null);
+    setLoadedSharedSlug("");
+    setIsSharedViewActive(false);
+    setSharedViewSlug("");
+    if (typeof window !== "undefined") {
+      window.sessionStorage.removeItem("sharedViewSlug");
+    }
     setShareRoadmapId(null);
     await loadRoadmapById(roadmap.id);
   };
@@ -577,6 +626,9 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
   const fetchViews = async () => {
     if (!isSignedIn) {
       setViews([]);
+      return;
+    }
+    if (isSharedViewActive) {
       return;
     }
     if (!activeRoadmapId) {
@@ -590,6 +642,9 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     setIsLoadingViews(true);
     try {
       const res = await fetch(`/api/views?roadmapId=${activeRoadmapId}`);
+      if (res.status === 403) {
+        return;
+      }
       const data = await res.json();
       setViews(data.views ?? []);
     } catch {
@@ -629,11 +684,38 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     await fetch(`/api/views/${id}`, { method: "DELETE" });
     if (loadedView?.id === id && typeof window !== "undefined") {
       setLoadedView(null);
+      setIsSharedViewActive(false);
+      setLoadedSharedSlug("");
       const nextUrl = new URL(window.location.href);
       nextUrl.searchParams.delete("viewId");
       window.history.replaceState(null, "", nextUrl.toString());
     }
     await fetchViews();
+  };
+
+  const handleCreateLink = async (
+    id: string,
+    options: { password?: string | null; rotate?: boolean }
+  ) => {
+    if (!isSignedIn) return false;
+    if (!isOnline) return false;
+    const res = await fetch(`/api/views/${id}/link`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(options ?? {}),
+    });
+    if (!res.ok) return false;
+    await fetchViews();
+    return true;
+  };
+
+  const handleDeleteLink = async (id: string) => {
+    if (!isSignedIn) return false;
+    if (!isOnline) return false;
+    const res = await fetch(`/api/views/${id}/link`, { method: "DELETE" });
+    if (!res.ok) return false;
+    await fetchViews();
+    return true;
   };
 
   const handleCreateRoadmap = async (name: string, csvText: string) => {
@@ -766,6 +848,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       setActiveDatasourceType(null);
       setViews([]);
       setLoadedView(null);
+      setIsSharedViewActive(false);
+      setLoadedSharedSlug("");
       setLoadedRoadmapSlug("");
       setFilteredItems([]);
       setItems([]);
@@ -821,12 +905,65 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
   }, [isSignedIn, views, loadedView?.id]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!isOnline) return;
+    const params = new URLSearchParams(window.location.search);
+    const slug = params.get("view") ?? "";
+    if (!slug || slug === loadedSharedSlug) return;
+
+    const fetchSharedView = async () => {
+      try {
+        const res = await fetch(`/api/views/slug/${slug}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (Array.isArray(data.view?.items)) {
+          const nextItems = data.view.items as RoadmapItem[];
+          applyRoadmapItems(nextItems);
+          setDatasourceDebug({
+            count: nextItems.length,
+            stale: false,
+            truncated: false,
+            warning: null,
+            error: null,
+          });
+        } else if (typeof data.view?.roadmapCsvText === "string") {
+          applyCsvText(data.view.roadmapCsvText as string);
+        }
+        if (data.view?.payload) {
+          applyViewPayload(data.view.payload as ViewPayload);
+        }
+        if (data.view) {
+          setLoadedView(data.view as SavedView);
+          setIsSharedViewActive(true);
+          setSharedViewSlug(slug);
+          setIsHeaderCollapsed(true);
+          if (data.view.roadmapId) {
+            setActiveRoadmapId(data.view.roadmapId as string);
+            setActiveRoadmapRole("viewer");
+          }
+        }
+        if (typeof window !== "undefined") {
+          window.sessionStorage.setItem("sharedViewSlug", slug);
+        }
+        setLoadedSharedSlug(slug);
+      } catch {
+        // Ignore fetch errors for shared views.
+      }
+    };
+
+    fetchSharedView();
+  }, [loadedSharedSlug, isOnline]);
+
+  const hasSharedView = isSharedViewActive || Boolean(sharedViewSlug);
+
+  useEffect(() => {
     if (!isSignedIn) return;
     if (!activeRoadmapId) return;
     if (!isOnline) return;
+    if (isSharedViewActive) return;
     fetchViews();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSignedIn, activeRoadmapId, isOnline]);
+  }, [isSignedIn, activeRoadmapId, isOnline, isSharedViewActive]);
 
   const handleCsvDownload = () => {
     const csv = currentCsvText || buildCsvFromItems(items);
@@ -1326,123 +1463,129 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
           <div className="flex flex-wrap items-center gap-3">
             <SignedIn>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  Roadmap
-                </span>
-                <details
-                  data-dropdown
-                  className="relative"
-                  open={isRoadmapMenuOpen}
-                  onToggle={(event) =>
-                    setIsRoadmapMenuOpen(
-                      (event.target as HTMLDetailsElement).open
-                    )
-                  }
-                >
-                  <summary className="list-none inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 cursor-pointer hover:border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800">
-                    <span className="max-w-[220px] truncate">
-                      {selectedRoadmapOption?.roadmap.name ?? "Select roadmap"}
+                {!isSharedViewActive ? (
+                  <>
+                    <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      Roadmap
                     </span>
-                    <svg
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                      className="h-3 w-3 text-slate-400"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+                    <details
+                      data-dropdown
+                      className="relative"
+                      open={isRoadmapMenuOpen}
+                      onToggle={(event) =>
+                        setIsRoadmapMenuOpen(
+                          (event.target as HTMLDetailsElement).open
+                        )
+                      }
                     >
-                      <path d="M6 9l6 6 6-6" />
-                    </svg>
-                  </summary>
-                  <div className="absolute right-0 z-[120] mt-2 w-[22rem] max-w-[90vw] rounded-lg border border-slate-200 bg-white p-2 text-xs shadow-lg dark:border-slate-700 dark:bg-slate-900">
-                    <div className="max-h-72 overflow-auto">
-                      {roadmapOptions.map((option) => (
-                        <div
-                          key={option.value}
-                          className="flex items-center justify-between gap-2 rounded-md px-2 py-2 hover:bg-slate-50 dark:hover:bg-slate-800"
+                      <summary className="list-none inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 cursor-pointer hover:border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800">
+                        <span className="max-w-[220px] truncate">
+                          {selectedRoadmapOption?.roadmap.name ?? "Select roadmap"}
+                        </span>
+                        <svg
+                          viewBox="0 0 24 24"
+                          aria-hidden="true"
+                          className="h-3 w-3 text-slate-400"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
                         >
+                          <path d="M6 9l6 6 6-6" />
+                        </svg>
+                      </summary>
+                      <div className="absolute right-0 z-[120] mt-2 w-[22rem] max-w-[90vw] rounded-lg border border-slate-200 bg-white p-2 text-xs shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                        <div className="max-h-72 overflow-auto">
+                          {roadmapOptions.map((option) => (
+                            <div
+                              key={option.value}
+                              className="flex items-center justify-between gap-2 rounded-md px-2 py-2 hover:bg-slate-50 dark:hover:bg-slate-800"
+                            >
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleRoadmapSelect(option.value);
+                                  setIsRoadmapMenuOpen(false);
+                                }}
+                                className="flex-1 text-left"
+                              >
+                                <div className="text-xs font-semibold text-slate-800 dark:text-slate-100">
+                                  {option.roadmap.name}
+                                </div>
+                                <div className="text-[0.65rem] uppercase tracking-wide text-slate-400">
+                                  {option.roadmap.role}
+                                </div>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleRoadmapSelect(option.value);
+                                  setIsRoadmapMenuOpen(false);
+                                  setIsRoadmapManageOpen(true);
+                                }}
+                                className="rounded-full border border-slate-200 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800"
+                              >
+                                Manage
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-2 border-t border-slate-200 pt-2 dark:border-slate-700">
                           <button
                             type="button"
                             onClick={() => {
-                              handleRoadmapSelect(option.value);
-                              setIsRoadmapMenuOpen(false);
-                            }}
-                            className="flex-1 text-left"
-                          >
-                            <div className="text-xs font-semibold text-slate-800 dark:text-slate-100">
-                              {option.roadmap.name}
-                            </div>
-                            <div className="text-[0.65rem] uppercase tracking-wide text-slate-400">
-                              {option.roadmap.role}
-                            </div>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              handleRoadmapSelect(option.value);
                               setIsRoadmapMenuOpen(false);
                               setIsRoadmapManageOpen(true);
                             }}
-                            className="rounded-full border border-slate-200 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800"
+                            className="w-full rounded-md border border-slate-200 px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
                           >
-                            Manage
+                            Create new roadmap
                           </button>
                         </div>
-                      ))}
-                    </div>
-                    <div className="mt-2 border-t border-slate-200 pt-2 dark:border-slate-700">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsRoadmapMenuOpen(false);
-                          setIsRoadmapManageOpen(true);
-                        }}
-                        className="w-full rounded-md border border-slate-200 px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
-                      >
-                        Create new roadmap
-                      </button>
-                    </div>
-                  </div>
-                </details>
-                <button
-                  type="button"
-                  className={[
-                    "inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800",
-                  ].join(" ")}
-                  onClick={() => {
-                    if (activeRoadmapId) {
-                      setShareRoadmapId(activeRoadmapId);
+                      </div>
+                    </details>
+                  </>
+                ) : null}
+                {!isSharedViewActive ? (
+                  <button
+                    type="button"
+                    className={[
+                      "inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800",
+                    ].join(" ")}
+                    onClick={() => {
+                      if (activeRoadmapId) {
+                        setShareRoadmapId(activeRoadmapId);
+                      }
+                    }}
+                    disabled={
+                      !activeRoadmapId ||
+                      !activeRoadmapRole ||
+                      activeRoadmapRole === "viewer"
                     }
-                  }}
-                  disabled={
-                    !activeRoadmapId ||
-                    !activeRoadmapRole ||
-                    activeRoadmapRole === "viewer"
-                  }
-                  title="Share current roadmap"
-                >
-                  <span className="inline-flex h-4 w-4 items-center justify-center text-sky-600">
-                    <svg
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <circle cx="18" cy="5" r="2" />
-                      <circle cx="6" cy="12" r="2" />
-                      <circle cx="18" cy="19" r="2" />
-                      <path d="M8 12l8-6" />
-                      <path d="M8 12l8 6" />
-                    </svg>
-                  </span>
-                  Share
-                </button>
+                    title="Share current roadmap"
+                  >
+                    <span className="inline-flex h-4 w-4 items-center justify-center text-sky-600">
+                      <svg
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle cx="18" cy="5" r="2" />
+                        <circle cx="6" cy="12" r="2" />
+                        <circle cx="18" cy="19" r="2" />
+                        <path d="M8 12l8-6" />
+                        <path d="M8 12l8 6" />
+                      </svg>
+                    </span>
+                    Share
+                  </button>
+                ) : null}
                 {activeDatasourceType === "azure-devops" ? (
                   <button
                     type="button"
@@ -1619,7 +1762,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
               </div>
             </div>
           ) : null}
-          {!isLoadingRoadmaps && roadmaps.length === 0 ? (
+          {!isLoadingRoadmaps && roadmaps.length === 0 && !hasSharedView ? (
             <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
               <div className="space-y-2">
                 <div className="text-base font-semibold text-slate-800 dark:text-slate-100">
@@ -1644,7 +1787,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
               </div>
             </div>
           ) : null}
-          {!isLoadingRoadmaps && roadmaps.length > 0 ? (
+          {!isLoadingRoadmaps && (roadmaps.length > 0 || hasSharedView) ? (
             <div
               className={[
                 "space-y-3",
@@ -1655,7 +1798,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
             >
             <div
               className={[
-                "grid gap-3 md:grid-cols-[20rem_minmax(0,1fr)] md:gap-6",
+                "grid gap-3 md:gap-6",
+                "md:grid-cols-[20rem_minmax(0,1fr)]",
                 showDebugOutlines
                   ? "relative outline outline-1 outline-dashed outline-sky-300/80"
                   : "",
@@ -1700,40 +1844,48 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                       <>
                         <button
                           type="button"
-                          className="text-left text-xl font-semibold text-slate-900 hover:text-slate-700 dark:text-slate-100 dark:hover:text-slate-200 truncate"
+                          className={[
+                            "text-left text-xl font-semibold text-slate-900 truncate dark:text-slate-100",
+                            isSharedViewActive
+                              ? ""
+                              : "hover:text-slate-700 dark:hover:text-slate-200",
+                          ].join(" ")}
                           onClick={() => {
+                            if (isSharedViewActive) return;
                             setTitleDraft(titlePrefix);
                             setIsEditingTitle(true);
                           }}
-                          title="Edit title"
-                          aria-label="Edit roadmap title"
+                          title={isSharedViewActive ? "Roadmap title" : "Edit title"}
+                          aria-label="Roadmap title"
                         >
                           {titlePrefix}
                         </button>
-                        <button
-                          type="button"
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
-                          onClick={() => {
-                            setTitleDraft(titlePrefix);
-                            setIsEditingTitle(true);
-                          }}
-                          title="Edit title"
-                          aria-label="Edit roadmap title"
-                        >
-                          <svg
-                            viewBox="0 0 24 24"
-                            aria-hidden="true"
-                            className="h-3.5 w-3.5"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.6"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
+                        {!isSharedViewActive ? (
+                          <button
+                            type="button"
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                            onClick={() => {
+                              setTitleDraft(titlePrefix);
+                              setIsEditingTitle(true);
+                            }}
+                            title="Edit title"
+                            aria-label="Edit roadmap title"
                           >
-                            <path d="M12 20h9" />
-                            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z" />
-                          </svg>
-                        </button>
+                            <svg
+                              viewBox="0 0 24 24"
+                              aria-hidden="true"
+                              className="h-3.5 w-3.5"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.6"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M12 20h9" />
+                              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z" />
+                            </svg>
+                          </button>
+                        ) : null}
                       </>
                     )}
                   </div>
@@ -1786,61 +1938,70 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                         Unplanned
                       </button>
                     </div>
-                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                      Saved Views:
-                    </span>
-                    <details className="relative" data-dropdown>
-                      <summary className="list-none inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 cursor-pointer hover:border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800">
-                        <span className="inline-flex h-4 w-4 items-center justify-center text-sky-600">
-                          <svg
-                            viewBox="0 0 24 24"
-                            aria-hidden="true"
-                            className="h-4 w-4"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.6"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M4 6h16" />
-                            <path d="M4 12h16" />
-                            <path d="M4 18h10" />
-                          </svg>
+                    {!isSharedViewActive ? (
+                      <>
+                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                          Saved Views:
                         </span>
-                        {selectedViewValue
-                          ? viewOptions.find((option) => option.value === selectedViewValue)
-                              ?.label ?? "Select"
-                          : "Select"}
-                        <svg
-                          viewBox="0 0 24 24"
-                          aria-hidden="true"
-                          className="h-3 w-3 text-slate-400"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M6 9l6 6 6-6" />
-                        </svg>
-                      </summary>
-                      <div className="absolute left-0 z-[120] mt-2 w-96 max-w-[90vw] rounded-lg border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-700 dark:bg-slate-900">
-                        <SavedViewsPanel
-                          isLoading={isLoadingViews}
-                          views={views}
-                          onSaveView={handleSaveView}
-                          onLoadView={handleLoadView}
-                          onRenameView={handleRenameView}
-                          onDeleteView={handleDeleteView}
-                          onUpdateView={handleUpdateView}
-                          roadmapRole={activeRoadmapRole}
-                          activeViewId={loadedView?.id ?? null}
-                          variant="plain"
-                        />
-                      </div>
-                    </details>
+                        <details className="relative" data-dropdown>
+                          <summary className="list-none inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 cursor-pointer hover:border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800">
+                            <span className="inline-flex h-4 w-4 items-center justify-center text-sky-600">
+                              <svg
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                                className="h-4 w-4"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.6"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M4 6h16" />
+                                <path d="M4 12h16" />
+                                <path d="M4 18h10" />
+                              </svg>
+                            </span>
+                            {selectedViewValue
+                              ? viewOptions.find((option) => option.value === selectedViewValue)
+                                  ?.label ?? "Select"
+                              : "Select"}
+                            <svg
+                              viewBox="0 0 24 24"
+                              aria-hidden="true"
+                              className="h-3 w-3 text-slate-400"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M6 9l6 6 6-6" />
+                            </svg>
+                          </summary>
+                          <div className="absolute left-0 z-[120] mt-2 w-96 max-w-[90vw] rounded-lg border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                          <SavedViewsPanel
+                            isLoading={isLoadingViews}
+                            views={views}
+                            shareBaseUrl={shareBaseUrl}
+                            onSaveView={handleSaveView}
+                            onLoadView={handleLoadView}
+                            onRenameView={handleRenameView}
+                            onDeleteView={handleDeleteView}
+                            onCreateLink={handleCreateLink}
+                            onDeleteLink={handleDeleteLink}
+                            onUpdateView={handleUpdateView}
+                            roadmapRole={activeRoadmapRole}
+                            isSharedViewActive={isSharedViewActive}
+                            activeViewId={loadedView?.id ?? null}
+                            variant="plain"
+                          />
+                          </div>
+                        </details>
+                      </>
+                    ) : null}
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
+                    {!isSharedViewActive ? (
                     <details className="relative" data-dropdown>
                       <summary className="list-none inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 cursor-pointer dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800">
                       <span className="inline-flex h-4 w-4 items-center justify-center text-sky-600">
@@ -1918,6 +2079,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                       }
                     />
                     </details>
+                    ) : null}
+                    {!isSharedViewActive ? (
                     <details className="relative" data-dropdown>
                       <summary className="list-none inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 cursor-pointer dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800">
                     <span className="inline-flex h-4 w-4 items-center justify-center text-slate-500">
@@ -2066,7 +2229,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                       </div>
                     ) : null}
                   </div>
-                </details>
+                    </details>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -2376,4 +2540,3 @@ function saveScrollPosition(isUnplanned: boolean) {
 function getScrollStorageKey(pathname: string): string {
   return `roadmap-scroll:${pathname}`;
 }
-

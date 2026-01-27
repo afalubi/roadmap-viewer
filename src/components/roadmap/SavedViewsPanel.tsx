@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { SignedIn, SignedOut, SignInButton } from '@clerk/nextjs';
 import type { SavedView, ViewRole } from '@/types/views';
@@ -8,13 +8,20 @@ import type { SavedView, ViewRole } from '@/types/views';
 interface Props {
   isLoading: boolean;
   views: SavedView[];
+  shareBaseUrl?: string;
   activeViewId?: string | null;
   onSaveView: (name: string) => void;
   onLoadView: (view: SavedView) => void;
   onRenameView: (id: string, name: string) => void;
   onDeleteView: (id: string) => void;
+  onCreateLink: (
+    id: string,
+    options: { password?: string | null; rotate?: boolean },
+  ) => Promise<boolean>;
+  onDeleteLink: (id: string) => Promise<boolean>;
   onUpdateView: (view: SavedView) => Promise<boolean>;
   roadmapRole?: ViewRole | null;
+  isSharedViewActive?: boolean;
   variant?: 'card' | 'plain';
 }
 
@@ -28,16 +35,22 @@ const ROLE_ORDER: Record<ViewRole, number> = {
 export function SavedViewsPanel({
   isLoading,
   views,
+  shareBaseUrl,
   activeViewId,
   onSaveView,
   onLoadView,
   onRenameView,
   onDeleteView,
+  onCreateLink,
+  onDeleteLink,
   onUpdateView,
   roadmapRole,
+  isSharedViewActive = false,
   variant = 'card',
 }: Props) {
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+  const baseUrl =
+    shareBaseUrl ??
+    (typeof window !== 'undefined' ? window.location.origin : '');
   const isPlain = variant === 'plain';
   const [name, setName] = useState('');
   const [pendingDelete, setPendingDelete] = useState<SavedView | null>(null);
@@ -45,6 +58,8 @@ export function SavedViewsPanel({
   const [editingName, setEditingName] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastTimer, setToastTimer] = useState<number | null>(null);
+  const [shareView, setShareView] = useState<SavedView | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
 
   const sortedViews = useMemo(() => {
     return [...views].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
@@ -103,6 +118,39 @@ export function SavedViewsPanel({
   const canManageViews = Boolean(
     roadmapRole && ROLE_ORDER[roadmapRole] >= ROLE_ORDER.editor,
   );
+  const canShare = (role: ViewRole) =>
+    ROLE_ORDER[role] >= ROLE_ORDER.editor && canManageViews;
+
+  const buildShareUrl = (view: SavedView) => {
+    if (!baseUrl) return null;
+    if (!view.sharedSlug) return null;
+    return `${baseUrl}/?view=${view.sharedSlug}`;
+  };
+
+  const handleShare = (view: SavedView) => {
+    setShareView(view);
+    setShareCopied(false);
+  };
+
+  const handleShareCopy = async () => {
+    if (!shareView) return;
+    const url = buildShareUrl(shareView);
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareCopied(true);
+    } catch {
+      window.prompt('Copy share link', url);
+    }
+  };
+
+  useEffect(() => {
+    if (!shareView) return;
+    const latest = views.find((view) => view.id === shareView.id);
+    if (latest) {
+      setShareView(latest);
+    }
+  }, [views, shareView?.id]);
 
   const renderViewRow = (view: SavedView) => {
     const isActive = Boolean(activeViewId && view.id === activeViewId);
@@ -158,7 +206,7 @@ export function SavedViewsPanel({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1">
-            {isActive && canEdit(view.role) ? (
+            {isActive && canEdit(view.role) && !isSharedViewActive ? (
               <button
                 type="button"
                 className="rounded-full border border-slate-200 px-2 py-0.5 text-[0.7rem] text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
@@ -200,6 +248,32 @@ export function SavedViewsPanel({
                 >
                   <path d="M12 20h9" />
                   <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z" />
+                </svg>
+              </button>
+            ) : null}
+            {canShare(view.role) ? (
+              <button
+                type="button"
+                className="rounded-full border border-slate-200 p-1 text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                onClick={() => handleShare(view)}
+                aria-label={`Share ${view.name}`}
+                title="Share"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  className="h-3.5 w-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="18" cy="5" r="2" />
+                  <circle cx="6" cy="12" r="2" />
+                  <circle cx="18" cy="19" r="2" />
+                  <path d="M8 12l8-6" />
+                  <path d="M8 12l8 6" />
                 </svg>
               </button>
             ) : null}
@@ -319,6 +393,76 @@ export function SavedViewsPanel({
                       >
                         Delete
                       </button>
+                    </div>
+                  </div>
+                </div>,
+                document.body,
+              )
+            : null}
+          {shareView && typeof document !== 'undefined'
+            ? createPortal(
+                <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-900/40 px-4">
+                  <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-4 shadow-lg space-y-4 dark:border-slate-700 dark:bg-slate-900">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                          Share “{shareView.name}”
+                        </div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">
+                          Link access is view-only.
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="rounded-full border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                        onClick={() => setShareView(null)}
+                      >
+                        Close
+                      </button>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        Share link
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                          <span className="truncate">
+                            {buildShareUrl(shareView) ?? 'Link unavailable'}
+                          </span>
+                          <button
+                            type="button"
+                            className="ml-auto inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[0.7rem] text-slate-600 hover:border-slate-300 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                            onClick={handleShareCopy}
+                            disabled={!shareView.sharedSlug}
+                            title="Copy share link"
+                          >
+                            {shareCopied ? 'Copied' : 'Copy'}
+                          </button>
+                        </div>
+                        {!shareView.sharedSlug ? (
+                          <button
+                            type="button"
+                            className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                            onClick={async () => {
+                              await onCreateLink(shareView.id, {});
+                            }}
+                          >
+                            Create link
+                          </button>
+                        ) : null}
+                        {shareView.sharedSlug ? (
+                          <button
+                            type="button"
+                            className="rounded-full border border-rose-200 px-3 py-1 text-xs text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-700/60 dark:text-rose-200 dark:hover:bg-rose-900/40"
+                            onClick={async () => {
+                              await onDeleteLink(shareView.id);
+                            }}
+                          >
+                            Remove link
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 </div>,
