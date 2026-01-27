@@ -33,10 +33,12 @@ export function RoadmapItemDetailDialog({ item, onClose, hideDates = false }: Pr
                 </span>
               ) : null}
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-300">
-              Pillar: <span className="font-medium">{item.pillar}</span> ·
-              Expense: <span className="font-medium">{item.expenseType}</span>
-            </p>
+            <div className="flex flex-wrap items-center gap-2 text-[0.7rem]">
+              <Badge label="Pillar" value={item.pillar} />
+              <Badge label="Expense" value={item.expenseType} />
+              <Badge label="Disposition" value={item.disposition} />
+              <Badge label="Criticality" value={item.criticality} />
+            </div>
           </div>
           <button
             type="button"
@@ -56,8 +58,6 @@ export function RoadmapItemDetailDialog({ item, onClose, hideDates = false }: Pr
               </>
             ) : null}
             <DetailField label="T-shirt size" value={item.tShirtSize} />
-            <DetailField label="Criticality" value={item.criticality} />
-            <DetailField label="Disposition" value={item.disposition} />
             {item.url ? (
               <p className="text-slate-700 dark:text-slate-200">
                 <span className="font-semibold text-slate-600 mr-1 dark:text-slate-300">
@@ -84,11 +84,8 @@ export function RoadmapItemDetailDialog({ item, onClose, hideDates = false }: Pr
               label="Submitter priority"
               value={item.submitterPriority}
             />
-            <DetailField
-              label="Impacted stakeholders"
-              value={item.impactedStakeholders}
-            />
-            <DetailField label="Executive sponsor" value={item.executiveSponsor} />
+            <DetailField label="Stakeholders" value={item.impactedStakeholders} />
+            <DetailField label="Sponsor" value={item.executiveSponsor} />
             <DetailField label="Lead" value={item.lead} />
             <DetailField
               label="Point of contact / SME"
@@ -119,6 +116,16 @@ function DetailField({
       <span className="font-semibold text-slate-600 mr-1 dark:text-slate-300">{label}:</span>
       <span>{value}</span>
     </p>
+  );
+}
+
+function Badge({ label, value }: { label: string; value: string }) {
+  if (!value) return null;
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[0.65rem] font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+      <span className="text-slate-500 dark:text-slate-400">{label}:</span>
+      <span>{value}</span>
+    </span>
   );
 }
 

@@ -1160,7 +1160,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
 
   const summaryViewBy = {
     pillar: "Pillar",
-    stakeholder: "Primary stakeholder",
+    stakeholder: "Sponsor",
     criticality: "Criticality",
     region: "Region",
     disposition: "Disposition",
@@ -1176,7 +1176,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       ? `Disposition: ${selectedDispositions.join(", ")}`
       : null,
     selectedPrimaryStakeholders.length
-      ? `Primary stakeholders: ${selectedPrimaryStakeholders.join(", ")}`
+      ? `Sponsors: ${selectedPrimaryStakeholders.join(", ")}`
       : null,
     selectedImpactedStakeholders.length
       ? `Stakeholders: ${selectedImpactedStakeholders.join(", ")}`

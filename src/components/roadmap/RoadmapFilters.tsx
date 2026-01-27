@@ -279,7 +279,7 @@ export function RoadmapFilters({
             <div className="space-y-3 px-3 pt-2 pb-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  View by
+                  View by sponsor
                 </div>
                 <select
                   className={compactSelectClasses}
@@ -296,7 +296,7 @@ export function RoadmapFilters({
                   }
                 >
                   <option value="pillar">Pillar</option>
-                  <option value="stakeholder">Primary stakeholder</option>
+                  <option value="stakeholder">Sponsor</option>
                   <option value="criticality">Criticality</option>
                   <option value="region">Region</option>
                   <option value="disposition">Disposition</option>
@@ -373,12 +373,12 @@ export function RoadmapFilters({
                 )}
 
                 {renderCheckboxDropdown(
-                  'Primary stakeholder',
+                  'Sponsor',
                   primaryStakeholders,
                   selectedPrimaryStakeholders,
                   setSelectedPrimaryStakeholders,
-                  'Select primary stakeholder',
-                  { singular: 'primary stakeholder', plural: 'primary stakeholders' },
+                  'Select sponsor',
+                  { singular: 'sponsor', plural: 'sponsors' },
                 )}
                 {renderSelectedChips(selectedPrimaryStakeholders, (value) =>
                   setSelectedPrimaryStakeholders(

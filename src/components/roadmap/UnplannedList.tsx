@@ -26,7 +26,7 @@ interface Props {
 
 const GROUP_LABELS: Record<Props['groupBy'], string> = {
   pillar: 'Pillar',
-  stakeholder: 'Primary stakeholder',
+  stakeholder: 'Sponsor',
   criticality: 'Criticality',
   region: 'Region',
   disposition: 'Disposition',

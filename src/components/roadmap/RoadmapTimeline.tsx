@@ -54,7 +54,7 @@ const GROUP_LABELS: Record<
   string
 > = {
   pillar: 'Pillar',
-  stakeholder: 'Primary stakeholder',
+  stakeholder: 'Sponsor',
   criticality: 'Criticality',
   region: 'Region',
   disposition: 'Disposition',
