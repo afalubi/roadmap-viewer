@@ -34,7 +34,7 @@ const GROUP_LABELS: Record<Props['groupBy'], string> = {
 
 function getGroupKey(item: RoadmapItem, groupBy: Props['groupBy']): string {
   if (groupBy === 'stakeholder') {
-    const value = (item.submitterDepartment || '').trim();
+    const value = (item.executiveSponsor || '').trim();
     if (!value || value === '0') return 'Unspecified';
     return value;
   }

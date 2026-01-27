@@ -8,6 +8,7 @@ import type {
 } from '@/types/roadmapDatasources';
 import {
   buildAzureDevopsRequestHeaders,
+  getFieldMapForConfig,
   getFieldListForConfig,
   getMaxItems,
   getRefreshMinutes,
@@ -465,7 +466,7 @@ export async function fetchAzureDevopsDebugPayload(
 export async function validateAzureDevopsConfig(
   config: AzureDevopsDatasourceConfig,
   secret: string | null,
-): Promise<void> {
+): Promise<{ warnings: string[]; missingFields: string[]; missingFieldKeys: string[] }> {
   const normalizedUrl = normalizeOrganizationUrl(config.organizationUrl);
   if (!normalizedUrl || !config.project) {
     throw new Error('Organization URL and project are required.');
@@ -491,6 +492,87 @@ export async function validateAzureDevopsConfig(
     const errorText = await wiqlRes.text().catch(() => '');
     throw new Error(`WIQL validation failed (${wiqlRes.status}). ${errorText}`.trim());
   }
+  const wiqlResponse = (await wiqlRes.json()) as {
+    workItems?: Array<{ id: number }>;
+  };
+  const ids = (wiqlResponse.workItems ?? []).map((item) => item.id);
+  const sampleIds = ids.slice(0, Math.max(1, 10));
+  const warnings: string[] = [];
+  const missingFields: string[] = [];
+  const missingFieldKeys: string[] = [];
+
+  const fieldMap = getFieldMapForConfig(config);
+  const mappedFields = Object.values(fieldMap).filter(
+    (value): value is string => typeof value === 'string' && value.trim().length > 0,
+  );
+
+  try {
+    const fieldsUrl = `${normalizedUrl}/_apis/wit/fields?api-version=7.1-preview.2`;
+    const fieldsRes = await fetch(fieldsUrl, { headers });
+    if (fieldsRes.ok) {
+      const fieldsData = (await fieldsRes.json()) as {
+        value?: Array<{ referenceName?: string }>;
+      };
+      const knownFields = new Set(
+        (fieldsData.value ?? [])
+          .map((field) => field.referenceName)
+          .filter((name): name is string => Boolean(name)),
+      );
+      mappedFields.forEach((field) => {
+        if (!knownFields.has(field)) {
+          missingFields.push(field);
+        }
+      });
+      if (missingFields.length > 0) {
+        warnings.push(`Unknown fields: ${missingFields.join(', ')}`);
+      }
+    }
+  } catch {
+    // Ignore field lookup failures; fall back to sample checks.
+  }
+  if (sampleIds.length === 0) {
+    warnings.push('No work items returned. Field mapping could not be verified.');
+    return { warnings, missingFields, missingFieldKeys };
+  }
+
+  const fields = getFieldListForConfig(config).filter(
+    (field) => !missingFields.includes(field),
+  );
+  const batchUrl = `${normalizedUrl}/${encodeURIComponent(config.project)}/_apis/wit/workitemsbatch?api-version=7.1-preview.1`;
+  const batchRes = await fetch(batchUrl, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ ids: sampleIds, fields }),
+  });
+  if (!batchRes.ok) {
+    const errorText = await batchRes.text().catch(() => '');
+    throw new Error(
+      `Azure DevOps work item batch failed (${batchRes.status}). ${errorText}`.trim(),
+    );
+  }
+  const batchResponse = (await batchRes.json()) as {
+    value?: Array<{ fields?: Record<string, unknown> }>;
+  };
+  const sampleItems = batchResponse.value ?? [];
+  const missing = mappedFields.filter((fieldName) => {
+    if (missingFields.includes(fieldName)) return false;
+    return !sampleItems.some(
+      (item) => item.fields && Object.prototype.hasOwnProperty.call(item.fields, fieldName),
+    );
+  });
+  if (missing.length > 0) {
+    warnings.push(`Missing mapped fields: ${missing.join(', ')}`);
+  }
+  const fieldEntries = Object.entries(fieldMap);
+  fieldEntries.forEach(([key, value]) => {
+    if (!value || typeof value !== 'string') return;
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    if (missingFields.includes(trimmed) || missing.includes(trimmed)) {
+      missingFieldKeys.push(key);
+    }
+  });
+  return { warnings, missingFields, missingFieldKeys };
 }
 
 export async function listAzureDevopsProjects(

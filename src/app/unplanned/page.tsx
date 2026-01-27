@@ -1,7 +1,5 @@
-"use client";
-
-import { RoadmapPage } from "@/components/roadmap/RoadmapPage";
+import { redirect } from "next/navigation";
 
 export default function UnplannedPage() {
-  return <RoadmapPage mode="unplanned" />;
+  redirect("/?mode=unplanned");
 }

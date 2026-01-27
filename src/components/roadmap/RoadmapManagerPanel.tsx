@@ -33,9 +33,10 @@ interface Props {
   onCreateRoadmap: (name: string, csvText: string) => Promise<boolean>;
   onRenameRoadmap: (id: string, name: string) => Promise<boolean>;
   onDeleteRoadmap: (id: string) => Promise<boolean>;
-  onShareUser: (id: string, userId: string, role: RoadmapRole) => Promise<boolean>;
-  onUpdateShare: (id: string, userId: string, role: RoadmapRole) => Promise<boolean>;
-  onRevokeShare: (id: string, userId: string) => Promise<boolean>;
+  onShareUser?: (id: string, userId: string, role: RoadmapRole) => Promise<boolean>;
+  onUpdateShare?: (id: string, userId: string, role: RoadmapRole) => Promise<boolean>;
+  onRevokeShare?: (id: string, userId: string) => Promise<boolean>;
+  shareOnly?: boolean;
   variant?: 'card' | 'plain';
 }
 
@@ -63,9 +64,16 @@ export function RoadmapManagerPanel({
   onShareUser,
   onUpdateShare,
   onRevokeShare,
+  shareOnly = false,
   variant = 'card',
 }: Props) {
   const isPlain = variant === 'plain';
+  const shareUserHandler =
+    onShareUser ?? (async () => false);
+  const updateShareHandler =
+    onUpdateShare ?? (async () => false);
+  const revokeShareHandler =
+    onRevokeShare ?? (async () => false);
   const [name, setName] = useState('');
   const [pendingDelete, setPendingDelete] = useState<RoadmapSummary | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -87,8 +95,8 @@ export function RoadmapManagerPanel({
     areaPath: '',
     workItemTypes: [],
     includeClosed: false,
-    stakeholderTagPrefix: 'Stakeholder:',
-    regionTagPrefix: 'Region:',
+    stakeholderTagPrefix: '',
+    regionTagPrefix: '',
     queryType: 'wiql',
     queryText: '',
     refreshMinutes: 15,
@@ -97,8 +105,14 @@ export function RoadmapManagerPanel({
   });
   const [datasourceHasSecret, setDatasourceHasSecret] = useState(false);
   const [datasourcePat, setDatasourcePat] = useState('');
+  const [isDatasourcePatMasked, setIsDatasourcePatMasked] = useState(false);
   const [datasourceWorkItemUrl, setDatasourceWorkItemUrl] = useState('');
   const [datasourceStatus, setDatasourceStatus] = useState<string | null>(null);
+  const [datasourceValidationMissingFields, setDatasourceValidationMissingFields] = useState<
+    string[]
+  >([]);
+  const [datasourceValidationMissingFieldKeys, setDatasourceValidationMissingFieldKeys] =
+    useState<string[]>([]);
   const [datasourceDebugPayload, setDatasourceDebugPayload] = useState<
     Record<string, unknown> | null
   >(null);
@@ -161,9 +175,64 @@ export function RoadmapManagerPanel({
       : true;
   const isRefreshComplete = true;
   const isMappingComplete = Boolean(
-    datasourceConfig.fieldMap &&
-      Object.values(datasourceConfig.fieldMap).some((value) => hasText(value)),
+    datasourceType !== 'azure-devops' ||
+      (datasourceConfig.fieldMap &&
+        Object.values(datasourceConfig.fieldMap).some((value) => hasText(value))) ||
+      (datasourceValidationMissingFieldKeys.length === 0 &&
+        datasourceValidationMissingFields.length === 0),
   );
+  const baseInputClass =
+    'w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200';
+  const missingFieldKeySet = useMemo(
+    () =>
+      new Set(
+        datasourceValidationMissingFieldKeys.map((field) => field.trim().toLowerCase()),
+      ),
+    [datasourceValidationMissingFieldKeys],
+  );
+  const mappingInputClass = (fieldKey?: string) =>
+    [
+      baseInputClass,
+      fieldKey && missingFieldKeySet.has(fieldKey.trim().toLowerCase())
+        ? 'border-rose-400 ring-1 ring-rose-300 dark:border-rose-500 dark:ring-rose-400'
+        : '',
+    ].join(' ');
+  const sanitizeFieldMap = (
+    fieldMap: AzureDevopsDatasourceConfig['fieldMap'],
+  ): AzureDevopsDatasourceConfig['fieldMap'] => {
+    if (!fieldMap) return undefined;
+    const cleaned = Object.fromEntries(
+      Object.entries(fieldMap).filter(([, value]) => {
+        if (typeof value !== 'string') return false;
+        return value.trim().length > 0;
+      }),
+    );
+    return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+  };
+  const sanitizeOptionalText = (value?: string | null) => {
+    if (typeof value !== 'string') return undefined;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  };
+  const buildDatasourcePayload = () => ({
+    ...datasourceConfig,
+    fieldMap: sanitizeFieldMap(datasourceConfig.fieldMap),
+    stakeholderTagPrefix: sanitizeOptionalText(datasourceConfig.stakeholderTagPrefix),
+    regionTagPrefix: sanitizeOptionalText(datasourceConfig.regionTagPrefix),
+  });
+  const getPatForSubmit = () => {
+    if (isDatasourcePatMasked) return undefined;
+    const trimmed = datasourcePat.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  };
+  const handlePatChange = (value: string) => {
+    if (isDatasourcePatMasked) {
+      setIsDatasourcePatMasked(false);
+      setDatasourcePat(value);
+      return;
+    }
+    setDatasourcePat(value);
+  };
 
   const handleShare = (roadmap: RoadmapSummary) => {
     setShareRoadmap(roadmap);
@@ -266,10 +335,13 @@ export function RoadmapManagerPanel({
   const openDatasourceModal = async (roadmap: RoadmapSummary) => {
     setDatasourceRoadmap(roadmap);
     setDatasourceStatus(null);
+    setDatasourceValidationMissingFields([]);
+    setDatasourceValidationMissingFieldKeys([]);
     setDatasourceDebugPayload(null);
     setDatasourceDebugError(null);
     setIsDatasourceDebugOpen(false);
     setDatasourcePat('');
+    setIsDatasourcePatMasked(false);
     setDatasourceWorkItemUrl('');
     setProjectOptions([]);
     setDatasourceOpenSection(null);
@@ -285,6 +357,8 @@ export function RoadmapManagerPanel({
       if (summary) {
         setDatasourceType(summary.type);
         setDatasourceHasSecret(summary.hasSecret);
+        setIsDatasourcePatMasked(summary.hasSecret);
+        setDatasourcePat(summary.hasSecret ? '********' : '');
         setDatasourceConfig({
           organizationUrl: summary.config?.organizationUrl ?? '',
           project: summary.config?.project ?? '',
@@ -294,8 +368,14 @@ export function RoadmapManagerPanel({
           areaPath: summary.config?.areaPath ?? '',
           workItemTypes: summary.config?.workItemTypes ?? [],
           includeClosed: summary.config?.includeClosed ?? false,
-          stakeholderTagPrefix: summary.config?.stakeholderTagPrefix ?? 'Stakeholder:',
-          regionTagPrefix: summary.config?.regionTagPrefix ?? 'Region:',
+          stakeholderTagPrefix:
+            summary.config?.stakeholderTagPrefix === 'Stakeholder:'
+              ? ''
+              : summary.config?.stakeholderTagPrefix ?? '',
+          regionTagPrefix:
+            summary.config?.regionTagPrefix === 'Region:'
+              ? ''
+              : summary.config?.regionTagPrefix ?? '',
           queryType: summary.config?.queryType ?? 'wiql',
           queryText: summary.config?.queryText ?? '',
           refreshMinutes: summary.config?.refreshMinutes ?? 15,
@@ -315,6 +395,8 @@ export function RoadmapManagerPanel({
     if (!datasourceRoadmap) return;
     setIsDatasourceValidating(true);
     setDatasourceStatus(null);
+    setDatasourceValidationMissingFields([]);
+    setDatasourceValidationMissingFieldKeys([]);
     try {
       const res = await fetch(
         `/api/roadmaps/${datasourceRoadmap.id}/datasource/validate`,
@@ -323,17 +405,33 @@ export function RoadmapManagerPanel({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             type: datasourceType,
-            config: datasourceConfig,
-            pat: datasourcePat || undefined,
+            config: buildDatasourcePayload(),
+            pat: getPatForSubmit(),
           }),
         },
       );
       const data = await res.json();
       if (!res.ok) {
-        setDatasourceStatus(data.error ?? 'Validation failed.');
+        const rawMessage = data.error ?? 'Validation failed.';
+        const friendlyMessage =
+          typeof rawMessage === 'string' &&
+          rawMessage.toLowerCase().includes('work item batch failed')
+            ? 'Validation failed. One or more mapped fields look invalid. Check the field names.'
+            : rawMessage;
+        setDatasourceStatus(friendlyMessage);
         return;
       }
-      setDatasourceStatus('Validation succeeded.');
+      if (Array.isArray(data.missingFields)) {
+        setDatasourceValidationMissingFields(data.missingFields);
+      }
+      if (Array.isArray(data.missingFieldKeys)) {
+        setDatasourceValidationMissingFieldKeys(data.missingFieldKeys);
+      }
+      if (Array.isArray(data.warnings) && data.warnings.length > 0) {
+        setDatasourceStatus(`Validation succeeded with warnings: ${data.warnings.join(' ')}`);
+      } else {
+        setDatasourceStatus('Validation succeeded.');
+      }
     } catch {
       setDatasourceStatus('Validation failed.');
     } finally {
@@ -351,8 +449,8 @@ export function RoadmapManagerPanel({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: datasourceType,
-          config: datasourceConfig,
-          pat: datasourcePat || undefined,
+          config: buildDatasourcePayload(),
+          pat: getPatForSubmit(),
         }),
       });
       const data = await res.json();
@@ -361,6 +459,7 @@ export function RoadmapManagerPanel({
         return;
       }
       setDatasourceHasSecret(Boolean(data.datasource?.hasSecret));
+      setIsDatasourcePatMasked(Boolean(data.datasource?.hasSecret));
       setDatasourceStatus('Saved datasource settings.');
       setDatasourcePat('');
       setDatasourceRoadmap(null);
@@ -391,6 +490,8 @@ export function RoadmapManagerPanel({
         return;
       }
       setDatasourceHasSecret(Boolean(data.datasource?.hasSecret));
+      setIsDatasourcePatMasked(false);
+      setDatasourcePat('');
       setDatasourceStatus('Cleared PAT.');
     } catch {
       setDatasourceStatus('Clear failed.');
@@ -410,7 +511,7 @@ export function RoadmapManagerPanel({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             organizationUrl: datasourceConfig.organizationUrl,
-            pat: datasourcePat || undefined,
+            pat: getPatForSubmit(),
           }),
         },
       );
@@ -435,7 +536,7 @@ export function RoadmapManagerPanel({
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: datasourceWorkItemUrl, pat: datasourcePat || undefined }),
+          body: JSON.stringify({ url: datasourceWorkItemUrl, pat: getPatForSubmit() }),
         },
       );
       const data = await res.json();
@@ -708,6 +809,8 @@ export function RoadmapManagerPanel({
   );
 
   return (
+    <>
+    {!shareOnly ? (
     <section
       className={
         isPlain
@@ -716,12 +819,9 @@ export function RoadmapManagerPanel({
       }
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="space-y-1">
-          <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Roadmaps</h2>
-          <p className="text-[0.7rem] text-slate-500 dark:text-slate-400">
-            Select a roadmap or create a new one.
-          </p>
-        </div>
+        <p className="text-[0.7rem] text-slate-500 dark:text-slate-400">
+          Select a roadmap or create a new one.
+        </p>
       </div>
 
       <SignedOut>
@@ -816,10 +916,10 @@ export function RoadmapManagerPanel({
                 document.body,
               )
             : null}
-          {datasourceRoadmap && typeof document !== 'undefined'
-            ? createPortal(
-                <div className="fixed inset-0 z-[135] flex items-center justify-center bg-slate-900/40 px-4">
-                  <div className="w-full max-w-xl rounded-xl border border-slate-200 bg-white p-4 shadow-lg space-y-4 dark:border-slate-700 dark:bg-slate-900">
+        {datasourceRoadmap && typeof document !== 'undefined'
+          ? createPortal(
+                <div className="fixed inset-0 z-[145] flex items-center justify-center bg-slate-900/40 px-4">
+                  <div className="w-full max-w-xl rounded-xl border border-slate-200 bg-white p-4 shadow-lg space-y-4 dark:border-slate-700 dark:bg-slate-900 max-h-[85vh] overflow-y-auto">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
@@ -883,12 +983,26 @@ export function RoadmapManagerPanel({
                                       className="flex-1 rounded-md border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
                                     />
                                   </div>
+                                  {datasourceConfig.organizationUrl ? (
+                                    <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[0.7rem] text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                                      <span className="font-semibold text-slate-500 dark:text-slate-400">
+                                        Saved org URL:
+                                      </span>{' '}
+                                      {datasourceConfig.organizationUrl}
+                                    </div>
+                                  ) : null}
                                   <div className="flex flex-wrap items-center gap-2">
                                     <input
                                       type="password"
                                       placeholder={datasourceHasSecret ? 'PAT stored' : 'PAT'}
                                       value={datasourcePat}
-                                      onChange={(event) => setDatasourcePat(event.target.value)}
+                                      onChange={(event) => handlePatChange(event.target.value)}
+                                      onFocus={() => {
+                                        if (isDatasourcePatMasked) {
+                                          setIsDatasourcePatMasked(false);
+                                          setDatasourcePat('');
+                                        }
+                                      }}
                                       className="flex-1 rounded-md border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
                                     />
                                     {datasourceHasSecret ? (
@@ -904,7 +1018,10 @@ export function RoadmapManagerPanel({
                                       type="button"
                                       className="rounded-full border border-slate-300 px-3 py-1 text-[0.7rem] text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
                                       onClick={handleApplyWorkItemUrl}
-                                      disabled={!datasourceWorkItemUrl.trim() || !datasourcePat.trim()}
+                                      disabled={
+                                        !datasourceWorkItemUrl.trim() ||
+                                        (!datasourcePat.trim() && !datasourceHasSecret)
+                                      }
                                     >
                                       Apply URL
                                     </button>
@@ -1028,7 +1145,13 @@ export function RoadmapManagerPanel({
                                         type="password"
                                         placeholder={datasourceHasSecret ? 'PAT stored' : 'PAT'}
                                         value={datasourcePat}
-                                        onChange={(event) => setDatasourcePat(event.target.value)}
+                                        onChange={(event) => handlePatChange(event.target.value)}
+                                        onFocus={() => {
+                                          if (isDatasourcePatMasked) {
+                                            setIsDatasourcePatMasked(false);
+                                            setDatasourcePat('');
+                                          }
+                                        }}
                                         className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
                                       />
                                     </label>
@@ -1070,7 +1193,7 @@ export function RoadmapManagerPanel({
                                   <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
                                     <span>Mode</span>
                                     <select
-                                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                      className={baseInputClass}
                                       value={datasourceConfig.queryMode ?? 'simple'}
                                       onChange={(event) =>
                                         setDatasourceConfig((prev) => ({
@@ -1256,7 +1379,7 @@ export function RoadmapManagerPanel({
                                           refreshMinutes: Number(event.target.value) || 15,
                                         }))
                                       }
-                                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                      className={baseInputClass}
                                     />
                                   </label>
                                   <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
@@ -1272,13 +1395,13 @@ export function RoadmapManagerPanel({
                                           maxItems: Number(event.target.value) || 500,
                                         }))
                                       }
-                                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                      className={baseInputClass}
                                     />
                                   </label>
                                   <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
                                     <span>Date handling</span>
                                     <select
-                                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                      className={baseInputClass}
                                       value={datasourceConfig.missingDateStrategy ?? 'fallback'}
                                       onChange={(event) =>
                                         setDatasourceConfig((prev) => ({
@@ -1314,7 +1437,11 @@ export function RoadmapManagerPanel({
                                 <ChevronIcon isOpen={datasourceOpenSection === 'mapping'} />
                               </button>
                               <AnimatedSection isOpen={datasourceOpenSection === 'mapping'}>
-                                <div className="grid gap-2 sm:grid-cols-2">
+                                <div className="space-y-2">
+                                  <p className="text-[0.7rem] text-slate-500 dark:text-slate-400">
+                                    Leave a field blank to use the default shown in the placeholder.
+                                  </p>
+                                  <div className="grid gap-2 sm:grid-cols-2">
                                   <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
                                     <span>Title field</span>
                                     <input
@@ -1330,7 +1457,9 @@ export function RoadmapManagerPanel({
                                           },
                                         }))
                                       }
-                                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                      className={mappingInputClass(
+                                        'title',
+                                      )}
                                     />
                                   </label>
                                   <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
@@ -1348,7 +1477,9 @@ export function RoadmapManagerPanel({
                                           },
                                         }))
                                       }
-                                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                      className={mappingInputClass(
+                                        'shortDescription',
+                                      )}
                                     />
                                   </label>
                                   <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
@@ -1366,7 +1497,9 @@ export function RoadmapManagerPanel({
                                           },
                                         }))
                                       }
-                                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                      className={mappingInputClass(
+                                        'longDescription',
+                                      )}
                                     />
                                   </label>
                                   <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
@@ -1384,7 +1517,9 @@ export function RoadmapManagerPanel({
                                           },
                                         }))
                                       }
-                                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                      className={mappingInputClass(
+                                        'startDate',
+                                      )}
                                     />
                                   </label>
                                   <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
@@ -1402,7 +1537,9 @@ export function RoadmapManagerPanel({
                                           },
                                         }))
                                       }
-                                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                      className={mappingInputClass(
+                                        'endDate',
+                                      )}
                                     />
                                   </label>
                                   <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
@@ -1420,7 +1557,9 @@ export function RoadmapManagerPanel({
                                           },
                                         }))
                                       }
-                                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                      className={mappingInputClass(
+                                        'submitterName',
+                                      )}
                                     />
                                   </label>
                                   <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
@@ -1438,7 +1577,9 @@ export function RoadmapManagerPanel({
                                           },
                                         }))
                                       }
-                                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                      className={mappingInputClass(
+                                        'submitterDepartment',
+                                      )}
                                     />
                                   </label>
                                   <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
@@ -1456,7 +1597,9 @@ export function RoadmapManagerPanel({
                                           },
                                         }))
                                       }
-                                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                      className={mappingInputClass(
+                                        'submitterPriority',
+                                      )}
                                     />
                                   </label>
                                   <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
@@ -1474,7 +1617,9 @@ export function RoadmapManagerPanel({
                                           },
                                         }))
                                       }
-                                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                      className={mappingInputClass(
+                                        'expenseType',
+                                      )}
                                     />
                                   </label>
                                   <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
@@ -1492,7 +1637,9 @@ export function RoadmapManagerPanel({
                                           },
                                         }))
                                       }
-                                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                      className={mappingInputClass(
+                                        'pointOfContact',
+                                      )}
                                     />
                                   </label>
                                   <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
@@ -1510,7 +1657,29 @@ export function RoadmapManagerPanel({
                                           },
                                         }))
                                       }
-                                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                      className={mappingInputClass(
+                                        'lead',
+                                      )}
+                                    />
+                                  </label>
+                                  <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                    <span>Executive sponsor field</span>
+                                    <input
+                                      type="text"
+                                      placeholder="Custom.ExecutiveSponsor"
+                                      value={datasourceConfig.fieldMap?.executiveSponsor ?? ''}
+                                      onChange={(event) =>
+                                        setDatasourceConfig((prev) => ({
+                                          ...prev,
+                                          fieldMap: {
+                                            ...(prev.fieldMap ?? {}),
+                                            executiveSponsor: event.target.value,
+                                          },
+                                        }))
+                                      }
+                                      className={mappingInputClass(
+                                        'executiveSponsor',
+                                      )}
                                     />
                                   </label>
                                   <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
@@ -1528,14 +1697,16 @@ export function RoadmapManagerPanel({
                                           },
                                         }))
                                       }
-                                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                      className={mappingInputClass(
+                                        'pillar',
+                                      )}
                                     />
                                   </label>
                                   <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
                                     <span>Region field</span>
                                     <input
                                       type="text"
-                                      placeholder="Custom.Region"
+                                      placeholder="System.Tags"
                                       value={datasourceConfig.fieldMap?.region ?? ''}
                                       onChange={(event) =>
                                         setDatasourceConfig((prev) => ({
@@ -1546,7 +1717,7 @@ export function RoadmapManagerPanel({
                                           },
                                         }))
                                       }
-                                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                      className={mappingInputClass('region')}
                                     />
                                   </label>
                                   <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
@@ -1564,7 +1735,7 @@ export function RoadmapManagerPanel({
                                           },
                                         }))
                                       }
-                                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                      className={mappingInputClass('criticality')}
                                     />
                                   </label>
                                   <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
@@ -1582,7 +1753,25 @@ export function RoadmapManagerPanel({
                                           },
                                         }))
                                       }
-                                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                      className={mappingInputClass('disposition')}
+                                    />
+                                  </label>
+                                  <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                    <span>T-shirt size field</span>
+                                    <input
+                                      type="text"
+                                      placeholder="Custom.TshirtSize"
+                                      value={datasourceConfig.fieldMap?.tShirtSize ?? ''}
+                                      onChange={(event) =>
+                                        setDatasourceConfig((prev) => ({
+                                          ...prev,
+                                          fieldMap: {
+                                            ...(prev.fieldMap ?? {}),
+                                            tShirtSize: event.target.value,
+                                          },
+                                        }))
+                                      }
+                                      className={mappingInputClass('tShirtSize')}
                                     />
                                   </label>
                                   <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
@@ -1600,7 +1789,7 @@ export function RoadmapManagerPanel({
                                           },
                                         }))
                                       }
-                                      className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                      className={mappingInputClass('impactedStakeholders')}
                                     />
                                   </label>
                                   <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
@@ -1633,6 +1822,7 @@ export function RoadmapManagerPanel({
                                       className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
                                     />
                                   </label>
+                                  </div>
                                 </div>
                               </AnimatedSection>
                             </div>
@@ -1699,190 +1889,6 @@ export function RoadmapManagerPanel({
                 document.body,
               )
             : null}
-          {shareRoadmap && typeof document !== 'undefined'
-            ? createPortal(
-                <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-900/40 px-4">
-                  <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-4 shadow-lg space-y-4 dark:border-slate-700 dark:bg-slate-900">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                          Share “{shareRoadmap.name}”
-                        </div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400">
-                          Role limit: {roleLabel(shareRoadmap.role)}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        className="rounded-full border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
-                        onClick={() => {
-                          setShareRoadmap(null);
-                          onShareRoadmapClose?.();
-                        }}
-                      >
-                        Close
-                      </button>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        Share with user
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <UserSearchInput
-                          value={shareUserQuery}
-                          placeholder="Search users by name or email"
-                          disabled={!canManageShare}
-                          onChange={(nextValue) => {
-                            setShareUserQuery(nextValue);
-                            setShareSelectedUser(null);
-                          }}
-                          onSelect={(user) => {
-                            const label = user.email
-                              ? `${user.displayName} (${user.email})`
-                              : user.displayName;
-                            setShareUserQuery(label);
-                            setShareSelectedUser(user);
-                          }}
-                        />
-                        <select
-                          className="rounded-md border border-slate-300 px-2 py-1 text-xs bg-white dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
-                          value={shareRole}
-                          onChange={(event) =>
-                            setShareRole(event.target.value as RoadmapRole)
-                          }
-                          disabled={!canManageShare}
-                        >
-                          {shareRoleOptions.map((role) => (
-                            <option key={role} value={role}>
-                              {roleLabel(role)}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          type="button"
-                          className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-                          onClick={async () => {
-                            const trimmed = shareUserQuery.trim();
-                            const target = shareSelectedUser?.id ?? trimmed;
-                            if (!target) return;
-                            const ok = await onShareUser(shareRoadmap.id, target, shareRole);
-                            if (ok) {
-                              setShareUserQuery('');
-                              setShareSelectedUser(null);
-                              await fetchShares(shareRoadmap.id);
-                            }
-                          }}
-                          disabled={!canManageShare || !(shareSelectedUser?.id ?? shareUserQuery.trim())}
-                        >
-                          Grant access
-                        </button>
-                      </div>
-                    </div>
-
-                    {!isShareLoading && visibleShareEntries.length === 0 ? null : (
-                      <div className="space-y-2">
-                        <div className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                          Current access
-                        </div>
-                        {isShareLoading ? (
-                          <div className="text-xs text-slate-400 dark:text-slate-500">Loading...</div>
-                        ) : (
-                          <div className="space-y-2">
-                            {visibleShareEntries.map((entry) => (
-                                <div
-                                  key={entry.userId}
-                                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-xs dark:border-slate-700"
-                                >
-                                  <div className="text-slate-700 dark:text-slate-200">
-                                    {entry.userEmail ?? entry.userId}
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    {canManageShare &&
-                                    canModifyEntry(entry.role, entry.userId) &&
-                                    entry.role !== 'viewer' ? (
-                                      <select
-                                        className="rounded-md border border-slate-300 px-2 py-1 text-xs bg-white dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
-                                        value={entry.role}
-                                        onChange={async (event) => {
-                                          const nextRole = event.target.value as RoadmapRole;
-                                          if (nextRole === entry.role) return;
-                                          const ok = await onUpdateShare(
-                                            shareRoadmap.id,
-                                            entry.userId,
-                                            nextRole,
-                                          );
-                                          if (ok) {
-                                            await fetchShares(shareRoadmap.id);
-                                          }
-                                        }}
-                                      >
-                                        {shareRoleOptions.map((role) => (
-                                          <option key={role} value={role}>
-                                            {roleLabel(role)}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    ) : (
-                                      <span className="rounded-full border border-slate-200 px-2 py-0.5 text-[0.65rem] font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">
-                                        {roleLabel(entry.role)}
-                                      </span>
-                                    )}
-                                    {canManageShare &&
-                                    canModifyEntry(entry.role, entry.userId) &&
-                                    entry.role === 'viewer' ? (
-                                      <button
-                                        type="button"
-                                        className="rounded-full border border-slate-300 px-2 py-0.5 text-[0.7rem] text-slate-600 hover:border-slate-400 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
-                                        onClick={async () => {
-                                          const ok = await onUpdateShare(
-                                            shareRoadmap.id,
-                                            entry.userId,
-                                            'editor',
-                                          );
-                                          if (ok) {
-                                            await fetchShares(shareRoadmap.id);
-                                          }
-                                        }}
-                                      >
-                                        Upgrade to editor
-                                      </button>
-                                    ) : null}
-                                    <button
-                                      type="button"
-                                      className="rounded-full border border-rose-200 px-2 py-0.5 text-[0.7rem] text-rose-600 hover:border-rose-300 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-700/60 dark:text-rose-300 dark:hover:bg-rose-900/40"
-                                      onClick={async () => {
-                                        if (
-                                          !canManageShare ||
-                                          !canModifyEntry(entry.role, entry.userId)
-                                        ) {
-                                          return;
-                                        }
-                                        const ok = await onRevokeShare(shareRoadmap.id, entry.userId);
-                                        if (ok) {
-                                          await fetchShares(shareRoadmap.id);
-                                        }
-                                      }}
-                                      disabled={
-                                        !canManageShare ||
-                                        !canModifyEntry(entry.role, entry.userId)
-                                      }
-                                    >
-                                      Revoke
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>,
-                document.body,
-              )
-            : null}
-
           {isLoading ? (
             <div className="text-xs text-slate-400 dark:text-slate-500">Loading...</div>
           ) : null}
@@ -1935,6 +1941,198 @@ export function RoadmapManagerPanel({
         </div>
       </SignedIn>
     </section>
+    ) : null}
+    {shareRoadmap && typeof document !== 'undefined'
+      ? createPortal(
+          <div className="fixed inset-0 z-[160] flex items-center justify-center bg-slate-900/40 px-4">
+            <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-4 shadow-lg space-y-4 dark:border-slate-700 dark:bg-slate-900">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                    Share “{shareRoadmap.name}”
+                  </div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                    Role limit: {roleLabel(shareRoadmap.role)}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="rounded-full border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                  onClick={() => {
+                    setShareRoadmap(null);
+                    onShareRoadmapClose?.();
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Share with user
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <UserSearchInput
+                    value={shareUserQuery}
+                    placeholder="Search users by name or email"
+                    disabled={!canManageShare}
+                    onChange={(nextValue) => {
+                      setShareUserQuery(nextValue);
+                      setShareSelectedUser(null);
+                    }}
+                    onSelect={(user) => {
+                      const label = user.email
+                        ? `${user.displayName} (${user.email})`
+                        : user.displayName;
+                      setShareUserQuery(label);
+                      setShareSelectedUser(user);
+                    }}
+                  />
+                  <select
+                    className="rounded-md border border-slate-300 px-2 py-1 text-xs bg-white dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                    value={shareRole}
+                    onChange={(event) =>
+                      setShareRole(event.target.value as RoadmapRole)
+                    }
+                    disabled={!canManageShare}
+                  >
+                    {shareRoleOptions.map((role) => (
+                      <option key={role} value={role}>
+                        {roleLabel(role)}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                    onClick={async () => {
+                      const trimmed = shareUserQuery.trim();
+                      const target = shareSelectedUser?.id ?? trimmed;
+                      if (!target) return;
+                      const ok = await shareUserHandler(
+                        shareRoadmap.id,
+                        target,
+                        shareRole,
+                      );
+                      if (ok) {
+                        setShareUserQuery('');
+                        setShareSelectedUser(null);
+                        await fetchShares(shareRoadmap.id);
+                      }
+                    }}
+                    disabled={!canManageShare || !(shareSelectedUser?.id ?? shareUserQuery.trim())}
+                  >
+                    Grant access
+                  </button>
+                </div>
+              </div>
+
+              {!isShareLoading && visibleShareEntries.length === 0 ? null : (
+                <div className="space-y-2">
+                  <div className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    Current access
+                  </div>
+                  {isShareLoading ? (
+                    <div className="text-xs text-slate-400 dark:text-slate-500">Loading...</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {visibleShareEntries.map((entry) => (
+                        <div
+                          key={entry.userId}
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-xs dark:border-slate-700"
+                        >
+                          <div className="text-slate-700 dark:text-slate-200">
+                            {entry.userEmail ?? entry.userId}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {canManageShare &&
+                            canModifyEntry(entry.role, entry.userId) &&
+                            entry.role !== 'viewer' ? (
+                              <select
+                                className="rounded-md border border-slate-300 px-2 py-1 text-xs bg-white dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                value={entry.role}
+                                onChange={async (event) => {
+                                  const nextRole = event.target.value as RoadmapRole;
+                                  if (nextRole === entry.role) return;
+                                  const ok = await updateShareHandler(
+                                    shareRoadmap.id,
+                                    entry.userId,
+                                    nextRole,
+                                  );
+                                  if (ok) {
+                                    await fetchShares(shareRoadmap.id);
+                                  }
+                                }}
+                              >
+                                {shareRoleOptions.map((role) => (
+                                  <option key={role} value={role}>
+                                    {roleLabel(role)}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <span className="rounded-full border border-slate-200 px-2 py-0.5 text-[0.65rem] font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">
+                                {roleLabel(entry.role)}
+                              </span>
+                            )}
+                            {canManageShare &&
+                            canModifyEntry(entry.role, entry.userId) &&
+                            entry.role === 'viewer' ? (
+                              <button
+                                type="button"
+                                className="rounded-full border border-slate-300 px-2 py-0.5 text-[0.7rem] text-slate-600 hover:border-slate-400 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                                onClick={async () => {
+                                  const ok = await updateShareHandler(
+                                    shareRoadmap.id,
+                                    entry.userId,
+                                    'editor',
+                                  );
+                                  if (ok) {
+                                    await fetchShares(shareRoadmap.id);
+                                  }
+                                }}
+                              >
+                                Upgrade to editor
+                              </button>
+                            ) : null}
+                            <button
+                              type="button"
+                              className="rounded-full border border-rose-200 px-2 py-0.5 text-[0.7rem] text-rose-600 hover:border-rose-300 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-700/60 dark:text-rose-300 dark:hover:bg-rose-900/40"
+                              onClick={async () => {
+                                if (
+                                  !canManageShare ||
+                                  !canModifyEntry(entry.role, entry.userId)
+                                ) {
+                                  return;
+                                }
+                                const ok = await revokeShareHandler(
+                                  shareRoadmap.id,
+                                  entry.userId,
+                                );
+                                if (ok) {
+                                  await fetchShares(shareRoadmap.id);
+                                }
+                              }}
+                              disabled={
+                                !canManageShare ||
+                                !canModifyEntry(entry.role, entry.userId)
+                              }
+                            >
+                              Revoke
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>,
+          document.body,
+        )
+      : null}
+    </>
   );
 }
 

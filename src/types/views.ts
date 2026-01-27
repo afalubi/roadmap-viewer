@@ -40,8 +40,10 @@ export interface ViewPayload {
     regions: Region[];
     criticalities: string[];
     dispositions: string[];
+    primaryStakeholders: string[];
     impactedStakeholders: string[];
   };
+  mode?: 'planned' | 'unplanned';
   display: {
     groupBy: GroupByOption;
     theme: ThemeOption;

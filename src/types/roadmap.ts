@@ -1,4 +1,5 @@
 export type TShirtSize = 'XS' | 'S' | 'M' | 'L';
+export type TShirtSizeValue = TShirtSize | '';
 
 export interface RoadmapItem {
   id: string;
@@ -15,7 +16,7 @@ export interface RoadmapItem {
   executiveSponsor: string;
   startDate: string;
   endDate: string;
-  tShirtSize: TShirtSize;
+  tShirtSize: TShirtSizeValue;
   pillar: string;
   region: string;
   expenseType: string;

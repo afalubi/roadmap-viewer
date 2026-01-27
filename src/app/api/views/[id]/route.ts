@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { sql } from '@/lib/neon';
 import { ensureViewsSchema } from '@/lib/viewsDb';
-import { getViewRole, hasRoleAtLeast } from '@/lib/viewsAccess';
+import { getRoadmapRole, hasRoadmapRoleAtLeast } from '@/lib/roadmapsAccess';
 
 export async function PUT(
   request: NextRequest,
@@ -27,19 +27,20 @@ export async function PUT(
 
   await ensureViewsSchema();
   const existingRows = await sql`
-    SELECT id
+    SELECT id, roadmap_id
     FROM views
     WHERE id = ${id}
     LIMIT 1
   `;
-  const existing = existingRows[0] as { id: string } | undefined;
+  const existing = existingRows[0] as { id: string; roadmap_id?: string | null } | undefined;
 
   if (!existing) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
-  const role = await getViewRole(userId, id);
-  if (!hasRoleAtLeast(role, 'editor')) {
+  const roadmapId = existing.roadmap_id ?? '';
+  const role = roadmapId ? await getRoadmapRole(userId, roadmapId) : null;
+  if (!hasRoadmapRoleAtLeast(role, 'editor')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -70,19 +71,20 @@ export async function DELETE(
   const { id } = await context.params;
   await ensureViewsSchema();
   const existingRows = await sql`
-    SELECT id
+    SELECT id, roadmap_id
     FROM views
     WHERE id = ${id}
     LIMIT 1
   `;
-  const existing = existingRows[0] as { id: string } | undefined;
+  const existing = existingRows[0] as { id: string; roadmap_id?: string | null } | undefined;
 
   if (!existing) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
-  const role = await getViewRole(userId, id);
-  if (!hasRoleAtLeast(role, 'owner')) {
+  const roadmapId = existing.roadmap_id ?? '';
+  const role = roadmapId ? await getRoadmapRole(userId, roadmapId) : null;
+  if (!hasRoadmapRoleAtLeast(role, 'editor')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

@@ -31,20 +31,9 @@ export async function GET(request: Request) {
       v.roadmap_id,
       v.payload,
       v.created_at,
-      v.updated_at,
-      vs.role,
-      vl.shared_slug
+      v.updated_at
     FROM views v
-    JOIN view_shares vs
-      ON vs.view_id = v.id
-    LEFT JOIN (
-      SELECT view_id, MIN(slug) AS shared_slug
-      FROM view_links
-      GROUP BY view_id
-    ) vl
-      ON vl.view_id = v.id
-    WHERE vs.user_id = ${userId}
-      AND v.roadmap_id = ${roadmapId}
+    WHERE v.roadmap_id = ${roadmapId}
     ORDER BY v.updated_at DESC
   `;
 
@@ -53,10 +42,9 @@ export async function GET(request: Request) {
     name: row.name,
     roadmapId: row.roadmap_id ?? '',
     payload: JSON.parse(row.payload),
-    sharedSlug: row.shared_slug,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    role: row.role,
+    role: roadmapRole,
   }));
 
   return NextResponse.json({ views });
@@ -90,7 +78,7 @@ export async function POST(request: Request) {
   const id = crypto.randomUUID();
   await ensureRoadmapsSchema();
   const roadmapRole = await getRoadmapRole(userId, roadmapId);
-  if (!hasRoadmapRoleAtLeast(roadmapRole, 'viewer')) {
+  if (!hasRoadmapRoleAtLeast(roadmapRole, 'editor')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   await ensureViewsSchema();
@@ -102,23 +90,15 @@ export async function POST(request: Request) {
       (${id}, ${name}, 'personal', ${roadmapId}, ${userId}, ${userId}, ${userId},
        ${JSON.stringify(body.payload)}, NULL, ${now}, ${now})
   `;
-  await sql`
-    INSERT INTO view_shares
-      (view_id, user_id, role, created_at, updated_at, created_by, updated_by)
-    VALUES
-      (${id}, ${userId}, 'owner', ${now}, ${now}, ${userId}, ${userId})
-  `;
-
   return NextResponse.json({
     view: {
       id,
       name,
       roadmapId,
       payload: body.payload,
-      sharedSlug: null,
       createdAt: now,
       updatedAt: now,
-      role: 'owner',
+      role: roadmapRole,
     },
   });
 }

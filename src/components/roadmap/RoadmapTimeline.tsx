@@ -62,7 +62,7 @@ const GROUP_LABELS: Record<
 
 function getGroupKey(item: RoadmapItem, groupBy: Props['groupBy']): string {
   if (groupBy === 'stakeholder') {
-    return item.submitterDepartment || '';
+    return item.executiveSponsor || '';
   }
   if (groupBy === 'criticality') {
     return item.criticality || '';

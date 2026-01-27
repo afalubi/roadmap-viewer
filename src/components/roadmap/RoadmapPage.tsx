@@ -52,6 +52,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
   const [selectedDispositions, setSelectedDispositions] = useState<string[]>(
     []
   );
+  const [selectedPrimaryStakeholders, setSelectedPrimaryStakeholders] =
+    useState<string[]>([]);
   const [selectedImpactedStakeholders, setSelectedImpactedStakeholders] =
     useState<string[]>([]);
   const [selectedGroupBy, setSelectedGroupBy] =
@@ -120,10 +122,9 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
   const [loadedRoadmapSlug, setLoadedRoadmapSlug] = useState("");
   const [isRoadmapManageOpen, setIsRoadmapManageOpen] = useState(false);
   const [shareRoadmapId, setShareRoadmapId] = useState<string | null>(null);
-  const [shareBaseUrl, setShareBaseUrl] = useState("");
-  const [loadedSharedSlug, setLoadedSharedSlug] = useState("");
   const [loadedView, setLoadedView] = useState<SavedView | null>(null);
   const [isOnline, setIsOnline] = useState(true);
+  const [viewMode, setViewMode] = useState<RoadmapPageMode>(mode);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -140,10 +141,28 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const nextMode = params.get("mode") === "unplanned" ? "unplanned" : "planned";
+    setViewMode(nextMode);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const nextMode = params.get("mode") === "unplanned" ? "unplanned" : "planned";
+      setViewMode(nextMode);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  useEffect(() => {
     if (!isLoaded) return;
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
-      if (params.get("roadmap") || params.get("roadmapId") || params.get("view")) {
+      if (params.get("roadmap") || params.get("roadmapId")) {
         return;
       }
     }
@@ -212,11 +231,6 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    setShareBaseUrl(window.location.origin);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     setShowDebugOutlines(params.get("debug") === "1");
   }, []);
@@ -256,8 +270,10 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       regions: selectedRegions,
       criticalities: selectedCriticalities,
       dispositions: selectedDispositions,
+      primaryStakeholders: selectedPrimaryStakeholders,
       impactedStakeholders: selectedImpactedStakeholders,
     },
+    mode: viewMode,
     display: {
       groupBy: selectedGroupBy,
       theme: selectedTheme,
@@ -275,9 +291,22 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     setSelectedRegions(payload.filters?.regions ?? []);
     setSelectedCriticalities(payload.filters?.criticalities ?? []);
     setSelectedDispositions(payload.filters?.dispositions ?? []);
+    setSelectedPrimaryStakeholders(payload.filters?.primaryStakeholders ?? []);
     setSelectedImpactedStakeholders(
       payload.filters?.impactedStakeholders ?? []
     );
+    if (payload.mode) {
+      setViewMode(payload.mode);
+      if (typeof window !== "undefined") {
+        const nextUrl = new URL(window.location.href);
+        if (payload.mode === "unplanned") {
+          nextUrl.searchParams.set("mode", "unplanned");
+        } else {
+          nextUrl.searchParams.delete("mode");
+        }
+        window.history.replaceState(null, "", nextUrl.toString());
+      }
+    }
     if (payload.display?.groupBy) {
       setSelectedGroupBy(payload.display.groupBy);
     }
@@ -309,15 +338,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     setLoadedView(view);
     if (typeof window !== "undefined") {
       const nextUrl = new URL(window.location.href);
-      if (view.sharedSlug) {
-        nextUrl.searchParams.set("view", view.sharedSlug);
-        nextUrl.searchParams.delete("viewId");
-        setLoadedSharedSlug(view.sharedSlug);
-      } else {
-        nextUrl.searchParams.set("viewId", view.id);
-        nextUrl.searchParams.delete("view");
-        setLoadedSharedSlug("");
-      }
+      nextUrl.searchParams.set("viewId", view.id);
+      nextUrl.searchParams.delete("view");
       if (view.roadmapId) {
         nextUrl.searchParams.set("roadmapId", view.roadmapId);
         nextUrl.searchParams.delete("roadmap");
@@ -374,7 +396,6 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
         setActiveDatasourceType(null);
         setViews([]);
         setLoadedView(null);
-        setLoadedSharedSlug("");
         setLoadedRoadmapSlug("");
         setItems([]);
         setFilteredItems([]);
@@ -515,7 +536,6 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
         setActiveDatasourceType(data.roadmap.datasourceType ?? "csv");
         setLoadedRoadmapSlug(slug);
         setLoadedView(null);
-        setLoadedSharedSlug("");
         setShareRoadmapId(null);
         if (Array.isArray((data.roadmap as any).items)) {
           applyRoadmapItems((data.roadmap as any).items as RoadmapItem[]);
@@ -550,7 +570,6 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     }
     setLoadedRoadmapSlug("");
     setLoadedView(null);
-    setLoadedSharedSlug("");
     setShareRoadmapId(null);
     await loadRoadmapById(roadmap.id);
   };
@@ -610,38 +629,11 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     await fetch(`/api/views/${id}`, { method: "DELETE" });
     if (loadedView?.id === id && typeof window !== "undefined") {
       setLoadedView(null);
-      setLoadedSharedSlug("");
       const nextUrl = new URL(window.location.href);
-      nextUrl.searchParams.delete("view");
       nextUrl.searchParams.delete("viewId");
       window.history.replaceState(null, "", nextUrl.toString());
     }
     await fetchViews();
-  };
-
-  const handleCreateLink = async (
-    id: string,
-    options: { password?: string | null; rotate?: boolean }
-  ) => {
-    if (!isSignedIn) return false;
-    if (!isOnline) return false;
-    const res = await fetch(`/api/views/${id}/link`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(options),
-    });
-    if (!res.ok) return false;
-    await fetchViews();
-    return true;
-  };
-
-  const handleDeleteLink = async (id: string) => {
-    if (!isSignedIn) return false;
-    if (!isOnline) return false;
-    const res = await fetch(`/api/views/${id}/link`, { method: "DELETE" });
-    if (!res.ok) return false;
-    await fetchViews();
-    return true;
   };
 
   const handleCreateRoadmap = async (name: string, csvText: string) => {
@@ -659,7 +651,6 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       setActiveRoadmapRole(data.roadmap.role);
       applyCsvText(csvText);
       setLoadedRoadmapSlug("");
-      setLoadedSharedSlug("");
       setLoadedView(null);
       setShareRoadmapId(null);
       if (typeof window !== "undefined") {
@@ -775,59 +766,12 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       setActiveDatasourceType(null);
       setViews([]);
       setLoadedView(null);
-      setLoadedSharedSlug("");
       setLoadedRoadmapSlug("");
       setFilteredItems([]);
       setItems([]);
     }
   }, [isLoaded, userId]);
 
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!isOnline) return;
-    const params = new URLSearchParams(window.location.search);
-    const slug = params.get("view") ?? "";
-    if (!slug || slug === loadedSharedSlug) return;
-
-    const fetchSharedView = async (password?: string) => {
-      try {
-        const res = await fetch(`/api/views/slug/${slug}`, {
-          headers: password ? { "x-view-link-password": password } : undefined,
-        });
-        if (res.status === 401) {
-          const data = await res.json();
-          if (data?.requiresPassword) {
-            const promptValue = window.prompt("Enter the share password");
-            if (promptValue) {
-              await fetchSharedView(promptValue);
-            }
-          }
-          return;
-        }
-        if (!res.ok) return;
-        const data = await res.json();
-        if (typeof data.view?.roadmapCsvText === "string") {
-          applyCsvText(data.view.roadmapCsvText as string);
-        }
-        if (data.view?.payload) {
-          applyViewPayload(data.view.payload as ViewPayload);
-        }
-        if (data.view) {
-          setLoadedView(data.view as SavedView);
-          if (data.view.roadmapId) {
-            setActiveRoadmapId(data.view.roadmapId as string);
-            setActiveRoadmapRole("viewer");
-          }
-        }
-        setLoadedSharedSlug(slug);
-      } catch {
-        // Ignore fetch errors for shared views.
-      }
-    };
-
-    fetchSharedView();
-  }, [loadedSharedSlug, isOnline]);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -1094,6 +1038,9 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     selectedDispositions.length
       ? `Disposition: ${selectedDispositions.join(", ")}`
       : null,
+    selectedPrimaryStakeholders.length
+      ? `Primary stakeholders: ${selectedPrimaryStakeholders.join(", ")}`
+      : null,
     selectedImpactedStakeholders.length
       ? `Stakeholders: ${selectedImpactedStakeholders.join(", ")}`
       : null,
@@ -1148,6 +1095,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
         selectedRegions: Region[];
         selectedCriticalities: string[];
         selectedDispositions: string[];
+        selectedPrimaryStakeholders: string[];
         selectedImpactedStakeholders: string[];
         selectedGroupBy:
           | "pillar"
@@ -1193,6 +1141,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
         setSelectedCriticalities(parsed.selectedCriticalities);
       if (parsed.selectedDispositions)
         setSelectedDispositions(parsed.selectedDispositions);
+      if (parsed.selectedPrimaryStakeholders)
+        setSelectedPrimaryStakeholders(parsed.selectedPrimaryStakeholders);
       if (parsed.selectedImpactedStakeholders)
         setSelectedImpactedStakeholders(parsed.selectedImpactedStakeholders);
       if (parsed.selectedGroupBy) setSelectedGroupBy(parsed.selectedGroupBy);
@@ -1231,6 +1181,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       selectedRegions,
       selectedCriticalities,
       selectedDispositions,
+      selectedPrimaryStakeholders,
       selectedImpactedStakeholders,
       selectedGroupBy,
       selectedTheme,
@@ -1249,6 +1200,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     selectedRegions,
     selectedCriticalities,
     selectedDispositions,
+    selectedPrimaryStakeholders,
     selectedImpactedStakeholders,
     selectedGroupBy,
     selectedTheme,
@@ -1288,6 +1240,14 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
         selected.has(normalizeFilterValue(i.disposition))
       );
     }
+    if (selectedPrimaryStakeholders.length > 0) {
+      const selected = new Set(
+        selectedPrimaryStakeholders.map(normalizeFilterValue)
+      );
+      result = result.filter((i) =>
+        selected.has(normalizeFilterValue(i.executiveSponsor))
+      );
+    }
     if (selectedImpactedStakeholders.length > 0) {
       const selected = new Set(
         selectedImpactedStakeholders.map(normalizeFilterValue)
@@ -1306,10 +1266,11 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     selectedRegions,
     selectedCriticalities,
     selectedDispositions,
+    selectedPrimaryStakeholders,
     selectedImpactedStakeholders,
   ]);
 
-  const isUnplanned = mode === "unplanned";
+  const isUnplanned = viewMode === "unplanned";
   const plannedItems = filteredItems.filter(hasValidTimelineDates);
   const unplannedItems = filteredItems.filter(
     (item) => !hasValidTimelineDates(item)
@@ -1453,7 +1414,6 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                   onClick={() => {
                     if (activeRoadmapId) {
                       setShareRoadmapId(activeRoadmapId);
-                      setIsRoadmapManageOpen(true);
                     }
                   }}
                   disabled={
@@ -1788,7 +1748,12 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                         onClick={() => {
                           if (!isUnplanned) return;
                           saveScrollPosition(isUnplanned);
-                          router.push(getToggleViewHref(isUnplanned));
+                          setViewMode("planned");
+                          if (typeof window !== "undefined") {
+                            const nextUrl = new URL(window.location.href);
+                            nextUrl.searchParams.delete("mode");
+                            window.history.replaceState(null, "", nextUrl.toString());
+                          }
                         }}
                         className={[
                           "px-3 py-1 rounded-full transition-colors",
@@ -1804,7 +1769,12 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                         onClick={() => {
                           if (isUnplanned) return;
                           saveScrollPosition(isUnplanned);
-                          router.push(getToggleViewHref(isUnplanned));
+                          setViewMode("unplanned");
+                          if (typeof window !== "undefined") {
+                            const nextUrl = new URL(window.location.href);
+                            nextUrl.searchParams.set("mode", "unplanned");
+                            window.history.replaceState(null, "", nextUrl.toString());
+                          }
                         }}
                         className={[
                           "px-3 py-1 rounded-full transition-colors",
@@ -1858,14 +1828,12 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                         <SavedViewsPanel
                           isLoading={isLoadingViews}
                           views={views}
-                          shareBaseUrl={shareBaseUrl}
                           onSaveView={handleSaveView}
                           onLoadView={handleLoadView}
                           onRenameView={handleRenameView}
                           onDeleteView={handleDeleteView}
-                          onCreateLink={handleCreateLink}
-                          onDeleteLink={handleDeleteLink}
                           onUpdateView={handleUpdateView}
+                          roadmapRole={activeRoadmapRole}
                           activeViewId={loadedView?.id ?? null}
                           variant="plain"
                         />
@@ -2171,6 +2139,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                     setSelectedCriticalities={setSelectedCriticalities}
                     selectedDispositions={selectedDispositions}
                     setSelectedDispositions={setSelectedDispositions}
+                    selectedPrimaryStakeholders={selectedPrimaryStakeholders}
+                    setSelectedPrimaryStakeholders={setSelectedPrimaryStakeholders}
                     selectedImpactedStakeholders={selectedImpactedStakeholders}
                     setSelectedImpactedStakeholders={
                       setSelectedImpactedStakeholders
@@ -2179,16 +2149,17 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                     setSelectedGroupBy={setSelectedGroupBy}
                     displayOptions={displayOptions}
                     setDisplayOptions={setDisplayOptions}
-                    selectedTheme={selectedTheme}
-                    setSelectedTheme={setSelectedTheme}
-                    startDate={startDate}
-                    setStartDate={setStartDate}
-                    quartersToShow={quartersToShow}
-                    setQuartersToShow={setQuartersToShow}
-                    showDebugOutlines={showDebugOutlines}
-                    isCollapsed={false}
-                    onToggleCollapsed={() => setIsHeaderCollapsed(true)}
-                  />
+                      selectedTheme={selectedTheme}
+                      setSelectedTheme={setSelectedTheme}
+                      startDate={startDate}
+                      setStartDate={setStartDate}
+                        quartersToShow={quartersToShow}
+                        setQuartersToShow={setQuartersToShow}
+                        viewMode={viewMode}
+                        showDebugOutlines={showDebugOutlines}
+                        isCollapsed={false}
+                        onToggleCollapsed={() => setIsHeaderCollapsed(true)}
+                      />
                 </div>
               </aside>
 
@@ -2312,15 +2283,10 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                       roadmaps={roadmaps}
                       currentUserId={userId ?? null}
                       activeRoadmapId={activeRoadmapId}
-                      shareRoadmapId={shareRoadmapId}
-                      onShareRoadmapClose={() => setShareRoadmapId(null)}
                       onLoadRoadmap={handleLoadRoadmap}
                       onCreateRoadmap={handleCreateRoadmap}
                       onRenameRoadmap={handleRenameRoadmap}
                       onDeleteRoadmap={handleDeleteRoadmap}
-                      onShareUser={handleShareRoadmapUser}
-                      onUpdateShare={handleUpdateRoadmapShare}
-                      onRevokeShare={handleRevokeRoadmapShare}
                       showDebug={showDebugOutlines}
                       variant="plain"
                     />
@@ -2330,6 +2296,26 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
               document.body
             )
           : null}
+        {shareRoadmapId && typeof document !== "undefined" ? (
+          <RoadmapManagerPanel
+            isLoading={isLoadingRoadmaps}
+            roadmaps={roadmaps}
+            currentUserId={userId ?? null}
+            activeRoadmapId={activeRoadmapId}
+            shareRoadmapId={shareRoadmapId}
+            onShareRoadmapClose={() => setShareRoadmapId(null)}
+            onLoadRoadmap={handleLoadRoadmap}
+            onCreateRoadmap={handleCreateRoadmap}
+            onRenameRoadmap={handleRenameRoadmap}
+            onDeleteRoadmap={handleDeleteRoadmap}
+            onShareUser={handleShareRoadmapUser}
+            onUpdateShare={handleUpdateRoadmapShare}
+            onRevokeShare={handleRevokeRoadmapShare}
+            showDebug={showDebugOutlines}
+            shareOnly
+            variant="plain"
+          />
+        ) : null}
       </div>
     </main>
   );

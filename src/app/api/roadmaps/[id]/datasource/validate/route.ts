@@ -43,11 +43,16 @@ export async function POST(
       !body.pat && record?.secret_encrypted
         ? decryptSecret(record.secret_encrypted)
         : null;
-    await validateAzureDevopsConfig(
+    const result = await validateAzureDevopsConfig(
       sanitizeAzureConfig(body.config ?? {}),
       body.pat ?? storedPat,
     );
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      warnings: result.warnings ?? [],
+      missingFields: result.missingFields ?? [],
+      missingFieldKeys: result.missingFieldKeys ?? [],
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Validation failed';
     return NextResponse.json({ error: message }, { status: 400 });

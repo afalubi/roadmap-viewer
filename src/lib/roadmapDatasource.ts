@@ -24,13 +24,15 @@ const DEFAULT_FIELD_MAP: RoadmapFieldMap = {
   region: 'System.Tags',
   criticality: 'Custom.Criticality',
   disposition: 'Custom.Status',
-  tShirtSize: 'Custom.TShirtSize',
+  impactedStakeholders: 'System.Tags',
+  tShirtSize: 'Custom.TshirtSize',
   submitterName: 'Custom.SubmitterName',
   submitterDepartment: 'Custom.SubmitterDepartment',
   submitterPriority: 'Custom.SubmitterPriority',
   expenseType: 'Custom.ExpenseType',
   pointOfContact: 'Custom.PointOfContact',
   lead: 'Custom.Lead',
+  executiveSponsor: 'Custom.ExecutiveSponsor',
 };
 
 const normalizeTShirt = (value: string | undefined): RoadmapItem['tShirtSize'] => {
@@ -39,7 +41,7 @@ const normalizeTShirt = (value: string | undefined): RoadmapItem['tShirtSize'] =
   if (key === 's') return 'S';
   if (key === 'm') return 'M';
   if (key === 'l') return 'L';
-  return 'M';
+  return '';
 };
 
 export const normalizeOrganizationUrl = (value: string) => {
@@ -66,6 +68,9 @@ const buildFieldMap = (config: AzureDevopsDatasourceConfig) => ({
   ...DEFAULT_FIELD_MAP,
   ...(config.fieldMap ?? {}),
 });
+
+export const getFieldMapForConfig = (config: AzureDevopsDatasourceConfig) =>
+  buildFieldMap(config);
 
 const collectFields = (fieldMap: RoadmapFieldMap) => {
   const fields = new Set<string>();
@@ -129,8 +134,9 @@ export const mapAzureDevopsItem = (
   const fieldMap = buildFieldMap(config);
   const fields = item.fields ?? {};
   const missingDateStrategy = config.missingDateStrategy ?? 'fallback';
-  const stakeholderPrefix = (config.stakeholderTagPrefix ?? '').trim().toLowerCase();
-  const regionPrefix = (config.regionTagPrefix ?? '').trim().toLowerCase();
+  const stakeholderPrefix =
+    (config.stakeholderTagPrefix ?? '').trim() || 'Stakeholder:';
+  const regionPrefix = (config.regionTagPrefix ?? '').trim() || 'Region:';
 
   const title = getFieldValue(fields, fieldMap.title);
   const startCandidate =
@@ -222,7 +228,11 @@ export const mapAzureDevopsItem = (
     ]),
     criticality: normalizeTitleCase(getFieldValue(fields, fieldMap.criticality)),
     disposition: normalizeTitleCase(getFieldValue(fields, fieldMap.disposition)),
-    executiveSponsor: getFieldValue(fields, fieldMap.executiveSponsor),
+    executiveSponsor: getFirstFieldValue(fields, [
+      fieldMap.executiveSponsor,
+      'Custom.Executive_Sponsor',
+      'Custom.ExecutiveSponsor',
+    ]),
     startDate,
     endDate,
     tShirtSize: normalizeTShirt(getFieldValue(fields, fieldMap.tShirtSize)),

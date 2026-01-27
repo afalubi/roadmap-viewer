@@ -13,9 +13,9 @@ const TSHIRT_NORMALIZATION: Record<string, TShirtSize> = {
   l: 'L',
 };
 
-function normalizeTShirt(value: string): TShirtSize {
+function normalizeTShirt(value: string): TShirtSize | '' {
   const key = (value || '').trim().toLowerCase();
-  return TSHIRT_NORMALIZATION[key] ?? 'M';
+  return TSHIRT_NORMALIZATION[key] ?? '';
 }
 
 export async function loadRoadmapFromCsv(): Promise<RoadmapItem[]> {
@@ -48,7 +48,7 @@ export function parseRoadmapCsv(text: string): RoadmapItem[] {
     executiveSponsor: row.executiveSponsor ?? '',
     startDate: row.startDate ?? '',
     endDate: row.endDate ?? '',
-    tShirtSize: normalizeTShirt(row.tShirtSize ?? 'M'),
+    tShirtSize: normalizeTShirt(row.tShirtSize ?? ''),
     pillar: normalizeTitleCase(row.pillar ?? ''),
     region: normalizeRegionList(row.region ?? ''),
     expenseType: row.expenseType ?? '',
