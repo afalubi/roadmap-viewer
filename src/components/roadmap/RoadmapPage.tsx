@@ -1448,7 +1448,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
               HEADER
             </span>
           ) : null}
-          <div className="space-y-1">
+          <div className="space-y-1 pl-5">
             <h1 className="text-3xl font-semibold tracking-tight">
               <span className="text-blue-700">Roadmap</span>{" "}
               <span className="text-slate-900 dark:text-slate-100">to</span>{" "}
@@ -1810,7 +1810,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                   CONTROLS
                 </span>
               ) : null}
-              <div className="px-1 py-1">
+              <div className="px-1 py-1 pl-5">
                 {displayOptions.showDynamicHeader ? (
                   <div className="flex items-center gap-2 min-w-0">
                     {isEditingTitle ? (
