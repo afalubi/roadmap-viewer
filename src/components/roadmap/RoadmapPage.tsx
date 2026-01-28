@@ -24,6 +24,7 @@ import { UnplannedList } from "@/components/roadmap/UnplannedList";
 import { RoadmapManagerPanel } from "@/components/roadmap/RoadmapManagerPanel";
 import { SavedViewsPanel } from "@/components/roadmap/SavedViewsPanel";
 import type { RoadmapDetail, RoadmapSummary } from "@/types/roadmaps";
+import type { RoadmapThemeConfig } from "@/types/theme";
 import type {
   DisplayOptions,
   GroupByOption,
@@ -75,6 +76,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     defaultDisplayOptions
   );
   const [selectedTheme, setSelectedTheme] = useState<ThemeOption>("executive");
+  const [roadmapThemeConfig, setRoadmapThemeConfig] =
+    useState<RoadmapThemeConfig | null>(null);
   const [titlePrefix, setTitlePrefix] = useState("My Roadmap");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(titlePrefix);
@@ -532,6 +535,10 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       if (!res.ok) return;
       const data = (await res.json()) as { roadmap?: RoadmapDetail };
       if (data.roadmap) {
+        setRoadmapThemeConfig(data.roadmap.themeConfig ?? null);
+        if (data.roadmap.themeConfig?.baseTheme) {
+          setSelectedTheme(data.roadmap.themeConfig.baseTheme);
+        }
         const datasourceType = data.roadmap.datasourceType ?? "csv";
         setActiveDatasourceType(datasourceType);
         setActiveRoadmapId(data.roadmap.id);
@@ -552,31 +559,21 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     }
   };
 
-  const loadRoadmapBySlug = async (slug: string, password?: string) => {
+  const loadRoadmapBySlug = async (slug: string) => {
     if (!isOnline) return;
     setIsItemsLoading(true);
     try {
-      const res = await fetch(`/api/roadmaps/slug/${slug}`, {
-        headers: password
-          ? { "x-roadmap-link-password": password }
-          : undefined,
-      });
-      if (res.status === 401) {
-        const data = await res.json();
-        if (data?.requiresPassword) {
-          const promptValue = window.prompt("Enter the roadmap password");
-          if (promptValue) {
-            await loadRoadmapBySlug(slug, promptValue);
-          }
-        }
-        return;
-      }
+      const res = await fetch(`/api/roadmaps/slug/${slug}`);
       if (!res.ok) return;
       const data = (await res.json()) as { roadmap?: RoadmapDetail };
       if (data.roadmap) {
         setActiveRoadmapId(data.roadmap.id);
         setActiveRoadmapRole(data.roadmap.role);
         setActiveDatasourceType(data.roadmap.datasourceType ?? "csv");
+        setRoadmapThemeConfig(data.roadmap.themeConfig ?? null);
+        if (data.roadmap.themeConfig?.baseTheme) {
+          setSelectedTheme(data.roadmap.themeConfig.baseTheme);
+        }
         setLoadedRoadmapSlug(slug);
         setLoadedView(null);
         setShareRoadmapId(null);
@@ -1165,6 +1162,10 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     region: "Region",
     disposition: "Disposition",
   }[selectedGroupBy];
+  const activeThemeOverrides =
+    roadmapThemeConfig?.baseTheme === selectedTheme
+      ? roadmapThemeConfig?.overrides ?? null
+      : null;
 
   const appliedFilters = [
     selectedPillars.length ? `Pillars: ${selectedPillars.join(", ")}` : null,
@@ -1547,6 +1548,16 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                     </details>
                   </>
                 ) : null}
+                <Link
+                  href={
+                    activeRoadmapId
+                      ? `/theme-editor?roadmapId=${activeRoadmapId}`
+                      : "/theme-editor"
+                  }
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                >
+                  Theme editor
+                </Link>
                 {!isSharedViewActive ? (
                   <button
                     type="button"
@@ -1983,6 +1994,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                             roadmapRole={activeRoadmapRole}
                             isSharedViewActive={isSharedViewActive}
                             activeViewId={loadedView?.id ?? null}
+                            showDebugOutlines={showDebugOutlines}
                             variant="plain"
                           />
                           </div>
@@ -2350,6 +2362,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                     groupBy={selectedGroupBy}
                     displayOptions={displayOptions}
                     theme={selectedTheme}
+                    themeOverrides={activeThemeOverrides}
                     startDate={startDate}
                     quartersToShow={quartersToShow}
                     exportSummary={{

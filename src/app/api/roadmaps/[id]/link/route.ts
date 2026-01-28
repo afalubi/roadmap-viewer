@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { createHash } from 'crypto';
 import { sql } from '@/lib/neon';
 import { ensureRoadmapsSchema } from '@/lib/roadmapsDb';
 import { getRoadmapRole, hasRoadmapRoleAtLeast } from '@/lib/roadmapsAccess';
@@ -9,9 +8,6 @@ type LinkRole = 'viewer';
 
 const generateSlug = () =>
   Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
-
-const hashPassword = (value: string) =>
-  createHash('sha256').update(value).digest('hex');
 
 async function generateUniqueSlug() {
   for (let attempt = 0; attempt < 6; attempt += 1) {
@@ -39,9 +35,7 @@ export async function POST(
   }
 
   const { id } = await context.params;
-  const body = (await request.json()) as {
-    password?: string | null;
-  };
+  await request.json().catch(() => null);
   const requestedRole: LinkRole = 'viewer';
 
   await ensureRoadmapsSchema();
@@ -61,8 +55,6 @@ export async function POST(
   }
 
   const now = new Date().toISOString();
-  const passwordHash = body.password ? hashPassword(body.password) : null;
-
   const existingRows = await sql`
     SELECT slug
     FROM roadmap_links
@@ -75,7 +67,7 @@ export async function POST(
     await sql`
       UPDATE roadmap_links
       SET role = ${requestedRole},
-          password_hash = ${passwordHash},
+          password_hash = NULL,
           updated_at = ${now},
           updated_by = ${userId}
       WHERE roadmap_id = ${id}
@@ -95,7 +87,7 @@ export async function POST(
     INSERT INTO roadmap_links
       (slug, roadmap_id, role, password_hash, created_at, updated_at, created_by, updated_by)
     VALUES
-      (${slug}, ${id}, ${requestedRole}, ${passwordHash}, ${now}, ${now}, ${userId}, ${userId})
+      (${slug}, ${id}, ${requestedRole}, NULL, ${now}, ${now}, ${userId}, ${userId})
   `;
 
   return NextResponse.json({ slug });

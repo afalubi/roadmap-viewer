@@ -35,7 +35,7 @@ const MONO_HEADER_LANE = [
   'bg-neutral-400',
 ];
 
-const PALETTES: Record<
+export const THEME_CLASS_PALETTES: Record<
   ColorTheme,
   { item: string[]; lane: string[] }
 > = {
@@ -46,6 +46,7 @@ const PALETTES: Record<
       'bg-amber-100 hover:bg-amber-200 border-amber-300',
       'bg-rose-100 hover:bg-rose-200 border-rose-300',
       'bg-indigo-100 hover:bg-indigo-200 border-indigo-300',
+      'bg-teal-100 hover:bg-teal-200 border-teal-300',
     ],
     lane: [
       'bg-sky-50',
@@ -67,6 +68,7 @@ const PALETTES: Record<
       'bg-emerald-100 hover:bg-emerald-200 border-emerald-300',
       'bg-orange-100 hover:bg-orange-200 border-orange-300',
       'bg-teal-100 hover:bg-teal-200 border-teal-300',
+      'bg-green-100 hover:bg-green-200 border-green-300',
     ],
     lane: [
       'bg-lime-50',
@@ -88,6 +90,7 @@ const PALETTES: Record<
       'bg-amber-100 hover:bg-amber-200 border-amber-300',
       'bg-fuchsia-100 hover:bg-fuchsia-200 border-fuchsia-300',
       'bg-violet-100 hover:bg-violet-200 border-violet-300',
+      'bg-pink-100 hover:bg-pink-200 border-pink-300',
     ],
     lane: [
       'bg-rose-50',
@@ -109,6 +112,7 @@ const PALETTES: Record<
       'bg-yellow-50 hover:bg-yellow-100 border-yellow-200',
       'bg-stone-100 hover:bg-stone-200 border-stone-300',
       'bg-rose-50 hover:bg-rose-100 border-rose-200',
+      'bg-neutral-100 hover:bg-neutral-200 border-neutral-300',
     ],
     lane: [
       'bg-amber-50',
@@ -130,6 +134,7 @@ const PALETTES: Record<
       'bg-gray-50 hover:bg-gray-100 border-gray-200',
       'bg-gray-100 hover:bg-gray-200 border-gray-300',
       'bg-zinc-50 hover:bg-zinc-100 border-zinc-200',
+      'bg-zinc-100 hover:bg-zinc-200 border-zinc-300',
     ],
     lane: [
       'bg-slate-200',
@@ -151,6 +156,7 @@ const PALETTES: Record<
       'bg-lime-100 hover:bg-lime-200 border-lime-300',
       'bg-green-100 hover:bg-green-200 border-green-300',
       'bg-cyan-100 hover:bg-cyan-200 border-cyan-300',
+      'bg-emerald-50 hover:bg-emerald-100 border-emerald-200',
     ],
     lane: [
       'bg-emerald-50',
@@ -172,6 +178,7 @@ const PALETTES: Record<
       'bg-orange-400 hover:bg-orange-500 border-orange-500',
       'bg-teal-400 hover:bg-teal-500 border-teal-500',
       'bg-fuchsia-400 hover:bg-fuchsia-500 border-fuchsia-500',
+      'bg-indigo-400 hover:bg-indigo-500 border-indigo-500',
     ],
     lane: [
       'bg-blue-50',
@@ -189,16 +196,17 @@ const PALETTES: Record<
   'metro-dark': {
     item: [
       'bg-indigo-600/60 hover:bg-indigo-600/70 border-indigo-700',
-      'bg-teal-600/60 hover:bg-teal-600/70 border-teal-700',
       'bg-emerald-600/60 hover:bg-emerald-600/70 border-emerald-700',
       'bg-amber-600/60 hover:bg-amber-600/70 border-amber-700',
-      'bg-rose-600/60 hover:bg-rose-600/70 border-rose-700',
+      'bg-cyan-600/60 hover:bg-cyan-600/70 border-cyan-700',
+      'bg-rose-700/70 hover:bg-rose-700/80 border-rose-800',
+      'bg-teal-600/60 hover:bg-teal-600/70 border-teal-700',
     ],
     lane: [
       'bg-indigo-100/50',
       'bg-teal-100/50',
-      'bg-emerald-100/50',
       'bg-amber-100/50',
+      'bg-cyan-100/50',
       'bg-rose-100/50',
       'bg-indigo-50',
       'bg-teal-50',
@@ -235,7 +243,7 @@ export function getItemClassesByIndex(
   index: number,
   theme: ColorTheme,
 ): string {
-  const palette = PALETTES[theme];
+  const palette = THEME_CLASS_PALETTES[theme];
   if (!Number.isFinite(index) || index < 0) {
     return 'bg-slate-100 hover:bg-slate-200 border-slate-300';
   }
@@ -247,7 +255,7 @@ export function getLaneClassesByIndex(
   theme: ColorTheme,
 ): string {
   if (!Number.isFinite(index) || index < 0) return 'bg-slate-50';
-  const palette = PALETTES[theme];
+  const palette = THEME_CLASS_PALETTES[theme];
   return palette.lane[index % palette.lane.length];
 }
 
@@ -271,6 +279,16 @@ export function getLaneBackgroundClassFromItem(itemClasses: string): string {
     .find((cls) => cls.startsWith('bg-'));
   return bgClass || 'bg-slate-50';
 }
+
+export const THEME_PALETTE_COUNTS: Record<
+  ColorTheme,
+  { item: number; lane: number }
+> = Object.fromEntries(
+  Object.entries(THEME_CLASS_PALETTES).map(([key, palette]) => [
+    key,
+    { item: palette.item.length, lane: palette.lane.length },
+  ]),
+) as Record<ColorTheme, { item: number; lane: number }>;
 
 
 const LINE_BG_CLASS_MAP: Record<

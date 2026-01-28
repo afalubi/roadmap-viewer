@@ -1,13 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { createHash } from 'crypto';
 import { sql } from '@/lib/neon';
 import { ensureRoadmapsSchema } from '@/lib/roadmapsDb';
 import { getRoadmapRole, type RoadmapRole } from '@/lib/roadmapsAccess';
 import { fetchDatasourceItems } from '@/lib/roadmapDatasourceServer';
-
-const hashPassword = (value: string) =>
-  createHash('sha256').update(value).digest('hex');
+import type { RoadmapThemeConfig } from '@/types/theme';
 
 const roleRank: Record<Exclude<RoadmapRole, null>, number> = {
   viewer: 1,
@@ -15,11 +12,25 @@ const roleRank: Record<Exclude<RoadmapRole, null>, number> = {
   owner: 3,
 };
 
+const parseThemeConfig = (
+  value?: string | null,
+): RoadmapThemeConfig | null => {
+  if (!value) return null;
+  try {
+    return JSON.parse(value) as RoadmapThemeConfig;
+  } catch {
+    return null;
+  }
+};
+
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ slug: string }> },
 ) {
   const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   const { slug } = await context.params;
 
   if (!slug) {
@@ -32,11 +43,11 @@ export async function GET(
       r.id,
       r.name,
       r.csv_text,
+      r.theme_json,
       r.created_at,
       r.updated_at,
       ds.type AS datasource_type,
-      rl.slug,
-      rl.password_hash
+      rl.slug
     FROM roadmap_links rl
     JOIN roadmaps r ON r.id = rl.roadmap_id
     LEFT JOIN roadmap_datasources ds ON ds.roadmap_id = r.id
@@ -48,11 +59,11 @@ export async function GET(
         id: string;
         name: string;
         csv_text: string;
+        theme_json?: string | null;
         created_at: string;
         updated_at: string;
         datasource_type?: string | null;
         slug: string;
-        password_hash: string | null;
       }
     | undefined);
 
@@ -60,28 +71,11 @@ export async function GET(
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
-  const providedPassword =
-    request.headers.get('x-roadmap-link-password') ??
-    new URL(request.url).searchParams.get('password');
-  if (row.password_hash) {
-    if (!providedPassword) {
-      return NextResponse.json(
-        { error: 'Password required', requiresPassword: true },
-        { status: 401 },
-      );
-    }
-    if (hashPassword(providedPassword) !== row.password_hash) {
-      return NextResponse.json(
-        { error: 'Invalid password', requiresPassword: true },
-        { status: 401 },
-      );
-    }
+  const shareRole = await getRoadmapRole(userId, row.id);
+  if (!shareRole || roleRank[shareRole] < roleRank.viewer) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
-
-  const shareRole = userId ? await getRoadmapRole(userId, row.id) : null;
-  const effectiveRole = shareRole
-    ? roleRank[shareRole] >= roleRank.viewer ? shareRole : 'viewer'
-    : 'viewer';
+  const effectiveRole = shareRole;
 
   const datasourceType = row.datasource_type ?? 'csv';
   let items: unknown = null;
@@ -103,6 +97,7 @@ export async function GET(
       role: effectiveRole,
       datasourceType,
       items,
+      themeConfig: parseThemeConfig(row.theme_json),
     },
   });
 }

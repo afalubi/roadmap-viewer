@@ -1,4 +1,5 @@
 import type { RoadmapItem } from '@/types/roadmap';
+import type { RoadmapThemeConfig } from '@/types/theme';
 
 export type RoadmapRole = 'owner' | 'editor' | 'viewer';
 
@@ -15,4 +16,5 @@ export interface RoadmapDetail extends RoadmapSummary {
   csvText: string;
   datasourceType?: 'csv' | 'azure-devops';
   items?: RoadmapItem[];
+  themeConfig?: RoadmapThemeConfig | null;
 }

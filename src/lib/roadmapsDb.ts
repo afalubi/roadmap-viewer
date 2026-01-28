@@ -6,12 +6,14 @@ export async function ensureRoadmapsSchema() {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       csv_text TEXT NOT NULL,
+      theme_json TEXT,
       created_by TEXT NOT NULL,
       updated_by TEXT NOT NULL,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
   `;
+  await sql`ALTER TABLE roadmaps ADD COLUMN IF NOT EXISTS theme_json TEXT;`;
   await sql`CREATE INDEX IF NOT EXISTS idx_roadmaps_name ON roadmaps(name);`;
 
   await sql`

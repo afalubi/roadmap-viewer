@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { ReactNode } from 'react';
+import type { ReactNode, CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import type { RoadmapItem } from '@/types/roadmap';
 import type { QuarterBucket } from '@/lib/timeScale';
@@ -15,9 +15,12 @@ interface Props {
   quarters: QuarterBucket[];
   onSelectItem: (item: RoadmapItem) => void;
   laneClassName: string;
+  laneStyle?: CSSProperties;
   laneBodyClassName?: string;
+  laneBodyStyle?: CSSProperties;
   timelinePadding?: number;
   laneSpacerClassName?: string;
+  laneSpacerStyle?: CSSProperties;
   todayLeftPercent?: number | null;
   displayOptions: {
     showRegionEmojis: boolean;
@@ -41,6 +44,7 @@ interface Props {
     | 'metro-dark'
     | 'executive';
   laneIndex: number;
+  itemStyle?: CSSProperties;
 }
 
 export function RoadmapSwimlane({
@@ -49,13 +53,17 @@ export function RoadmapSwimlane({
   quarters,
   onSelectItem,
   laneClassName,
+  laneStyle,
   laneBodyClassName,
+  laneBodyStyle,
   timelinePadding = 12,
   laneSpacerClassName,
+  laneSpacerStyle,
   todayLeftPercent = null,
   displayOptions,
   theme,
   laneIndex,
+  itemStyle,
 }: Props) {
   const itemColorClasses = getItemClassesByIndex(laneIndex, theme);
   const lineFillClasses = getLineFillClasses(itemColorClasses);
@@ -112,14 +120,18 @@ export function RoadmapSwimlane({
           useDarkItemText ? 'dark:text-slate-900' : 'dark:text-slate-100',
           laneClasses,
         ].join(' ')}
+        style={laneStyle}
       >
         {pillar}
       </div>
-      <div className={laneSpacerClassName || laneBodyClasses} />
+      <div
+        className={laneSpacerClassName || laneBodyClasses}
+        style={laneSpacerStyle}
+      />
 
       <div
         className={['relative', laneBodyClasses].join(' ')}
-        style={{ gridColumn: '3 / -1', minHeight: laneHeight }}
+        style={{ gridColumn: '3 / -1', minHeight: laneHeight, ...laneBodyStyle }}
       >
         <div
           className="relative h-full isolate"
@@ -211,6 +223,7 @@ export function RoadmapSwimlane({
                   type="button"
                   className={[
                     'group relative z-40 w-full text-left text-xs px-2 py-1 rounded-md border shadow-sm cursor-pointer transition-colors',
+                    itemStyle ? 'hover:brightness-95' : '',
                     useDarkItemText ? 'text-slate-900 dark:text-slate-900' : 'text-slate-900 dark:text-slate-100',
                     displayOptions.itemStyle === 'line'
                       ? lineBorderClasses
@@ -225,6 +238,7 @@ export function RoadmapSwimlane({
                         ? ''
                         : 'h-2 py-0 rounded-full',
                   ].join(' ')}
+                  style={itemStyle}
                   onClick={() => onSelectItem(item)}
                   onMouseEnter={(event) =>
                     setTooltip({

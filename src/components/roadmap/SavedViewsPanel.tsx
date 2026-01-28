@@ -22,6 +22,7 @@ interface Props {
   onUpdateView: (view: SavedView) => Promise<boolean>;
   roadmapRole?: ViewRole | null;
   isSharedViewActive?: boolean;
+  showDebugOutlines?: boolean;
   variant?: 'card' | 'plain';
 }
 
@@ -46,6 +47,7 @@ export function SavedViewsPanel({
   onUpdateView,
   roadmapRole,
   isSharedViewActive = false,
+  showDebugOutlines = false,
   variant = 'card',
 }: Props) {
   const baseUrl =
@@ -60,6 +62,11 @@ export function SavedViewsPanel({
   const [toastTimer, setToastTimer] = useState<number | null>(null);
   const [shareView, setShareView] = useState<SavedView | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
+  const [shareCopyFallbackOpen, setShareCopyFallbackOpen] = useState(false);
+  const [shareCopyFallbackValue, setShareCopyFallbackValue] = useState('');
+  const [pendingRemoveLink, setPendingRemoveLink] = useState<SavedView | null>(
+    null,
+  );
 
   const sortedViews = useMemo(() => {
     return [...views].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
@@ -140,7 +147,8 @@ export function SavedViewsPanel({
       await navigator.clipboard.writeText(url);
       setShareCopied(true);
     } catch {
-      window.prompt('Copy share link', url);
+      setShareCopyFallbackValue(url);
+      setShareCopyFallbackOpen(true);
     }
   };
 
@@ -456,13 +464,93 @@ export function SavedViewsPanel({
                             type="button"
                             className="rounded-full border border-rose-200 px-3 py-1 text-xs text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-700/60 dark:text-rose-200 dark:hover:bg-rose-900/40"
                             onClick={async () => {
-                              await onDeleteLink(shareView.id);
+                              setPendingRemoveLink(shareView);
                             }}
                           >
                             Remove link
                           </button>
                         ) : null}
+                        {showDebugOutlines ? (
+                          <button
+                            type="button"
+                            className="rounded-full border border-slate-300 px-3 py-1 text-[0.65rem] text-slate-500 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                            onClick={() => {
+                              if (!shareView) return;
+                              const url = buildShareUrl(shareView) ?? '';
+                              setShareCopyFallbackValue(url);
+                              setShareCopyFallbackOpen(true);
+                            }}
+                          >
+                            Test copy dialog
+                          </button>
+                        ) : null}
                       </div>
+                    </div>
+                  </div>
+                </div>,
+                document.body,
+              )
+            : null}
+          {pendingRemoveLink && typeof document !== 'undefined'
+            ? createPortal(
+                <div className="fixed inset-0 z-[170] flex items-center justify-center bg-slate-900/40 px-4">
+                  <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-700 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                    <div className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                      Remove share link?
+                    </div>
+                    <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                      Anyone with the link will lose access to this view.
+                    </p>
+                    <div className="mt-4 flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        className="rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                        onClick={() => setPendingRemoveLink(null)}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-full bg-rose-600 px-3 py-1 text-xs font-semibold text-white hover:bg-rose-700"
+                        onClick={async () => {
+                          if (!pendingRemoveLink) return;
+                          await onDeleteLink(pendingRemoveLink.id);
+                          setPendingRemoveLink(null);
+                        }}
+                      >
+                        Remove link
+                      </button>
+                    </div>
+                  </div>
+                </div>,
+                document.body,
+              )
+            : null}
+          {shareCopyFallbackOpen && typeof document !== 'undefined'
+            ? createPortal(
+                <div className="fixed inset-0 z-[160] flex items-center justify-center bg-slate-900/40 px-4">
+                  <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                    <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                      Copy share link
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      Copy the link below.
+                    </p>
+                    <input
+                      type="text"
+                      readOnly
+                      value={shareCopyFallbackValue}
+                      onFocus={(event) => event.currentTarget.select()}
+                      className="mt-3 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                    />
+                    <div className="mt-4 flex justify-end">
+                      <button
+                        type="button"
+                        className="rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                        onClick={() => setShareCopyFallbackOpen(false)}
+                      >
+                        Done
+                      </button>
                     </div>
                   </div>
                 </div>,

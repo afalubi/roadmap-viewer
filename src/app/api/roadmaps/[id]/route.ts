@@ -3,6 +3,18 @@ import { auth } from '@clerk/nextjs/server';
 import { sql } from '@/lib/neon';
 import { ensureRoadmapsSchema } from '@/lib/roadmapsDb';
 import { getRoadmapRole, hasRoadmapRoleAtLeast } from '@/lib/roadmapsAccess';
+import type { RoadmapThemeConfig } from '@/types/theme';
+
+const parseThemeConfig = (
+  value?: string | null,
+): RoadmapThemeConfig | null => {
+  if (!value) return null;
+  try {
+    return JSON.parse(value) as RoadmapThemeConfig;
+  } catch {
+    return null;
+  }
+};
 
 export async function GET(
   _request: NextRequest,
@@ -22,7 +34,7 @@ export async function GET(
   }
 
   const rows = await sql`
-    SELECT r.id, r.name, r.csv_text, r.created_at, r.updated_at, ds.type AS datasource_type
+    SELECT r.id, r.name, r.csv_text, r.theme_json, r.created_at, r.updated_at, ds.type AS datasource_type
     FROM roadmaps r
     LEFT JOIN roadmap_datasources ds ON ds.roadmap_id = r.id
     WHERE r.id = ${id}
@@ -33,6 +45,7 @@ export async function GET(
         id: string;
         name: string;
         csv_text: string;
+        theme_json?: string | null;
         created_at: string;
         updated_at: string;
         datasource_type?: string | null;
@@ -52,6 +65,7 @@ export async function GET(
       updatedAt: row.updated_at,
       role,
       datasourceType: row.datasource_type ?? 'csv',
+      themeConfig: parseThemeConfig(row.theme_json),
     },
   });
 }

@@ -11,6 +11,7 @@ import {
 } from '@/lib/color';
 import { RoadmapSwimlane } from './RoadmapSwimlane';
 import { RoadmapItemDetailDialog } from './RoadmapItemDetailDialog';
+import type { ThemeOverrides } from '@/types/theme';
 
 interface Props {
   items: RoadmapItem[];
@@ -37,6 +38,7 @@ interface Props {
     | 'metro'
     | 'metro-dark'
     | 'executive';
+  themeOverrides?: ThemeOverrides | null;
   startDate: string;
   quartersToShow: number;
   exportSummary: {
@@ -81,6 +83,7 @@ export function RoadmapTimeline({
   groupBy,
   displayOptions,
   theme,
+  themeOverrides = null,
   startDate,
   quartersToShow,
   exportSummary,
@@ -120,6 +123,17 @@ export function RoadmapTimeline({
   }
 
   const pillars = Array.from(pillarsMap.keys()).sort();
+
+  const getOverrideColor = (
+    palette: Array<string | null> | undefined,
+    index: number,
+  ) => {
+    if (!palette || palette.length === 0) return null;
+    const value = palette[index % palette.length];
+    if (!value) return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  };
 
   return (
     <section
@@ -198,7 +212,7 @@ export function RoadmapTimeline({
                     return (
                       <div
                         key={month.label}
-                        className="absolute text-[10px] text-slate-500 dark:text-slate-400"
+                        className="absolute text-[10px] text-slate-700 dark:text-slate-200"
                         style={{ left: `${left}%`, transform: 'translateX(-50%)' }}
                       >
                         {month.label}
@@ -225,6 +239,18 @@ export function RoadmapTimeline({
                   theme === 'executive' || theme === 'mono'
                     ? getLaneHeaderClassesByIndex(index, theme)
                     : getLaneBackgroundClassFromItem(itemClasses);
+                const itemOverride = getOverrideColor(
+                  themeOverrides?.item,
+                  index,
+                );
+                const laneOverride = getOverrideColor(
+                  themeOverrides?.lane,
+                  index,
+                );
+                const headerOverride = getOverrideColor(
+                  themeOverrides?.header ?? themeOverrides?.lane,
+                  index,
+                );
                 return (
                   <RoadmapSwimlane
                     key={pillar}
@@ -233,6 +259,9 @@ export function RoadmapTimeline({
                     quarters={quarters}
                     onSelectItem={setSelectedItem}
                     laneClassName={laneBgClass}
+                    laneStyle={
+                      headerOverride ? { backgroundColor: headerOverride } : undefined
+                    }
                     laneBodyClassName={[
                       getLaneClassesByIndex(index, theme),
                       displayOptions.showMonths && displayOptions.showQuarters
@@ -243,12 +272,23 @@ export function RoadmapTimeline({
                             ? 'bg-[repeating-linear-gradient(to_right,var(--quarter-divider)_0,var(--quarter-divider)_1px,transparent_1px,transparent_calc(100%/var(--quarter-count)))]'
                             : '',
                     ].join(' ')}
+                  laneBodyStyle={
+                    laneOverride ? { backgroundColor: laneOverride } : undefined
+                  }
                   laneSpacerClassName={getLaneClassesByIndex(index, theme)}
+                  laneSpacerStyle={
+                    laneOverride ? { backgroundColor: laneOverride } : undefined
+                  }
                   timelinePadding={timelinePadding}
                   todayLeftPercent={todayLeft}
                   displayOptions={displayOptions}
                   theme={theme}
                   laneIndex={index}
+                  itemStyle={
+                    itemOverride
+                      ? { backgroundColor: itemOverride, borderColor: itemOverride }
+                      : undefined
+                  }
                 />
                 );
               })}
