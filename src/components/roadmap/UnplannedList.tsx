@@ -66,8 +66,38 @@ export function UnplannedList({
 }: Props) {
   const [selectedItem, setSelectedItem] = useState<RoadmapItem | null>(null);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const [searchText, setSearchText] = useState('');
+  const normalizedQuery = searchText.trim().toLowerCase();
+  const filteredItems = useMemo(() => {
+    if (!normalizedQuery) return items;
+    return items.filter((item) => {
+      const haystack = [
+        item.title,
+        item.shortDescription,
+        item.longDescription,
+        item.submitterName,
+        item.submitterDepartment,
+        item.executiveSponsor,
+        item.lead,
+        item.pointOfContact,
+        item.impactedStakeholders,
+        item.pillar,
+        item.region,
+        item.expenseType,
+        item.criticality,
+        item.disposition,
+        item.tShirtSize,
+        item.url,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(normalizedQuery);
+    });
+  }, [items, normalizedQuery]);
+
   const grouped = new Map<string, RoadmapItem[]>();
-  for (const item of items) {
+  for (const item of filteredItems) {
     const key = getGroupKey(item, groupBy) || 'Unassigned';
     if (!grouped.has(key)) grouped.set(key, []);
     grouped.get(key)!.push(item);
@@ -120,7 +150,7 @@ export function UnplannedList({
         <div className="rounded-md border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-300">
           Loading unplanned work items...
         </div>
-      ) : items.length === 0 ? (
+      ) : filteredItems.length === 0 ? (
         <div className="rounded-md border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-300">
           No unplanned items match the current filters.
         </div>
@@ -131,6 +161,25 @@ export function UnplannedList({
               Unplanned Work By {GROUP_LABELS[groupBy]}
             </div>
             <div className="flex flex-wrap items-center gap-3">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchText}
+                  onChange={(event) => setSearchText(event.target.value)}
+                  placeholder="Filter items..."
+                  className="w-44 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:focus:ring-sky-700"
+                />
+                {searchText ? (
+                  <button
+                    type="button"
+                    onClick={() => setSearchText('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-200"
+                    aria-label="Clear text filter"
+                  >
+                    ×
+                  </button>
+                ) : null}
+              </div>
               <div className="inline-flex rounded-full border border-slate-200 bg-white p-0.5 text-xs dark:border-slate-700 dark:bg-slate-900">
                 {(["list", "board"] as const).map((value) => (
                   <button

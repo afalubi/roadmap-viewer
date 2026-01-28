@@ -16,6 +16,7 @@ export interface RoadmapItem {
   executiveSponsor: string;
   startDate: string;
   endDate: string;
+  requestedDeliveryDate: string;
   tShirtSize: TShirtSizeValue;
   pillar: string;
   region: string;

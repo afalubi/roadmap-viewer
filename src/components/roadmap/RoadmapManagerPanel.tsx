@@ -1543,6 +1543,26 @@ export function RoadmapManagerPanel({
                                     />
                                   </label>
                                   <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+                                    <span>Requested delivery date field</span>
+                                    <input
+                                      type="text"
+                                      placeholder="Custom.RequestedDeliveryDate"
+                                      value={datasourceConfig.fieldMap?.requestedDeliveryDate ?? ''}
+                                      onChange={(event) =>
+                                        setDatasourceConfig((prev) => ({
+                                          ...prev,
+                                          fieldMap: {
+                                            ...(prev.fieldMap ?? {}),
+                                            requestedDeliveryDate: event.target.value,
+                                          },
+                                        }))
+                                      }
+                                      className={mappingInputClass(
+                                        'requestedDeliveryDate',
+                                      )}
+                                    />
+                                  </label>
+                                  <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
                                     <span>Submitter field</span>
                                     <input
                                       type="text"
@@ -1856,7 +1876,7 @@ export function RoadmapManagerPanel({
                             </button>
                           </div>
                         </div>
-                        {showDebug && datasourceType === 'azure-devops' ? (
+                        {datasourceType === 'azure-devops' ? (
                           <div className="space-y-2">
                             <button
                               type="button"

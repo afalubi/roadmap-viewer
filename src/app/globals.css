@@ -31,3 +31,23 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.roadmap-markdown p {
+  margin: 0.25rem 0;
+}
+
+.roadmap-markdown ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+  margin: 0.25rem 0;
+}
+
+.roadmap-markdown ol {
+  list-style: decimal;
+  padding-left: 1.25rem;
+  margin: 0.25rem 0;
+}
+
+.roadmap-markdown li {
+  margin: 0;
+}

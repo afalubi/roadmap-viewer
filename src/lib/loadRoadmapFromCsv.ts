@@ -48,6 +48,7 @@ export function parseRoadmapCsv(text: string): RoadmapItem[] {
     executiveSponsor: row.executiveSponsor ?? '',
     startDate: row.startDate ?? '',
     endDate: row.endDate ?? '',
+    requestedDeliveryDate: row.requestedDeliveryDate ?? '',
     tShirtSize: normalizeTShirt(row.tShirtSize ?? ''),
     pillar: normalizeTitleCase(row.pillar ?? ''),
     region: normalizeRegionList(row.region ?? ''),

@@ -1,8 +1,8 @@
 'use client';
 
-import DOMPurify from 'dompurify';
 import type { RoadmapItem } from '@/types/roadmap';
 import { getRegionFlagAssets } from '@/lib/region';
+import { renderRoadmapDescription } from '@/lib/markdown';
 
 interface Props {
   item: RoadmapItem | null;
@@ -15,7 +15,7 @@ export function RoadmapItemDetailDialog({ item, onClose, hideDates = false }: Pr
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60">
-      <div className="bg-white rounded-xl shadow-2xl max-w-xl w-full p-6 space-y-4 dark:bg-slate-900">
+      <div className="bg-white rounded-xl shadow-2xl max-w-xl w-full max-h-[85vh] overflow-y-auto p-6 space-y-4 dark:bg-slate-900">
         <div className="flex justify-between items-start gap-4">
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
@@ -35,9 +35,14 @@ export function RoadmapItemDetailDialog({ item, onClose, hideDates = false }: Pr
             </div>
             <div className="flex flex-wrap items-center gap-2 text-[0.7rem]">
               <Badge label="Pillar" value={item.pillar} />
-              <Badge label="Expense" value={item.expenseType} />
               <Badge label="Disposition" value={item.disposition} />
               <Badge label="Criticality" value={item.criticality} />
+              <Badge
+                label=""
+                value={item.expenseType}
+                showLabel={false}
+                className="!border-amber-200 !bg-amber-50 !text-amber-900 dark:!border-amber-600 dark:!bg-amber-900/30 dark:!text-amber-100"
+              />
             </div>
           </div>
           <button
@@ -51,13 +56,29 @@ export function RoadmapItemDetailDialog({ item, onClose, hideDates = false }: Pr
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
           <div className="space-y-1">
+            <DetailField label="Sponsor" value={item.executiveSponsor} />
             {!hideDates ? (
               <>
                 <DetailField label="Start date" value={formatDateOnly(item.startDate)} />
                 <DetailField label="End date" value={formatDateOnly(item.endDate)} />
+                <DetailField
+                  label="Requested delivery date"
+                  value={formatDateOnly(item.requestedDeliveryDate)}
+                />
               </>
             ) : null}
             <DetailField label="T-shirt size" value={item.tShirtSize} />
+            <DetailField label="Point of contact / SME" value={item.pointOfContact} />
+            <DetailField label="Lead" value={item.lead} />
+          </div>
+
+          <div className="space-y-1">
+            <SubmitterField name={item.submitterName} />
+            <DetailField
+              label="Submitter priority"
+              value={item.submitterPriority}
+            />
+            <DetailField label="Stakeholders" value={item.impactedStakeholders} />
             {item.url ? (
               <p className="text-slate-700 dark:text-slate-200">
                 <span className="font-semibold text-slate-600 mr-1 dark:text-slate-300">
@@ -73,24 +94,6 @@ export function RoadmapItemDetailDialog({ item, onClose, hideDates = false }: Pr
                 </a>
               </p>
             ) : null}
-          </div>
-
-          <div className="space-y-1">
-            <SubmitterField
-              name={item.submitterName}
-              department={item.submitterDepartment}
-            />
-            <DetailField
-              label="Submitter priority"
-              value={item.submitterPriority}
-            />
-            <DetailField label="Stakeholders" value={item.impactedStakeholders} />
-            <DetailField label="Sponsor" value={item.executiveSponsor} />
-            <DetailField label="Lead" value={item.lead} />
-            <DetailField
-              label="Point of contact / SME"
-              value={item.pointOfContact}
-            />
           </div>
         </div>
 
@@ -119,11 +122,28 @@ function DetailField({
   );
 }
 
-function Badge({ label, value }: { label: string; value: string }) {
+function Badge({
+  label,
+  value,
+  showLabel = true,
+  className = '',
+}: {
+  label: string;
+  value: string;
+  showLabel?: boolean;
+  className?: string;
+}) {
   if (!value) return null;
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[0.65rem] font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
-      <span className="text-slate-500 dark:text-slate-400">{label}:</span>
+    <span
+      className={[
+        'inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[0.65rem] font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200',
+        className,
+      ].join(' ')}
+    >
+      {showLabel ? (
+        <span className="text-slate-500 dark:text-slate-400">{label}:</span>
+      ) : null}
       <span>{value}</span>
     </span>
   );
@@ -131,10 +151,8 @@ function Badge({ label, value }: { label: string; value: string }) {
 
 function SubmitterField({
   name,
-  department,
 }: {
   name: string;
-  department: string;
 }) {
   if (!name) return null;
   return (
@@ -142,10 +160,7 @@ function SubmitterField({
       <span className="font-semibold text-slate-600 mr-1 dark:text-slate-300">
         Submitted by:
       </span>
-      <span>
-        {name}
-        {department ? ` (${department})` : ''}
-      </span>
+      <span>{name}</span>
     </p>
   );
 }
@@ -175,48 +190,14 @@ function formatDateOnly(value: string) {
 
 function DetailBlock({ label, value }: { label: string; value: string }) {
   if (!value) return null;
-  const trimmed = value.trim();
-  const hasHtml = /<[^>]+>/.test(trimmed);
-  const content = hasHtml ? sanitizeRichText(trimmed) : trimmed;
+  const content = renderRoadmapDescription(value);
   return (
     <div>
       <div className="font-semibold text-slate-600 mb-0.5 dark:text-slate-300">{label}</div>
-      {hasHtml ? (
-        <div
-          className="text-slate-800 text-xs leading-relaxed prose prose-slate max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 dark:text-slate-100 dark:prose-invert"
-          dangerouslySetInnerHTML={{ __html: content }}
-        />
-      ) : (
-        <p className="text-slate-800 text-xs leading-relaxed whitespace-pre-line dark:text-slate-100">
-          {content}
-        </p>
-      )}
+      <div
+        className="roadmap-markdown text-slate-800 text-xs leading-relaxed dark:text-slate-100"
+        dangerouslySetInnerHTML={{ __html: content }}
+      />
     </div>
   );
-}
-
-function sanitizeRichText(value: string): string {
-  return DOMPurify.sanitize(value, {
-    ALLOWED_TAGS: [
-      'p',
-      'br',
-      'strong',
-      'b',
-      'em',
-      'i',
-      'u',
-      'ul',
-      'ol',
-      'li',
-      'a',
-      'span',
-      'div',
-      'blockquote',
-      'h1',
-      'h2',
-      'h3',
-      'h4',
-    ],
-    ALLOWED_ATTR: ['href', 'target', 'rel', 'style'],
-  });
 }

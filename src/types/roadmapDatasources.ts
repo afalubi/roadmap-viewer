@@ -4,6 +4,7 @@ export type RoadmapFieldMap = Partial<{
   title: string;
   startDate: string;
   endDate: string;
+  requestedDeliveryDate: string;
   pillar: string;
   region: string;
   criticality: string;
