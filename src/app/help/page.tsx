@@ -24,6 +24,29 @@ export default async function HelpPage() {
         <h1 className="text-2xl font-semibold text-slate-900">Help</h1>
       </header>
 
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+          Region Icon Preview (temporary)
+        </div>
+        <div className="mt-3 flex items-center gap-3 text-sm text-slate-600">
+          <span className="relative inline-flex h-4 w-7 items-center justify-center overflow-hidden border border-slate-200 bg-white/80">
+            <img
+              src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f1fa-1f1f8.svg"
+              alt="United States flag"
+              className="absolute inset-0 h-full w-full object-cover"
+              style={{ clipPath: 'polygon(0 0, 100% 0, 0 100%)' }}
+            />
+            <img
+              src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f1e8-1f1e6.svg"
+              alt="Canada flag"
+              className="absolute inset-0 h-full w-full object-cover"
+              style={{ clipPath: 'polygon(100% 0, 100% 100%, 0 100%)' }}
+            />
+          </span>
+          <span>Combined US + Canada flag (45° split)</span>
+        </div>
+      </section>
+
       <nav className="rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-600 shadow-sm">
         <div className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-400">
           Jump to

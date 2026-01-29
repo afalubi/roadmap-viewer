@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { ReactNode, CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
+import { FaCanadianMapleLeaf } from 'react-icons/fa';
 import type { RoadmapItem } from '@/types/roadmap';
 import type { QuarterBucket } from '@/lib/timeScale';
 import { getTimelinePosition } from '@/lib/timeScale';
@@ -161,19 +162,7 @@ export function RoadmapSwimlane({
                   useDarkItemText ? 'dark:text-slate-800' : 'dark:text-slate-100',
                 ].join(' ')}
               >
-                {regionFlags.map((flag) => (
-                  <span
-                    key={`${item.id}-${flag.region}`}
-                    className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-200 bg-white/80 text-[0.6rem] leading-none"
-                  >
-                    <img
-                      src={flag.src}
-                      alt={flag.alt}
-                      className="h-3 w-3 rounded-sm object-cover"
-                      loading="lazy"
-                    />
-                  </span>
-                ))}
+                {renderRegionBadges(regionFlags, item.id)}
               </span>
             ) : null;
 
@@ -186,7 +175,7 @@ export function RoadmapSwimlane({
             const lineHeight = displayOptions.itemStyle === 'line' ? 6 : 8;
             const itemTop =
               displayOptions.itemStyle === 'line'
-                ? firstItemOffset + row * laneRowHeight
+                ? firstItemOffset + row * laneRowHeight + 2
                 : firstItemOffset +
                   row * laneRowHeight +
                   (hasInlineText ? 0 : Math.max(0, (rowHeight - lineHeight) / 2));
@@ -334,6 +323,51 @@ function stripBgClasses(classes: string): string {
 function stripHtml(value: string): string {
   if (!value) return '';
   return value.replace(/<[^>]*>/g, '').trim();
+}
+
+function renderRegionBadges(
+  flags: Array<{ region: string; src: string; alt: string }>,
+  id: string,
+) {
+  if (flags.length === 2) {
+    const us = flags.find((flag) => flag.region === 'US');
+    const ca = flags.find((flag) => flag.region === 'Canada');
+    if (us && ca) {
+      return (
+        <span
+          key={`${id}-combined-flag`}
+          className="relative inline-flex h-3 w-5 items-center justify-center overflow-hidden border border-slate-200 bg-white"
+          title="US + Canada"
+        >
+          <span className="absolute inset-y-0 left-0 w-1/2 overflow-hidden">
+            <img
+              src={us.src}
+              alt={us.alt}
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
+          </span>
+          <span className="absolute inset-y-0 right-0 flex w-1/2 items-center justify-center bg-white">
+            <FaCanadianMapleLeaf className="h-2.5 w-2.5 text-red-600" />
+          </span>
+        </span>
+      );
+    }
+  }
+
+  return flags.map((flag) => (
+    <span
+      key={`${id}-${flag.region}`}
+      className="inline-flex h-3 w-5 items-center justify-center overflow-hidden border border-slate-200 bg-white/80 text-[0.6rem] leading-none"
+    >
+      <img
+        src={flag.src}
+        alt={flag.alt}
+        className="h-full w-full object-cover"
+        loading="lazy"
+      />
+    </span>
+  ));
 }
 
 function buildLaneRows(
