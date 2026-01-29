@@ -421,6 +421,20 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     }
   };
 
+  const clearActiveView = () => {
+    setLoadedView(null);
+    setIsSharedViewActive(false);
+    setLoadedSharedSlug("");
+    setSharedViewSlug("");
+    if (typeof window !== "undefined") {
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.delete("viewId");
+      nextUrl.searchParams.delete("view");
+      window.history.replaceState(null, "", nextUrl.toString());
+      window.sessionStorage.removeItem("sharedViewSlug");
+    }
+  };
+
   const handleUpdateView = async (view: SavedView): Promise<boolean> => {
     if (!isSignedIn) return false;
     if (!isOnline) return false;
@@ -2088,6 +2102,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                             shareBaseUrl={shareBaseUrl}
                             onSaveView={handleSaveView}
                             onLoadView={handleLoadView}
+                            onClearView={clearActiveView}
                             onRenameView={handleRenameView}
                             onDeleteView={handleDeleteView}
                             onCreateLink={handleCreateLink}
