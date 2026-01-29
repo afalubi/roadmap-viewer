@@ -1,6 +1,7 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import { ClerkProvider } from '@clerk/nextjs';
+import { FloatingHelpButton } from '@/components/help/FloatingHelpButton';
 
 export const metadata: Metadata = {
   title: 'Technology Roadmap Viewer',
@@ -24,7 +25,10 @@ export default function RootLayout({
         className="bg-slate-50 text-slate-900"
         suppressHydrationWarning={process.env.NODE_ENV === 'development'}
       >
-        <ClerkProvider>{children}</ClerkProvider>
+        <ClerkProvider>
+          {children}
+          <FloatingHelpButton />
+        </ClerkProvider>
       </body>
     </html>
   );

@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/usersAccess';
+import { getHelpVisibility } from '@/lib/helpAccess';
 
 export async function GET() {
   const user = await getAuthUser();
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const help = await getHelpVisibility(user.id, user.roles);
 
   return NextResponse.json({
     user: {
@@ -15,6 +17,7 @@ export async function GET() {
       email: user.email,
       displayName: user.displayName,
       roles: user.roles,
+      help,
     },
   });
 }
