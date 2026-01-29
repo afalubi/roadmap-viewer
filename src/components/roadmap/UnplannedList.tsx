@@ -32,6 +32,13 @@ const GROUP_LABELS: Record<Props['groupBy'], string> = {
   disposition: 'Disposition',
 };
 
+function getPriorityValue(item: RoadmapItem): number {
+  const raw = String(item.submitterPriority ?? '').trim();
+  if (!raw) return Number.POSITIVE_INFINITY;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isNaN(parsed) ? Number.POSITIVE_INFINITY : parsed;
+}
+
 function getGroupKey(item: RoadmapItem, groupBy: Props['groupBy']): string {
   if (groupBy === 'stakeholder') {
     const value = (item.executiveSponsor || '').trim();
@@ -219,6 +226,11 @@ export function UnplannedList({
             <div className="flex gap-4 overflow-x-auto pb-2">
               {groups.map((group) => {
                 const groupItems = grouped.get(group) ?? [];
+                const sortedItems = [...groupItems].sort((a, b) => {
+                  const priorityDiff = getPriorityValue(a) - getPriorityValue(b);
+                  if (priorityDiff !== 0) return priorityDiff;
+                  return (a.title || '').localeCompare(b.title || '');
+                });
                 return (
                   <div
                     key={group}
@@ -233,7 +245,7 @@ export function UnplannedList({
                       </div>
                     </div>
                     <div className="mt-3 space-y-2">
-                      {groupItems.map((item) => (
+                      {sortedItems.map((item) => (
                         <UnplannedCard
                           key={item.id}
                           item={item}
@@ -252,6 +264,11 @@ export function UnplannedList({
             <div className="space-y-4">
               {groups.map((group) => {
                 const groupItems = grouped.get(group) ?? [];
+                const sortedItems = [...groupItems].sort((a, b) => {
+                  const priorityDiff = getPriorityValue(a) - getPriorityValue(b);
+                  if (priorityDiff !== 0) return priorityDiff;
+                  return (a.title || '').localeCompare(b.title || '');
+                });
                 const isOpen = openGroups[group] ?? true;
                 return (
                   <div
@@ -280,7 +297,7 @@ export function UnplannedList({
                     </button>
                     <AnimatedSection isOpen={isOpen}>
                       <div className="grid gap-2">
-                        {groupItems.map((item) => (
+                        {sortedItems.map((item) => (
                           <UnplannedCard
                             key={item.id}
                             item={item}

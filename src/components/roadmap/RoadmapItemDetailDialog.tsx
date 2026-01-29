@@ -193,7 +193,9 @@ function DetailBlock({ label, value }: { label: string; value: string }) {
   const content = renderRoadmapDescription(value);
   return (
     <div>
-      <div className="font-semibold text-slate-600 mb-0.5 dark:text-slate-300">{label}</div>
+      <div className="mb-0.5 font-semibold text-slate-900 underline underline-offset-2">
+        {label}
+      </div>
       <div
         className="roadmap-markdown text-slate-800 text-xs leading-relaxed dark:text-slate-100"
         dangerouslySetInnerHTML={{ __html: content }}
