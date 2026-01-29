@@ -31,7 +31,7 @@ export async function GET(
 
   const role = await getRoadmapRoleForUser(authUser.id, id);
   if (!hasRoadmapRoleAtLeast(role, 'viewer')) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
   const rows = await sql`

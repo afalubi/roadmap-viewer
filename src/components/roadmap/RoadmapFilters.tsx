@@ -279,10 +279,10 @@ export function RoadmapFilters({
             <div className="space-y-3 px-3 pt-2 pb-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  View by sponsor
+                  View by
                 </div>
                 <select
-                  className={compactSelectClasses}
+                  className={`${compactSelectClasses} w-40`}
                   value={selectedGroupBy}
                   onChange={(e) =>
                     setSelectedGroupBy(
