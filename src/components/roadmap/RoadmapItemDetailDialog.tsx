@@ -15,7 +15,7 @@ export function RoadmapItemDetailDialog({ item, onClose, hideDates = false }: Pr
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60">
-      <div className="bg-white rounded-xl shadow-2xl max-w-xl w-full max-h-[85vh] overflow-y-auto p-6 space-y-4 dark:bg-slate-900">
+      <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-y-auto p-6 space-y-4 dark:bg-slate-900">
         <div className="flex justify-between items-start gap-4">
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
@@ -82,7 +82,7 @@ export function RoadmapItemDetailDialog({ item, onClose, hideDates = false }: Pr
             {item.url ? (
               <p className="text-slate-700 dark:text-slate-200">
                 <span className="font-semibold text-slate-600 mr-1 dark:text-slate-300">
-                  Work item:
+                  Submitted idea:
                 </span>
                 <a
                   href={item.url}

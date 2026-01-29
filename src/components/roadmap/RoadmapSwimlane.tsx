@@ -339,16 +339,21 @@ function renderRegionBadges(
           className="relative inline-flex h-3 w-5 items-center justify-center overflow-hidden border border-slate-200 bg-white"
           title="US + Canada"
         >
-          <span className="absolute inset-y-0 left-0 w-1/2 overflow-hidden">
-            <img
-              src={us.src}
-              alt={us.alt}
-              className="h-full w-full object-cover"
-              loading="lazy"
-            />
-          </span>
+          <span
+            className="absolute inset-y-0 left-0 w-1/2"
+            style={{
+              backgroundImage: `url(${us.src})`,
+              backgroundSize: '280% 135%',
+              backgroundPosition: '45% 50%',
+              backgroundRepeat: 'no-repeat',
+            }}
+            aria-label={us.alt}
+            role="img"
+          />
           <span className="absolute inset-y-0 right-0 flex w-1/2 items-center justify-center bg-white">
-            <FaCanadianMapleLeaf className="h-2.5 w-2.5 text-red-600" />
+            <span className="relative h-full w-full overflow-hidden">
+              <FaCanadianMapleLeaf className="absolute left-[-20%] top-1/2 h-3 w-3 -translate-y-1/2 text-red-600" />
+            </span>
           </span>
         </span>
       );
