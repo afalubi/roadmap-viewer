@@ -211,9 +211,10 @@ export function RoadmapSwimlane({
                 {titleAbove ? (
                   <div
                     className={[
-                      'text-[0.65rem] font-semibold leading-none text-slate-800 truncate',
+                      "text-[0.7rem] font-semibold leading-none text-slate-800 truncate tracking-tight",
                       useDarkItemText ? 'dark:text-slate-800' : 'dark:text-slate-100',
                     ].join(' ')}
+                    style={{ fontFamily: '"Inter Tight", "Inter", "Arial", sans-serif' }}
                   >
                     {regionBadges}
                     {item.title}
