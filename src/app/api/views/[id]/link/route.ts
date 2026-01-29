@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
+import { createHash } from 'crypto';
 import { sql } from '@/lib/neon';
 import { ensureViewsSchema } from '@/lib/viewsDb';
 import { ensureRoadmapsSchema } from '@/lib/roadmapsDb';
@@ -7,6 +8,9 @@ import { getRoadmapRole, hasRoadmapRoleAtLeast } from '@/lib/roadmapsAccess';
 
 const generateSlug = () =>
   Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
+
+const hashPassword = (value: string) =>
+  createHash('sha256').update(value).digest('hex');
 
 async function generateUniqueSlug() {
   for (let attempt = 0; attempt < 6; attempt += 1) {
@@ -25,7 +29,7 @@ async function generateUniqueSlug() {
 }
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
   const { userId } = await auth();
@@ -34,6 +38,15 @@ export async function POST(
   }
 
   const { id } = await context.params;
+  const body = (await request.json().catch(() => ({}))) as {
+    password?: string | null;
+    rotate?: boolean;
+  };
+  const hasPasswordField = Object.prototype.hasOwnProperty.call(body, 'password');
+  const rawPassword =
+    typeof body.password === 'string' ? body.password.trim() : '';
+  const passwordHash = rawPassword ? hashPassword(rawPassword) : null;
+  const rotate = Boolean(body.rotate);
   await ensureViewsSchema();
   const viewRows = await sql`
     SELECT id, roadmap_id
@@ -53,19 +66,43 @@ export async function POST(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  const now = new Date().toISOString();
+  const existingRows = await sql`
+    SELECT slug
+    FROM view_links
+    WHERE view_id = ${id}
+    LIMIT 1
+  `;
+  const existingSlug = (existingRows[0] as { slug?: string } | undefined)?.slug;
+
+  if (existingSlug && !rotate) {
+    if (hasPasswordField) {
+      await sql`
+        UPDATE view_links
+        SET password_hash = ${passwordHash},
+            updated_at = ${now},
+            updated_by = ${userId}
+        WHERE view_id = ${id}
+      `;
+    }
+    return NextResponse.json({ slug: existingSlug });
+  }
+
+  if (existingSlug) {
+    await sql`
+      DELETE FROM view_links
+      WHERE view_id = ${id}
+    `;
+  }
+
   const slug = await generateUniqueSlug();
   if (!slug) {
     return NextResponse.json({ error: 'Unable to generate link' }, { status: 500 });
   }
 
-  const now = new Date().toISOString();
-  await sql`
-    DELETE FROM view_links
-    WHERE view_id = ${id}
-  `;
   await sql`
     INSERT INTO view_links (slug, view_id, role, password_hash, created_at, updated_at, created_by, updated_by)
-    VALUES (${slug}, ${id}, 'viewer', NULL, ${now}, ${now}, ${userId}, ${userId})
+    VALUES (${slug}, ${id}, 'viewer', ${passwordHash}, ${now}, ${now}, ${userId}, ${userId})
     ON CONFLICT (slug) DO NOTHING
   `;
 

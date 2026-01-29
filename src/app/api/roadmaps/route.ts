@@ -16,17 +16,10 @@ export async function GET() {
       r.name,
       r.created_at,
       r.updated_at,
-      rs.role,
-      rl.shared_slug
+      rs.role
     FROM roadmaps r
     JOIN roadmap_shares rs
       ON rs.roadmap_id = r.id
-    LEFT JOIN (
-      SELECT roadmap_id, MIN(slug) AS shared_slug
-      FROM roadmap_links
-      GROUP BY roadmap_id
-    ) rl
-      ON rl.roadmap_id = r.id
     WHERE rs.user_id = ${userId}
     ORDER BY r.updated_at DESC
   `;
@@ -37,7 +30,6 @@ export async function GET() {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     role: row.role,
-    sharedSlug: row.shared_slug,
   }));
 
   return NextResponse.json({ roadmaps });
@@ -89,7 +81,6 @@ export async function POST(request: Request) {
       createdAt: now,
       updatedAt: now,
       role: 'owner',
-      sharedSlug: null,
     },
   });
 }

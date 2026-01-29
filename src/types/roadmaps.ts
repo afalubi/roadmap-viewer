@@ -9,7 +9,6 @@ export interface RoadmapSummary {
   createdAt: string;
   updatedAt: string;
   role: RoadmapRole;
-  sharedSlug?: string | null;
 }
 
 export interface RoadmapDetail extends RoadmapSummary {

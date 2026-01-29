@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import colors from 'tailwindcss/colors';
 import { SignedIn, SignedOut, SignInButton } from '@clerk/nextjs';
 import type { RoadmapSummary } from '@/types/roadmaps';
 import type { RoadmapThemeConfig } from '@/types/theme';
@@ -46,10 +47,157 @@ export default function ThemeEditorClient() {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+  const [loadedThemeConfig, setLoadedThemeConfig] =
+    useState<RoadmapThemeConfig | null>(null);
+  const initialRoadmapIdRef = useRef('');
+  const [basePaletteHex, setBasePaletteHex] = useState<{
+    item: string[];
+    lane: string[];
+    header: string[];
+  }>({ item: [], lane: [], header: [] });
 
   const paletteCounts = THEME_PALETTE_COUNTS[baseTheme] ?? { item: 5, lane: 10 };
 
+  const extractBgClass = (classes: string) =>
+    classes
+      .split(' ')
+      .find((cls) => cls.startsWith('bg-[') || cls.startsWith('bg-')) ?? '';
+
+  const COLOR_MAP: Record<string, Record<string, string>> = {
+    slate: colors.slate,
+    gray: colors.gray,
+    zinc: colors.zinc,
+    neutral: colors.neutral,
+    stone: colors.stone,
+    red: colors.red,
+    orange: colors.orange,
+    amber: colors.amber,
+    yellow: colors.yellow,
+    lime: colors.lime,
+    green: colors.green,
+    emerald: colors.emerald,
+    teal: colors.teal,
+    cyan: colors.cyan,
+    sky: colors.sky,
+    blue: colors.blue,
+    indigo: colors.indigo,
+    violet: colors.violet,
+    purple: colors.purple,
+    fuchsia: colors.fuchsia,
+    pink: colors.pink,
+    rose: colors.rose,
+  };
+
+  const hexToRgb = (hex: string) => {
+    const normalized = hex.replace('#', '');
+    if (normalized.length !== 6) return null;
+    const r = Number.parseInt(normalized.slice(0, 2), 16);
+    const g = Number.parseInt(normalized.slice(2, 4), 16);
+    const b = Number.parseInt(normalized.slice(4, 6), 16);
+    if ([r, g, b].some((value) => Number.isNaN(value))) return null;
+    return { r, g, b };
+  };
+
+  const blendOverWhite = (hex: string, alpha: number) => {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return hex;
+    const clamp = (value: number) =>
+      Math.max(0, Math.min(255, Math.round(value)));
+    const r = clamp(rgb.r * alpha + 255 * (1 - alpha));
+    const g = clamp(rgb.g * alpha + 255 * (1 - alpha));
+    const b = clamp(rgb.b * alpha + 255 * (1 - alpha));
+    return `#${r.toString(16).padStart(2, '0')}${g
+      .toString(16)
+      .padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+  };
+
+  const resolveHexFromClassList = (classes: string) => {
+    const bgClass = extractBgClass(classes);
+    if (!bgClass) return '';
+    if (bgClass.startsWith('bg-[')) {
+      const start = bgClass.indexOf('[');
+      const end = bgClass.indexOf(']');
+      if (start === -1 || end === -1) return '';
+      const hex = bgClass.slice(start + 1, end);
+      const opacityToken = bgClass.split('/')[1];
+      if (!opacityToken) return hex;
+      const alpha = Number.parseInt(opacityToken, 10) / 100;
+      if (!Number.isFinite(alpha)) return hex;
+      return blendOverWhite(hex, alpha);
+    }
+    const raw = bgClass.replace('bg-', '');
+    const [colorToken, opacityToken] = raw.split('/');
+    const [name, shade] = colorToken.split('-');
+    if (!name || !shade) return '';
+    const palette = COLOR_MAP[name];
+    if (!palette) return '';
+    const value = (palette as Record<string, string>)[shade];
+    if (typeof value !== 'string') return '';
+    if (!opacityToken) return value;
+    const alpha = Number.parseInt(opacityToken, 10) / 100;
+    if (!Number.isFinite(alpha)) return value;
+    return blendOverWhite(value, alpha);
+  };
+
+  const rgbToHex = (value: string) => {
+    const match = value.match(
+      /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i,
+    );
+    if (!match) return '';
+    const toHex = (input: string) =>
+      Number.parseInt(input, 10).toString(16).padStart(2, '0');
+    return `#${toHex(match[1])}${toHex(match[2])}${toHex(match[3])}`;
+  };
+
+  const resolveHexFromBgClass = (bgClass: string) => {
+    if (typeof document === 'undefined' || !bgClass) return '';
+    const el = document.createElement('div');
+    el.className = bgClass;
+    el.style.position = 'absolute';
+    el.style.visibility = 'hidden';
+    el.style.pointerEvents = 'none';
+    document.body.appendChild(el);
+    const color = getComputedStyle(el).backgroundColor;
+    el.remove();
+    return rgbToHex(color);
+  };
+
+  const ensureBaseHex = (
+    kind: 'item' | 'lane' | 'header',
+    index: number,
+    classes: string,
+  ) => {
+    const bgClass = extractBgClass(classes);
+    if (!bgClass) return;
+    const hex = resolveHexFromBgClass(bgClass);
+    if (!hex) return;
+    setBasePaletteHex((current) => {
+      const next = { ...current };
+      const list = [...(next[kind] ?? [])];
+      if (!list[index]) {
+        list[index] = hex;
+        next[kind] = list;
+      }
+      return next;
+    });
+  };
+
+  const getHexFromElementId = (id: string) => {
+    if (typeof document === 'undefined') return '';
+    const el = document.getElementById(id);
+    if (!el) return '';
+    const color = getComputedStyle(el).backgroundColor;
+    return rgbToHex(color);
+  };
+
+  const getHexFromElement = (el: HTMLElement | null) => {
+    if (!el || typeof window === 'undefined') return '';
+    const color = getComputedStyle(el).backgroundColor;
+    return rgbToHex(color);
+  };
+
   const applyThemeConfig = (config: RoadmapThemeConfig | null) => {
+    setLoadedThemeConfig(config);
     const nextBaseTheme = config?.baseTheme ?? DEFAULT_THEME;
     const nextCounts = THEME_PALETTE_COUNTS[nextBaseTheme] ?? {
       item: 5,
@@ -107,6 +255,18 @@ export default function ThemeEditorClient() {
   }, [searchParams]);
 
   useEffect(() => {
+    if (initialRoadmapIdRef.current) return;
+    const queryId = searchParams.get('roadmapId') ?? '';
+    if (queryId) {
+      initialRoadmapIdRef.current = queryId;
+      return;
+    }
+    if (selectedRoadmapId) {
+      initialRoadmapIdRef.current = selectedRoadmapId;
+    }
+  }, [searchParams, selectedRoadmapId]);
+
+  useEffect(() => {
     if (!selectedRoadmapId) return;
     let isActive = true;
     const fetchTheme = async () => {
@@ -138,12 +298,100 @@ export default function ThemeEditorClient() {
     };
   }, [selectedRoadmapId]);
 
+  useLayoutEffect(() => {
+    if (typeof document === 'undefined') return;
+    let rafId = 0;
+    let attempts = 0;
+    const maxAttempts = 6;
+    const readFromPreview = () => {
+      let hasMissing = false;
+      setBasePaletteHex((current) => {
+        const nextItem = Array.from(
+          { length: paletteCounts.item },
+          (_, index) => {
+            const itemClass = getItemClassesByIndex(index, baseTheme);
+            const resolved =
+              getHexFromElementId(`base-item-${index}`) ||
+              resolveHexFromClassList(itemClass) ||
+              resolveHexFromBgClass(extractBgClass(itemClass));
+            const value = resolved || current.item[index] || '';
+            if (!value) hasMissing = true;
+            return value;
+          },
+        );
+        const nextLane = Array.from(
+          { length: paletteCounts.lane },
+          (_, index) => {
+            const laneClass = getLaneClassesByIndex(index, baseTheme);
+            const resolved =
+              getHexFromElementId(`base-lane-${index}`) ||
+              resolveHexFromClassList(laneClass) ||
+              resolveHexFromBgClass(extractBgClass(laneClass));
+            const value = resolved || current.lane[index] || '';
+            if (!value) hasMissing = true;
+            return value;
+          },
+        );
+        const nextHeader = Array.from(
+          { length: paletteCounts.lane },
+          (_, index) => {
+            const itemClass = getItemClassesByIndex(index, baseTheme);
+            const headerClass =
+              baseTheme === 'executive' || baseTheme === 'mono'
+                ? getLaneHeaderClassesByIndex(index, baseTheme)
+                : getLaneBackgroundClassFromItem(itemClass);
+            const resolved =
+              getHexFromElementId(`base-header-${index}`) ||
+              resolveHexFromClassList(headerClass) ||
+              resolveHexFromBgClass(extractBgClass(headerClass));
+            const value = resolved || current.header[index] || '';
+            if (!value) hasMissing = true;
+            return value;
+          },
+        );
+        return { item: nextItem, lane: nextLane, header: nextHeader };
+      });
+      return hasMissing;
+    };
+
+    const tick = () => {
+      const needsRetry = readFromPreview();
+      if (needsRetry && attempts < maxAttempts) {
+        attempts += 1;
+        rafId = window.requestAnimationFrame(tick);
+      }
+    };
+
+    tick();
+    return () => {
+      if (rafId) {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
+  }, [baseTheme, paletteCounts.item, paletteCounts.lane]);
+
   const handleBaseThemeChange = (value: ThemeOption) => {
     const nextCounts = THEME_PALETTE_COUNTS[value] ?? { item: 5, lane: 10 };
     setBaseTheme(value);
-    setItemOverrides((current) => resizeOverrides(current, nextCounts.item));
-    setLaneOverrides((current) => resizeOverrides(current, nextCounts.lane));
-    setHeaderOverrides((current) => resizeOverrides(current, nextCounts.lane));
+    if (loadedThemeConfig?.baseTheme === value) {
+      setItemOverrides(
+        normalizeOverrides(loadedThemeConfig.overrides?.item, nextCounts.item),
+      );
+      setLaneOverrides(
+        normalizeOverrides(loadedThemeConfig.overrides?.lane, nextCounts.lane),
+      );
+      setHeaderOverrides(
+        normalizeOverrides(
+          loadedThemeConfig.overrides?.header ??
+            loadedThemeConfig.overrides?.lane,
+          nextCounts.lane,
+        ),
+      );
+      return;
+    }
+    setItemOverrides(Array.from({ length: nextCounts.item }, () => ''));
+    setLaneOverrides(Array.from({ length: nextCounts.lane }, () => ''));
+    setHeaderOverrides(Array.from({ length: nextCounts.lane }, () => ''));
   };
 
   const hasOverrides =
@@ -177,12 +425,11 @@ export default function ThemeEditorClient() {
               : {}),
           }
         : undefined;
-    const payload = {
-      themeConfig: {
-        baseTheme,
-        ...(overrides ? { overrides } : {}),
-      },
+    const themeConfig: RoadmapThemeConfig = {
+      baseTheme,
+      ...(overrides ? { overrides } : {}),
     };
+    const payload = { themeConfig };
     try {
       const res = await fetch(`/api/roadmaps/${selectedRoadmapId}/theme`, {
         method: 'PUT',
@@ -193,6 +440,7 @@ export default function ThemeEditorClient() {
         setError('Unable to save theme configuration.');
         return;
       }
+      setLoadedThemeConfig(themeConfig);
       setStatus('Theme saved.');
     } catch {
       setError('Unable to save theme configuration.');
@@ -218,6 +466,9 @@ export default function ThemeEditorClient() {
     return '#0f172a';
   };
 
+  const backRoadmapId = initialRoadmapIdRef.current || selectedRoadmapId;
+  const backHref = backRoadmapId ? `/?roadmapId=${backRoadmapId}` : '/';
+
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-10 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <div className="mx-auto w-full max-w-5xl space-y-8">
@@ -229,7 +480,7 @@ export default function ThemeEditorClient() {
             </p>
           </div>
           <Link
-            href="/"
+            href={backHref}
             className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
           >
             Back to roadmap
@@ -351,6 +602,18 @@ export default function ThemeEditorClient() {
                           baseTheme === 'executive' || baseTheme === 'mono'
                             ? getLaneHeaderClassesByIndex(index, baseTheme)
                             : getLaneBackgroundClassFromItem(itemClass);
+                        const itemDefaultHex =
+                          resolveHexFromClassList(itemClass) ||
+                          basePaletteHex.item[index] ||
+                          '#ffffff';
+                        const laneDefaultHex =
+                          resolveHexFromClassList(laneClass) ||
+                          basePaletteHex.lane[index] ||
+                          '#ffffff';
+                        const headerDefaultHex =
+                          resolveHexFromClassList(headerClass) ||
+                          basePaletteHex.header[index] ||
+                          '#ffffff';
                         const renderPreviewTile = (
                           isDark: boolean,
                           overrides?: {
@@ -358,6 +621,7 @@ export default function ThemeEditorClient() {
                             lane?: string;
                             header?: string;
                           },
+                          ids?: { header?: string; lane?: string; item?: string },
                         ) => {
                           const itemOverride = overrides?.item?.trim();
                           const laneOverride = overrides?.lane?.trim();
@@ -375,6 +639,7 @@ export default function ThemeEditorClient() {
                                   'relative h-3 w-16 rounded-sm',
                                   headerOverride ? '' : headerClass,
                                 ].join(' ')}
+                                id={ids?.header}
                                 title={
                                   isDark
                                     ? 'Header preview (dark)'
@@ -396,6 +661,7 @@ export default function ThemeEditorClient() {
                                   'relative mt-2 h-7 w-16 rounded-sm',
                                   laneOverride ? '' : laneClass,
                                 ].join(' ')}
+                                id={ids?.lane}
                                 title={
                                   isDark
                                     ? 'Lane preview (dark)'
@@ -410,6 +676,7 @@ export default function ThemeEditorClient() {
                                     'absolute left-1 top-1 h-4 w-10 rounded-sm border shadow-sm flex items-center justify-center text-[0.45rem] font-semibold',
                                     itemOverride ? '' : itemClass,
                                   ].join(' ')}
+                                  id={ids?.item}
                                   title={
                                     isDark
                                       ? 'Item preview (dark)'
@@ -438,7 +705,15 @@ export default function ThemeEditorClient() {
                                   <div className="text-[0.55rem] uppercase tracking-wide text-slate-400">
                                     Light
                                   </div>
-                                  {renderPreviewTile(false)}
+                                  {renderPreviewTile(
+                                    false,
+                                    undefined,
+                                    {
+                                      header: `base-header-${index}`,
+                                      lane: `base-lane-${index}`,
+                                      item: `base-item-${index}`,
+                                    },
+                                  )}
                                 </div>
                                 <div className="space-y-1 text-center">
                                   <div className="text-[0.55rem] uppercase tracking-wide text-slate-400">
@@ -484,35 +759,68 @@ export default function ThemeEditorClient() {
                               <div className="flex flex-col gap-1">
                                 <div className="flex items-center gap-2">
                                   <span className="w-12 text-[0.6rem] uppercase tracking-wide text-slate-400">
-                                    Item
+                                    Header
                                   </span>
                                   <input
                                     type="color"
-                                    value={itemValue || '#ffffff'}
-                                    onChange={(event) => {
-                                      const next = [...itemOverrides];
-                                      next[index] = event.target.value;
-                                      setItemOverrides(next);
+                                    value={headerValue || headerDefaultHex}
+                                    onPointerDown={(event) => {
+                                      if (headerValue.trim()) return;
+                                      const hex =
+                                        getHexFromElement(event.currentTarget) ||
+                                        getHexFromElementId(`base-header-${index}`) ||
+                                        resolveHexFromBgClass(
+                                          extractBgClass(headerClass),
+                                        );
+                                      if (hex) {
+                                        event.currentTarget.value = hex;
+                                        setBasePaletteHex((current) => {
+                                          const next = { ...current };
+                                          const list = [...(next.header ?? [])];
+                                          list[index] = hex;
+                                          next.header = list;
+                                          return next;
+                                        });
+                                      } else {
+                                        ensureBaseHex(
+                                          'header',
+                                          index,
+                                          headerClass,
+                                        );
+                                      }
                                     }}
-                                    className="h-7 w-7 cursor-pointer rounded border border-slate-200 bg-transparent"
+                                    onChange={(event) => {
+                                      const next = [...headerOverrides];
+                                      next[index] = event.target.value;
+                                      setHeaderOverrides(next);
+                                    }}
+                                    className={[
+                                      'h-7 w-7 cursor-pointer rounded border',
+                                      headerValue.trim() ? 'border-slate-200' : 'border-slate-200',
+                                      headerValue.trim() ? '' : headerClass,
+                                    ].join(' ')}
+                                    style={{
+                                      backgroundColor:
+                                        headerValue.trim() || undefined,
+                                    }}
                                   />
                                   <input
                                     type="text"
-                                    value={itemValue}
-                                    placeholder="auto"
+                                    value={headerValue || headerDefaultHex}
+                                    placeholder={headerValue ? '' : 'auto'}
                                     onChange={(event) => {
-                                      const next = [...itemOverrides];
+                                      const next = [...headerOverrides];
                                       next[index] = event.target.value;
-                                      setItemOverrides(next);
+                                      setHeaderOverrides(next);
                                     }}
                                     className="w-24 rounded border border-slate-200 bg-white px-2 py-1 text-[0.7rem] text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                                   />
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      const next = [...itemOverrides];
+                                      const next = [...headerOverrides];
                                       next[index] = '';
-                                      setItemOverrides(next);
+                                      setHeaderOverrides(next);
                                     }}
                                     className="text-[0.6rem] uppercase tracking-wide text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                                   >
@@ -525,18 +833,47 @@ export default function ThemeEditorClient() {
                                   </span>
                                   <input
                                     type="color"
-                                    value={laneValue || '#ffffff'}
+                                    value={laneValue || laneDefaultHex}
+                                    onPointerDown={(event) => {
+                                      if (laneValue.trim()) return;
+                                      const hex =
+                                        getHexFromElement(event.currentTarget) ||
+                                        getHexFromElementId(`base-lane-${index}`) ||
+                                        resolveHexFromBgClass(
+                                          extractBgClass(laneClass),
+                                        );
+                                      if (hex) {
+                                        event.currentTarget.value = hex;
+                                        setBasePaletteHex((current) => {
+                                          const next = { ...current };
+                                          const list = [...(next.lane ?? [])];
+                                          list[index] = hex;
+                                          next.lane = list;
+                                          return next;
+                                        });
+                                      } else {
+                                        ensureBaseHex('lane', index, laneClass);
+                                      }
+                                    }}
                                     onChange={(event) => {
                                       const next = [...laneOverrides];
                                       next[index] = event.target.value;
                                       setLaneOverrides(next);
                                     }}
-                                    className="h-7 w-7 cursor-pointer rounded border border-slate-200 bg-transparent"
+                                    className={[
+                                      'h-7 w-7 cursor-pointer rounded border',
+                                      laneValue.trim() ? 'border-slate-200' : 'border-slate-200',
+                                      laneValue.trim() ? '' : laneClass,
+                                    ].join(' ')}
+                                    style={{
+                                      backgroundColor:
+                                        laneValue.trim() || undefined,
+                                    }}
                                   />
                                   <input
                                     type="text"
-                                    value={laneValue}
-                                    placeholder="auto"
+                                    value={laneValue || laneDefaultHex}
+                                    placeholder={laneValue ? '' : 'auto'}
                                     onChange={(event) => {
                                       const next = [...laneOverrides];
                                       next[index] = event.target.value;
@@ -558,35 +895,64 @@ export default function ThemeEditorClient() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <span className="w-12 text-[0.6rem] uppercase tracking-wide text-slate-400">
-                                    Header
+                                    Item
                                   </span>
                                   <input
                                     type="color"
-                                    value={headerValue || '#ffffff'}
-                                    onChange={(event) => {
-                                      const next = [...headerOverrides];
-                                      next[index] = event.target.value;
-                                      setHeaderOverrides(next);
+                                    value={itemValue || itemDefaultHex}
+                                    onPointerDown={(event) => {
+                                      if (itemValue.trim()) return;
+                                      const hex =
+                                        getHexFromElement(event.currentTarget) ||
+                                        getHexFromElementId(`base-item-${index}`) ||
+                                        resolveHexFromBgClass(
+                                          extractBgClass(itemClass),
+                                        );
+                                      if (hex) {
+                                        event.currentTarget.value = hex;
+                                        setBasePaletteHex((current) => {
+                                          const next = { ...current };
+                                          const list = [...(next.item ?? [])];
+                                          list[index] = hex;
+                                          next.item = list;
+                                          return next;
+                                        });
+                                      } else {
+                                        ensureBaseHex('item', index, itemClass);
+                                      }
                                     }}
-                                    className="h-7 w-7 cursor-pointer rounded border border-slate-200 bg-transparent"
+                                    onChange={(event) => {
+                                      const next = [...itemOverrides];
+                                      next[index] = event.target.value;
+                                      setItemOverrides(next);
+                                    }}
+                                    className={[
+                                      'h-7 w-7 cursor-pointer rounded border',
+                                      itemValue.trim() ? 'border-slate-200' : 'border-slate-200',
+                                      itemValue.trim() ? '' : itemClass,
+                                    ].join(' ')}
+                                    style={{
+                                      backgroundColor:
+                                        itemValue.trim() || undefined,
+                                    }}
                                   />
                                   <input
                                     type="text"
-                                    value={headerValue}
-                                    placeholder="auto"
+                                    value={itemValue || itemDefaultHex}
+                                    placeholder={itemValue ? '' : 'auto'}
                                     onChange={(event) => {
-                                      const next = [...headerOverrides];
+                                      const next = [...itemOverrides];
                                       next[index] = event.target.value;
-                                      setHeaderOverrides(next);
+                                      setItemOverrides(next);
                                     }}
                                     className="w-24 rounded border border-slate-200 bg-white px-2 py-1 text-[0.7rem] text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                                   />
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      const next = [...headerOverrides];
+                                      const next = [...itemOverrides];
                                       next[index] = '';
-                                      setHeaderOverrides(next);
+                                      setItemOverrides(next);
                                     }}
                                     className="text-[0.6rem] uppercase tracking-wide text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                                   >

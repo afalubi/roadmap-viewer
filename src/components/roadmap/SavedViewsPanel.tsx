@@ -64,6 +64,8 @@ export function SavedViewsPanel({
   const [shareCopied, setShareCopied] = useState(false);
   const [shareCopyFallbackOpen, setShareCopyFallbackOpen] = useState(false);
   const [shareCopyFallbackValue, setShareCopyFallbackValue] = useState('');
+  const [sharePassword, setSharePassword] = useState('');
+  const [isSharePasswordSaving, setIsSharePasswordSaving] = useState(false);
   const [pendingRemoveLink, setPendingRemoveLink] = useState<SavedView | null>(
     null,
   );
@@ -159,6 +161,12 @@ export function SavedViewsPanel({
       setShareView(latest);
     }
   }, [views, shareView?.id]);
+
+  useEffect(() => {
+    if (!shareView) return;
+    setSharePassword('');
+    setIsSharePasswordSaving(false);
+  }, [shareView?.id]);
 
   const renderViewRow = (view: SavedView) => {
     const isActive = Boolean(activeViewId && view.id === activeViewId);
@@ -449,15 +457,9 @@ export function SavedViewsPanel({
                           </button>
                         </div>
                         {!shareView.sharedSlug ? (
-                          <button
-                            type="button"
-                            className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-                            onClick={async () => {
-                              await onCreateLink(shareView.id, {});
-                            }}
-                          >
-                            Create link
-                          </button>
+                          <span className="text-[0.7rem] text-slate-400 dark:text-slate-500">
+                            Create a link below to share this view.
+                          </span>
                         ) : null}
                         {shareView.sharedSlug ? (
                           <button
@@ -485,6 +487,41 @@ export function SavedViewsPanel({
                           </button>
                         ) : null}
                       </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        Link password
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input
+                          type="password"
+                          value={sharePassword}
+                          onChange={(event) => setSharePassword(event.target.value)}
+                          placeholder="Optional password"
+                          className="w-56 rounded-md border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                        />
+                        <button
+                          type="button"
+                          className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                          disabled={isSharePasswordSaving}
+                          onClick={async () => {
+                            if (!shareView) return;
+                            setIsSharePasswordSaving(true);
+                            const password = sharePassword.trim() || null;
+                            await onCreateLink(shareView.id, {
+                              password,
+                              rotate: false,
+                            });
+                            setIsSharePasswordSaving(false);
+                          }}
+                        >
+                          {shareView.sharedSlug ? 'Apply password' : 'Create link'}
+                        </button>
+                      </div>
+                      <p className="text-[0.7rem] text-slate-500 dark:text-slate-400">
+                        Leave blank to remove a password.
+                      </p>
                     </div>
                   </div>
                 </div>,

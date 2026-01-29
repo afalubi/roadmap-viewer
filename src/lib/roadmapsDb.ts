@@ -58,16 +58,6 @@ export async function ensureRoadmapsSchema() {
   await sql`CREATE INDEX IF NOT EXISTS idx_roadmap_shares_roadmap ON roadmap_shares(roadmap_id);`;
 
   await sql`
-    CREATE TABLE IF NOT EXISTS roadmap_links (
-      slug TEXT PRIMARY KEY,
-      roadmap_id TEXT NOT NULL REFERENCES roadmaps(id) ON DELETE CASCADE,
-      role TEXT NOT NULL CHECK (role IN ('viewer')),
-      password_hash TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      created_by TEXT NOT NULL,
-      updated_by TEXT NOT NULL
-    );
+    DROP TABLE IF EXISTS roadmap_links;
   `;
-  await sql`CREATE INDEX IF NOT EXISTS idx_roadmap_links_roadmap ON roadmap_links(roadmap_id);`;
 }

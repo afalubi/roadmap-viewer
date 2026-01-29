@@ -123,10 +123,15 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
   const [debugItemsPayload, setDebugItemsPayload] = useState<RoadmapItem[] | null>(
     null
   );
-  const [loadedRoadmapSlug, setLoadedRoadmapSlug] = useState("");
   const [loadedSharedSlug, setLoadedSharedSlug] = useState("");
   const [isSharedViewActive, setIsSharedViewActive] = useState(false);
   const [sharedViewSlug, setSharedViewSlug] = useState("");
+  const [viewPasswordPrompt, setViewPasswordPrompt] = useState<{
+    slug: string;
+    error?: string | null;
+  } | null>(null);
+  const [viewPasswordInput, setViewPasswordInput] = useState("");
+  const [isViewPasswordLoading, setIsViewPasswordLoading] = useState(false);
   const [isRoadmapManageOpen, setIsRoadmapManageOpen] = useState(false);
   const [shareRoadmapId, setShareRoadmapId] = useState<string | null>(null);
   const [loadedView, setLoadedView] = useState<SavedView | null>(null);
@@ -169,7 +174,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     if (!isLoaded) return;
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
-      if (params.get("roadmap") || params.get("roadmapId") || params.get("view")) {
+      if (params.get("roadmapId") || params.get("view")) {
         return;
       }
     }
@@ -442,7 +447,6 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
         setIsSharedViewActive(false);
         setLoadedSharedSlug("");
         setSharedViewSlug("");
-        setLoadedRoadmapSlug("");
         setItems([]);
         setFilteredItems([]);
         return;
@@ -559,45 +563,6 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     }
   };
 
-  const loadRoadmapBySlug = async (slug: string) => {
-    if (!isOnline) return;
-    setIsItemsLoading(true);
-    try {
-      const res = await fetch(`/api/roadmaps/slug/${slug}`);
-      if (!res.ok) return;
-      const data = (await res.json()) as { roadmap?: RoadmapDetail };
-      if (data.roadmap) {
-        setActiveRoadmapId(data.roadmap.id);
-        setActiveRoadmapRole(data.roadmap.role);
-        setActiveDatasourceType(data.roadmap.datasourceType ?? "csv");
-        setRoadmapThemeConfig(data.roadmap.themeConfig ?? null);
-        if (data.roadmap.themeConfig?.baseTheme) {
-          setSelectedTheme(data.roadmap.themeConfig.baseTheme);
-        }
-        setLoadedRoadmapSlug(slug);
-        setLoadedView(null);
-        setShareRoadmapId(null);
-        if (Array.isArray((data.roadmap as any).items)) {
-          applyRoadmapItems((data.roadmap as any).items as RoadmapItem[]);
-          setDatasourceDebug({
-            count: (data.roadmap as any).items.length,
-            stale: false,
-            truncated: false,
-            warning: null,
-            error: null,
-          });
-          return;
-        }
-        if (typeof data.roadmap.csvText === "string") {
-          applyCsvText(data.roadmap.csvText);
-        }
-      }
-    } catch {
-      // Ignore load errors.
-    } finally {
-      setIsItemsLoading(false);
-    }
-  };
 
   const handleLoadRoadmap = async (roadmap: RoadmapSummary) => {
     if (typeof window !== "undefined") {
@@ -608,7 +573,6 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       nextUrl.searchParams.delete("view");
       window.history.replaceState(null, "", nextUrl.toString());
     }
-    setLoadedRoadmapSlug("");
     setLoadedView(null);
     setLoadedSharedSlug("");
     setIsSharedViewActive(false);
@@ -729,7 +693,6 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       setActiveRoadmapId(data.roadmap.id);
       setActiveRoadmapRole(data.roadmap.role);
       applyCsvText(csvText);
-      setLoadedRoadmapSlug("");
       setLoadedView(null);
       setShareRoadmapId(null);
       if (typeof window !== "undefined") {
@@ -847,7 +810,6 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       setLoadedView(null);
       setIsSharedViewActive(false);
       setLoadedSharedSlug("");
-      setLoadedRoadmapSlug("");
       setFilteredItems([]);
       setItems([]);
     }
@@ -859,13 +821,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     if (typeof window === "undefined") return;
     if (!isOnline) return;
     const params = new URLSearchParams(window.location.search);
-    const slug = params.get("roadmap") ?? "";
     const roadmapIdParam = params.get("roadmapId") ?? "";
 
-    if (slug && slug !== loadedRoadmapSlug) {
-      loadRoadmapBySlug(slug);
-      return;
-    }
     if (isSignedIn && roadmapIdParam && roadmapIdParam !== activeRoadmapId) {
       loadRoadmapById(roadmapIdParam);
       return;
@@ -877,7 +834,6 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     isLoaded,
     isSignedIn,
     activeRoadmapId,
-    loadedRoadmapSlug,
     roadmaps,
     isOnline,
   ]);
@@ -901,6 +857,97 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     handleLoadView(match);
   }, [isSignedIn, views, loadedView?.id]);
 
+  const getStoredViewPassword = (slug: string) => {
+    if (typeof window === "undefined") return null;
+    return window.sessionStorage.getItem(`view-link-password:${slug}`) ?? null;
+  };
+
+  const setStoredViewPassword = (slug: string, password: string | null) => {
+    if (typeof window === "undefined") return;
+    const key = `view-link-password:${slug}`;
+    if (!password) {
+      window.sessionStorage.removeItem(key);
+      return;
+    }
+    window.sessionStorage.setItem(key, password);
+  };
+
+  const loadSharedViewBySlug = async (
+    slug: string,
+    password?: string | null
+  ) => {
+    try {
+      const headers: HeadersInit = {};
+      if (password) {
+        headers["x-view-link-password"] = password;
+      }
+      const res = await fetch(`/api/views/slug/${slug}`, { headers });
+      if (res.status === 401) {
+        const data = await res.json().catch(() => null);
+        return {
+          status: "password" as const,
+          error: data?.error ?? "Password required",
+        };
+      }
+      if (!res.ok) {
+        return { status: "error" as const };
+      }
+      const data = await res.json();
+      if (Array.isArray(data.view?.items)) {
+        const nextItems = data.view.items as RoadmapItem[];
+        applyRoadmapItems(nextItems);
+        setDatasourceDebug({
+          count: nextItems.length,
+          stale: false,
+          truncated: false,
+          warning: null,
+          error: null,
+        });
+      } else if (typeof data.view?.roadmapCsvText === "string") {
+        applyCsvText(data.view.roadmapCsvText as string);
+      }
+      if (data.view?.payload) {
+        applyViewPayload(data.view.payload as ViewPayload);
+      }
+      if (data.view) {
+        setLoadedView(data.view as SavedView);
+        setIsSharedViewActive(true);
+        setSharedViewSlug(slug);
+        setIsHeaderCollapsed(true);
+        if (data.view.roadmapId) {
+          setActiveRoadmapId(data.view.roadmapId as string);
+          setActiveRoadmapRole("viewer");
+        }
+      }
+      if (typeof window !== "undefined") {
+        window.sessionStorage.setItem("sharedViewSlug", slug);
+      }
+      setLoadedSharedSlug(slug);
+      if (password) {
+        setStoredViewPassword(slug, password);
+      }
+      return { status: "ok" as const };
+    } catch {
+      return { status: "error" as const };
+    }
+  };
+
+  const clearSharedView = () => {
+    if (typeof window !== "undefined") {
+      window.sessionStorage.removeItem("sharedViewSlug");
+      const params = new URLSearchParams(window.location.search);
+      params.delete("view");
+      const nextUrl = `${window.location.pathname}${
+        params.toString() ? `?${params.toString()}` : ""
+      }`;
+      window.history.replaceState(null, "", nextUrl);
+    }
+    setSharedViewSlug("");
+    setLoadedSharedSlug("");
+    setIsSharedViewActive(false);
+    setLoadedView(null);
+  };
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!isOnline) return;
@@ -908,48 +955,48 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     const slug = params.get("view") ?? "";
     if (!slug || slug === loadedSharedSlug) return;
 
-    const fetchSharedView = async () => {
-      try {
-        const res = await fetch(`/api/views/slug/${slug}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (Array.isArray(data.view?.items)) {
-          const nextItems = data.view.items as RoadmapItem[];
-          applyRoadmapItems(nextItems);
-          setDatasourceDebug({
-            count: nextItems.length,
-            stale: false,
-            truncated: false,
-            warning: null,
-            error: null,
-          });
-        } else if (typeof data.view?.roadmapCsvText === "string") {
-          applyCsvText(data.view.roadmapCsvText as string);
+    const storedPassword = getStoredViewPassword(slug);
+    loadSharedViewBySlug(slug, storedPassword).then((result) => {
+      if (result.status === "password") {
+        if (storedPassword) {
+          setStoredViewPassword(slug, null);
         }
-        if (data.view?.payload) {
-          applyViewPayload(data.view.payload as ViewPayload);
-        }
-        if (data.view) {
-          setLoadedView(data.view as SavedView);
-          setIsSharedViewActive(true);
-          setSharedViewSlug(slug);
-          setIsHeaderCollapsed(true);
-          if (data.view.roadmapId) {
-            setActiveRoadmapId(data.view.roadmapId as string);
-            setActiveRoadmapRole("viewer");
-          }
-        }
-        if (typeof window !== "undefined") {
-          window.sessionStorage.setItem("sharedViewSlug", slug);
-        }
-        setLoadedSharedSlug(slug);
-      } catch {
-        // Ignore fetch errors for shared views.
+        setViewPasswordPrompt({ slug, error: result.error });
+        setViewPasswordInput("");
       }
-    };
-
-    fetchSharedView();
+    });
   }, [loadedSharedSlug, isOnline]);
+
+  const handleViewPasswordSubmit = async () => {
+    if (!viewPasswordPrompt) return;
+    const password = viewPasswordInput.trim();
+    if (!password) {
+      setViewPasswordPrompt({
+        slug: viewPasswordPrompt.slug,
+        error: "Password required",
+      });
+      return;
+    }
+    setIsViewPasswordLoading(true);
+    const result = await loadSharedViewBySlug(viewPasswordPrompt.slug, password);
+    setIsViewPasswordLoading(false);
+    if (result.status === "ok") {
+      setViewPasswordPrompt(null);
+      setViewPasswordInput("");
+      return;
+    }
+    if (result.status === "password") {
+      setViewPasswordPrompt({
+        slug: viewPasswordPrompt.slug,
+        error: result.error ?? "Invalid password",
+      });
+      return;
+    }
+    setViewPasswordPrompt({
+      slug: viewPasswordPrompt.slug,
+      error: "Unable to load view.",
+    });
+  };
 
   const hasSharedView = isSharedViewActive || Boolean(sharedViewSlug);
 
@@ -2483,6 +2530,59 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
             variant="plain"
           />
         ) : null}
+        {viewPasswordPrompt && typeof document !== "undefined"
+          ? createPortal(
+              <div className="fixed inset-0 z-[170] flex items-center justify-center bg-slate-900/50 px-4">
+                <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-5 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+                  <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    View password required
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Enter the password to open this shared view.
+                  </p>
+                  <input
+                    type="password"
+                    value={viewPasswordInput}
+                    onChange={(event) => setViewPasswordInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        handleViewPasswordSubmit();
+                      }
+                    }}
+                    className="mt-3 w-full rounded-md border border-slate-300 px-3 py-2 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                    placeholder="Password"
+                  />
+                  {viewPasswordPrompt.error ? (
+                    <p className="mt-2 text-xs text-rose-600">
+                      {viewPasswordPrompt.error}
+                    </p>
+                  ) : null}
+                  <div className="mt-4 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      className="rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                      onClick={() => {
+                        setViewPasswordPrompt(null);
+                        setViewPasswordInput("");
+                        clearSharedView();
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-full bg-sky-600 px-3 py-1 text-xs font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-70"
+                      disabled={isViewPasswordLoading}
+                      onClick={handleViewPasswordSubmit}
+                    >
+                      Unlock view
+                    </button>
+                  </div>
+                </div>
+              </div>,
+              document.body
+            )
+          : null}
       </div>
     </main>
   );

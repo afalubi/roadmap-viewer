@@ -23,19 +23,8 @@ export async function ensureViewsSchema() {
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_views_shared_slug ON views(shared_slug);`;
 
   await sql`
-    CREATE TABLE IF NOT EXISTS view_shares (
-      view_id TEXT NOT NULL REFERENCES views(id) ON DELETE CASCADE,
-      user_id TEXT NOT NULL,
-      role TEXT NOT NULL CHECK (role IN ('viewer','editor','owner')),
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      created_by TEXT NOT NULL,
-      updated_by TEXT NOT NULL,
-      PRIMARY KEY (view_id, user_id)
-    );
+    DROP TABLE IF EXISTS view_shares;
   `;
-  await sql`CREATE INDEX IF NOT EXISTS idx_view_shares_user ON view_shares(user_id);`;
-  await sql`CREATE INDEX IF NOT EXISTS idx_view_shares_view ON view_shares(view_id);`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS view_links (
@@ -50,27 +39,6 @@ export async function ensureViewsSchema() {
     );
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_view_links_view ON view_links(view_id);`;
-
-  await sql`
-    INSERT INTO view_shares
-      (view_id, user_id, role, created_at, updated_at, created_by, updated_by)
-    SELECT
-      v.id,
-      COALESCE(v.owner_user_id, v.created_by),
-      'owner',
-      v.created_at,
-      v.updated_at,
-      v.created_by,
-      v.updated_by
-    FROM views v
-    WHERE COALESCE(v.owner_user_id, v.created_by) IS NOT NULL
-      AND NOT EXISTS (
-        SELECT 1
-        FROM view_shares vs
-        WHERE vs.view_id = v.id
-          AND vs.user_id = COALESCE(v.owner_user_id, v.created_by)
-      );
-  `;
 
   await sql`
     INSERT INTO view_links
