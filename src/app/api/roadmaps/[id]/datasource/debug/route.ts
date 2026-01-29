@@ -1,21 +1,21 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { ensureRoadmapsSchema } from '@/lib/roadmapsDb';
-import { getRoadmapRole, hasRoadmapRoleAtLeast } from '@/lib/roadmapsAccess';
+import { getRoadmapRoleForUser, hasRoadmapRoleAtLeast } from '@/lib/roadmapsAccess';
 import { fetchAzureDevopsDebugPayload } from '@/lib/roadmapDatasourceServer';
+import { getAuthUser } from '@/lib/usersAccess';
 
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const { userId } = await auth();
-  if (!userId) {
+  const authUser = await getAuthUser();
+  if (!authUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const { id } = await context.params;
   await ensureRoadmapsSchema();
-  const role = await getRoadmapRole(userId, id);
+  const role = await getRoadmapRoleForUser(authUser.id, id);
   if (!hasRoadmapRoleAtLeast(role, 'viewer')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }

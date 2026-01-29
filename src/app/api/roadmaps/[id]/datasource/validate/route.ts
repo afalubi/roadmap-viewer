@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { ensureRoadmapsSchema } from '@/lib/roadmapsDb';
-import { getRoadmapRole, hasRoadmapRoleAtLeast } from '@/lib/roadmapsAccess';
+import { getRoadmapRoleForUser, hasRoadmapRoleAtLeast } from '@/lib/roadmapsAccess';
 import type { RoadmapDatasourceType } from '@/types/roadmapDatasources';
 import {
   getDatasourceRecord,
@@ -9,13 +8,14 @@ import {
   validateAzureDevopsConfig,
 } from '@/lib/roadmapDatasourceServer';
 import { decryptSecret } from '@/lib/secretStore';
+import { getAuthUser } from '@/lib/usersAccess';
 
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const { userId } = await auth();
-  if (!userId) {
+  const authUser = await getAuthUser();
+  if (!authUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -27,7 +27,7 @@ export async function POST(
   };
 
   await ensureRoadmapsSchema();
-  const role = await getRoadmapRole(userId, id);
+  const role = await getRoadmapRoleForUser(authUser.id, id);
   if (!hasRoadmapRoleAtLeast(role, 'owner')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }

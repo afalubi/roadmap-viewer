@@ -1,13 +1,14 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { auth, clerkClient } from '@clerk/nextjs/server';
+import { clerkClient } from '@clerk/nextjs/server';
 import { sql } from '@/lib/neon';
 import { ensureRoadmapsSchema } from '@/lib/roadmapsDb';
 import {
   canGrantRoadmapRole,
-  getRoadmapRole,
+  getRoadmapRoleForUser,
   hasRoadmapRoleAtLeast,
   type RoadmapRole,
 } from '@/lib/roadmapsAccess';
+import { getAuthUser } from '@/lib/usersAccess';
 
 const VALID_ROLES: RoadmapRole[] = ['editor', 'owner'];
 
@@ -98,8 +99,8 @@ export async function GET(
   _request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const { userId } = await auth();
-  if (!userId) {
+  const authUser = await getAuthUser();
+  if (!authUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -116,7 +117,7 @@ export async function GET(
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
-  const role = await getRoadmapRole(userId, id);
+  const role = await getRoadmapRoleForUser(authUser.id, id);
   if (!hasRoadmapRoleAtLeast(role, 'editor')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -158,8 +159,8 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const { userId } = await auth();
-  if (!userId) {
+  const authUser = await getAuthUser();
+  if (!authUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -194,14 +195,14 @@ export async function POST(
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
-  const grantorRole = await getRoadmapRole(userId, id);
+  const grantorRole = await getRoadmapRoleForUser(authUser.id, id);
   if (!hasRoadmapRoleAtLeast(grantorRole, 'editor')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   if (!canGrantRoadmapRole(grantorRole, requestedRole)) {
     return NextResponse.json({ error: 'Cannot grant higher role' }, { status: 403 });
   }
-  if (targetUserId === userId) {
+  if (targetUserId === authUser.id) {
     return NextResponse.json(
       { error: 'Cannot change your own access' },
       { status: 400 },
@@ -215,7 +216,7 @@ export async function POST(
     LIMIT 1
   `;
   const target = targetRows[0] as { role: RoadmapRole } | undefined;
-  if (target?.role && !canModifyShareEntry(grantorRole, target.role, targetUserId === userId)) {
+  if (target?.role && !canModifyShareEntry(grantorRole, target.role, targetUserId === authUser.id)) {
     return NextResponse.json({ error: 'Cannot modify peer access' }, { status: 403 });
   }
   if (target?.role && !canGrantRoadmapRole(grantorRole, target.role)) {
@@ -229,13 +230,13 @@ export async function POST(
     INSERT INTO roadmap_shares
       (roadmap_id, user_id, role, user_email, created_at, updated_at, created_by, updated_by)
     VALUES
-      (${id}, ${targetUserId}, ${requestedRole}, ${resolvedEmail}, ${now}, ${now}, ${userId}, ${userId})
+      (${id}, ${targetUserId}, ${requestedRole}, ${resolvedEmail}, ${now}, ${now}, ${authUser.id}, ${authUser.id})
     ON CONFLICT (roadmap_id, user_id)
     DO UPDATE SET
       role = ${requestedRole},
       user_email = COALESCE(${resolvedEmail}, roadmap_shares.user_email),
       updated_at = ${now},
-      updated_by = ${userId}
+      updated_by = ${authUser.id}
   `;
 
   return NextResponse.json({ success: true });

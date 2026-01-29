@@ -1,10 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { sql } from '@/lib/neon';
 import { ensureRoadmapsSchema } from '@/lib/roadmapsDb';
-import { getRoadmapRole, hasRoadmapRoleAtLeast } from '@/lib/roadmapsAccess';
+import { getRoadmapRoleForUser, hasRoadmapRoleAtLeast } from '@/lib/roadmapsAccess';
 import { isThemeOption } from '@/lib/themeOptions';
 import type { RoadmapThemeConfig, ThemeOverrides } from '@/types/theme';
+import { getAuthUser } from '@/lib/usersAccess';
 
 const parseThemeConfig = (
   value?: string | null,
@@ -46,14 +46,14 @@ export async function GET(
   _request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const { userId } = await auth();
-  if (!userId) {
+  const authUser = await getAuthUser();
+  if (!authUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const { id } = await context.params;
   await ensureRoadmapsSchema();
 
-  const role = await getRoadmapRole(userId, id);
+  const role = await getRoadmapRoleForUser(authUser.id, id);
   if (!hasRoadmapRoleAtLeast(role, 'viewer')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -76,8 +76,8 @@ export async function PUT(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const { userId } = await auth();
-  if (!userId) {
+  const authUser = await getAuthUser();
+  if (!authUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const { id } = await context.params;
@@ -91,7 +91,7 @@ export async function PUT(
   }
 
   await ensureRoadmapsSchema();
-  const role = await getRoadmapRole(userId, id);
+  const role = await getRoadmapRoleForUser(authUser.id, id);
   if (!hasRoadmapRoleAtLeast(role, 'editor')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -108,7 +108,7 @@ export async function PUT(
   await sql`
     UPDATE roadmaps
     SET theme_json = ${normalizedConfig ? JSON.stringify(normalizedConfig) : null},
-        updated_by = ${userId},
+        updated_by = ${authUser.id},
         updated_at = ${now}
     WHERE id = ${id}
   `;

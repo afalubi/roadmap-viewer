@@ -408,5 +408,16 @@ export function getLineFillClasses(itemClasses: string): {
   const borderClass = itemClasses
     .split(' ')
     .find((cls) => cls.startsWith('border-'));
-  return borderClass ? LINE_BG_CLASS_MAP[borderClass] ?? { fill: '', hover: '' } : { fill: '', hover: '' };
+  if (!borderClass) {
+    return { fill: '', hover: '' };
+  }
+  if (LINE_BG_CLASS_MAP[borderClass]) {
+    return LINE_BG_CLASS_MAP[borderClass];
+  }
+  // Fallback: derive from bg-* class to avoid transparent line items.
+  const bgClass = itemClasses.split(' ').find((cls) => cls.startsWith('bg-'));
+  if (bgClass) {
+    return { fill: bgClass, hover: bgClass };
+  }
+  return { fill: '', hover: '' };
 }

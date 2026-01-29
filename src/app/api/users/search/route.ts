@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { searchDirectoryUsers } from '@/lib/userDirectory';
+import { getAuthUser } from '@/lib/usersAccess';
 
 const MIN_QUERY_LENGTH = 2;
 
 export async function GET(request: Request) {
-  const { userId } = await auth();
-  if (!userId) {
+  const authUser = await getAuthUser();
+  if (!authUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

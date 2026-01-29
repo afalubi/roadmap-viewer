@@ -1,28 +1,39 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { sql } from '@/lib/neon';
 import { ensureRoadmapsSchema } from '@/lib/roadmapsDb';
+import { getAuthUser } from '@/lib/usersAccess';
 
 export async function GET() {
-  const { userId } = await auth();
-  if (!userId) {
+  const authUser = await getAuthUser();
+  if (!authUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   await ensureRoadmapsSchema();
-  const rows = await sql`
-    SELECT
-      r.id,
-      r.name,
-      r.created_at,
-      r.updated_at,
-      rs.role
-    FROM roadmaps r
-    JOIN roadmap_shares rs
-      ON rs.roadmap_id = r.id
-    WHERE rs.user_id = ${userId}
-    ORDER BY r.updated_at DESC
-  `;
+  const rows = authUser.roles.isSystemAdmin
+    ? await sql`
+        SELECT
+          r.id,
+          r.name,
+          r.created_at,
+          r.updated_at,
+          'owner' AS role
+        FROM roadmaps r
+        ORDER BY r.updated_at DESC
+      `
+    : await sql`
+        SELECT
+          r.id,
+          r.name,
+          r.created_at,
+          r.updated_at,
+          rs.role
+        FROM roadmaps r
+        JOIN roadmap_shares rs
+          ON rs.roadmap_id = r.id
+        WHERE rs.user_id = ${authUser.id}
+        ORDER BY r.updated_at DESC
+      `;
 
   const roadmaps = rows.map((row: any) => ({
     id: row.id,
@@ -36,9 +47,12 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { userId } = await auth();
-  if (!userId) {
+  const authUser = await getAuthUser();
+  if (!authUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  if (!authUser.roles.canCreateRoadmaps && !authUser.roles.isSystemAdmin) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const body = (await request.json()) as {
@@ -60,13 +74,13 @@ export async function POST(request: Request) {
     INSERT INTO roadmaps
       (id, name, csv_text, created_by, updated_by, created_at, updated_at)
     VALUES
-      (${id}, ${name}, ${csvText}, ${userId}, ${userId}, ${now}, ${now})
+      (${id}, ${name}, ${csvText}, ${authUser.id}, ${authUser.id}, ${now}, ${now})
   `;
   await sql`
     INSERT INTO roadmap_shares
       (roadmap_id, user_id, role, created_at, updated_at, created_by, updated_by)
     VALUES
-      (${id}, ${userId}, 'owner', ${now}, ${now}, ${userId}, ${userId})
+      (${id}, ${authUser.id}, 'owner', ${now}, ${now}, ${authUser.id}, ${authUser.id})
   `;
   await sql`
     INSERT INTO roadmap_datasources (roadmap_id, type, config_json)

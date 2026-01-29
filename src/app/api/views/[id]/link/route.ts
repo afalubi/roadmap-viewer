@@ -1,10 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { createHash } from 'crypto';
 import { sql } from '@/lib/neon';
 import { ensureViewsSchema } from '@/lib/viewsDb';
 import { ensureRoadmapsSchema } from '@/lib/roadmapsDb';
-import { getRoadmapRole, hasRoadmapRoleAtLeast } from '@/lib/roadmapsAccess';
+import { getRoadmapRoleForUser, hasRoadmapRoleAtLeast } from '@/lib/roadmapsAccess';
+import { getAuthUser } from '@/lib/usersAccess';
 
 const generateSlug = () =>
   Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
@@ -32,8 +32,8 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const { userId } = await auth();
-  if (!userId) {
+  const authUser = await getAuthUser();
+  if (!authUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -61,7 +61,7 @@ export async function POST(
 
   await ensureRoadmapsSchema();
   const roadmapId = view.roadmap_id ?? '';
-  const role = roadmapId ? await getRoadmapRole(userId, roadmapId) : null;
+  const role = roadmapId ? await getRoadmapRoleForUser(authUser.id, roadmapId) : null;
   if (!hasRoadmapRoleAtLeast(role, 'editor')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -81,7 +81,7 @@ export async function POST(
         UPDATE view_links
         SET password_hash = ${passwordHash},
             updated_at = ${now},
-            updated_by = ${userId}
+        updated_by = ${authUser.id}
         WHERE view_id = ${id}
       `;
     }
@@ -102,7 +102,7 @@ export async function POST(
 
   await sql`
     INSERT INTO view_links (slug, view_id, role, password_hash, created_at, updated_at, created_by, updated_by)
-    VALUES (${slug}, ${id}, 'viewer', ${passwordHash}, ${now}, ${now}, ${userId}, ${userId})
+    VALUES (${slug}, ${id}, 'viewer', ${passwordHash}, ${now}, ${now}, ${authUser.id}, ${authUser.id})
     ON CONFLICT (slug) DO NOTHING
   `;
 
@@ -113,8 +113,8 @@ export async function DELETE(
   _request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const { userId } = await auth();
-  if (!userId) {
+  const authUser = await getAuthUser();
+  if (!authUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -133,7 +133,7 @@ export async function DELETE(
 
   await ensureRoadmapsSchema();
   const roadmapId = view.roadmap_id ?? '';
-  const role = roadmapId ? await getRoadmapRole(userId, roadmapId) : null;
+  const role = roadmapId ? await getRoadmapRoleForUser(authUser.id, roadmapId) : null;
   if (!hasRoadmapRoleAtLeast(role, 'editor')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }

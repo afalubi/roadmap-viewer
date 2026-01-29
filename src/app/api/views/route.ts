@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { sql } from '@/lib/neon';
 import { ensureViewsSchema } from '@/lib/viewsDb';
 import { ensureRoadmapsSchema } from '@/lib/roadmapsDb';
-import { getRoadmapRole, hasRoadmapRoleAtLeast } from '@/lib/roadmapsAccess';
+import { getRoadmapRoleForUser, hasRoadmapRoleAtLeast } from '@/lib/roadmapsAccess';
+import { getAuthUser } from '@/lib/usersAccess';
 
 export async function GET(request: Request) {
-  const { userId } = await auth();
-  if (!userId) {
+  const authUser = await getAuthUser();
+  if (!authUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   }
 
   await ensureRoadmapsSchema();
-  const roadmapRole = await getRoadmapRole(userId, roadmapId);
+  const roadmapRole = await getRoadmapRoleForUser(authUser.id, roadmapId);
   if (!hasRoadmapRoleAtLeast(roadmapRole, 'viewer')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -59,8 +59,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { userId } = await auth();
-  if (!userId) {
+  const authUser = await getAuthUser();
+  if (!authUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -85,7 +85,7 @@ export async function POST(request: Request) {
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
   await ensureRoadmapsSchema();
-  const roadmapRole = await getRoadmapRole(userId, roadmapId);
+  const roadmapRole = await getRoadmapRoleForUser(authUser.id, roadmapId);
   if (!hasRoadmapRoleAtLeast(roadmapRole, 'editor')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -95,7 +95,7 @@ export async function POST(request: Request) {
     INSERT INTO views
       (id, name, scope, roadmap_id, owner_user_id, created_by, updated_by, payload, shared_slug, created_at, updated_at)
     VALUES
-      (${id}, ${name}, 'personal', ${roadmapId}, ${userId}, ${userId}, ${userId},
+      (${id}, ${name}, 'personal', ${roadmapId}, ${authUser.id}, ${authUser.id}, ${authUser.id},
        ${JSON.stringify(body.payload)}, NULL, ${now}, ${now})
   `;
   return NextResponse.json({

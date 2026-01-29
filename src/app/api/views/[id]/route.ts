@@ -1,15 +1,15 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { sql } from '@/lib/neon';
 import { ensureViewsSchema } from '@/lib/viewsDb';
-import { getRoadmapRole, hasRoadmapRoleAtLeast } from '@/lib/roadmapsAccess';
+import { getRoadmapRoleForUser, hasRoadmapRoleAtLeast } from '@/lib/roadmapsAccess';
+import { getAuthUser } from '@/lib/usersAccess';
 
 export async function PUT(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const { userId } = await auth();
-  if (!userId) {
+  const authUser = await getAuthUser();
+  if (!authUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -39,7 +39,7 @@ export async function PUT(
   }
 
   const roadmapId = existing.roadmap_id ?? '';
-  const role = roadmapId ? await getRoadmapRole(userId, roadmapId) : null;
+  const role = roadmapId ? await getRoadmapRoleForUser(authUser.id, roadmapId) : null;
   if (!hasRoadmapRoleAtLeast(role, 'editor')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -51,7 +51,7 @@ export async function PUT(
     UPDATE views
     SET name = COALESCE(${name ?? null}, name),
         payload = COALESCE(${payloadJson}, payload),
-        updated_by = ${userId},
+        updated_by = ${authUser.id},
         updated_at = ${now}
     WHERE id = ${id}
   `;
@@ -63,8 +63,8 @@ export async function DELETE(
   _request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const { userId } = await auth();
-  if (!userId) {
+  const authUser = await getAuthUser();
+  if (!authUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -83,7 +83,7 @@ export async function DELETE(
   }
 
   const roadmapId = existing.roadmap_id ?? '';
-  const role = roadmapId ? await getRoadmapRole(userId, roadmapId) : null;
+  const role = roadmapId ? await getRoadmapRoleForUser(authUser.id, roadmapId) : null;
   if (!hasRoadmapRoleAtLeast(role, 'editor')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }

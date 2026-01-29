@@ -22,9 +22,11 @@ import { RoadmapFilters } from "@/components/roadmap/RoadmapFilters";
 import { RoadmapTimeline } from "@/components/roadmap/RoadmapTimeline";
 import { UnplannedList } from "@/components/roadmap/UnplannedList";
 import { RoadmapManagerPanel } from "@/components/roadmap/RoadmapManagerPanel";
+import { AdminPanel } from "@/components/roadmap/AdminPanel";
 import { SavedViewsPanel } from "@/components/roadmap/SavedViewsPanel";
 import type { RoadmapDetail, RoadmapSummary } from "@/types/roadmaps";
 import type { RoadmapThemeConfig } from "@/types/theme";
+import type { UserRoles } from "@/types/users";
 import type {
   DisplayOptions,
   GroupByOption,
@@ -137,6 +139,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
   const [loadedView, setLoadedView] = useState<SavedView | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   const [viewMode, setViewMode] = useState<RoadmapPageMode>(mode);
+  const [userRoles, setUserRoles] = useState<UserRoles | null>(null);
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -192,6 +196,33 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
         })
         .finally(() => setIsItemsLoading(false));
     }
+  }, [isLoaded, isSignedIn, isOnline]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (!isSignedIn) {
+      setUserRoles(null);
+      return;
+    }
+    if (!isOnline) return;
+    let active = true;
+    const fetchMe = async () => {
+      try {
+        const res = await fetch("/api/users/me");
+        if (!res.ok) return;
+        const data = (await res.json()) as { user?: { roles?: UserRoles } };
+        if (!active) return;
+        setUserRoles(data.user?.roles ?? null);
+      } catch {
+        if (active) {
+          setUserRoles(null);
+        }
+      }
+    };
+    fetchMe();
+    return () => {
+      active = false;
+    };
   }, [isLoaded, isSignedIn, isOnline]);
 
   useEffect(() => {
@@ -999,6 +1030,9 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
   };
 
   const hasSharedView = isSharedViewActive || Boolean(sharedViewSlug);
+  const canCreateRoadmaps = Boolean(
+    userRoles?.canCreateRoadmaps || userRoles?.isSystemAdmin
+  );
 
   useEffect(() => {
     if (!isSignedIn) return;
@@ -1584,9 +1618,12 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                             type="button"
                             onClick={() => {
                               setIsRoadmapMenuOpen(false);
-                              setIsRoadmapManageOpen(true);
+                              if (canCreateRoadmaps) {
+                                setIsRoadmapManageOpen(true);
+                              }
                             }}
-                            className="w-full rounded-md border border-slate-200 px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                            className="w-full rounded-md border border-slate-200 px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                            disabled={!canCreateRoadmaps}
                           >
                             Create new roadmap
                           </button>
@@ -1605,6 +1642,15 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                 >
                   Theme editor
                 </Link>
+                {userRoles?.isSystemAdmin ? (
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                    onClick={() => setIsAdminOpen(true)}
+                  >
+                    Admin
+                  </button>
+                ) : null}
                 {!isSharedViewActive ? (
                   <button
                     type="button"
@@ -2501,6 +2547,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                       onCreateRoadmap={handleCreateRoadmap}
                       onRenameRoadmap={handleRenameRoadmap}
                       onDeleteRoadmap={handleDeleteRoadmap}
+                      canCreateRoadmaps={canCreateRoadmaps}
                       showDebug={showDebugOutlines}
                       variant="plain"
                     />
@@ -2525,10 +2572,14 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
             onShareUser={handleShareRoadmapUser}
             onUpdateShare={handleUpdateRoadmapShare}
             onRevokeShare={handleRevokeRoadmapShare}
+            canCreateRoadmaps={canCreateRoadmaps}
             showDebug={showDebugOutlines}
             shareOnly
             variant="plain"
           />
+        ) : null}
+        {userRoles?.isSystemAdmin ? (
+          <AdminPanel isOpen={isAdminOpen} onClose={() => setIsAdminOpen(false)} />
         ) : null}
         {viewPasswordPrompt && typeof document !== "undefined"
           ? createPortal(

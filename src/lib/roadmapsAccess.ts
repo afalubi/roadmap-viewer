@@ -1,4 +1,5 @@
 import { sql } from '@/lib/neon';
+import { getUserRoles } from '@/lib/usersDb';
 
 export type RoadmapRole = 'owner' | 'editor' | 'viewer' | null;
 
@@ -20,6 +21,17 @@ export async function getRoadmapRole(
   `;
   const row = rows[0] as { role?: RoadmapRole } | undefined;
   return row?.role ?? null;
+}
+
+export async function getRoadmapRoleForUser(
+  userId: string,
+  roadmapId: string,
+): Promise<RoadmapRole> {
+  const roles = await getUserRoles(userId);
+  if (roles.isSystemAdmin) {
+    return 'owner';
+  }
+  return getRoadmapRole(userId, roadmapId);
 }
 
 export function hasRoadmapRoleAtLeast(

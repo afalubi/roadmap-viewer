@@ -36,6 +36,7 @@ interface Props {
   onShareUser?: (id: string, userId: string, role: RoadmapRole) => Promise<boolean>;
   onUpdateShare?: (id: string, userId: string, role: RoadmapRole) => Promise<boolean>;
   onRevokeShare?: (id: string, userId: string) => Promise<boolean>;
+  canCreateRoadmaps?: boolean;
   shareOnly?: boolean;
   variant?: 'card' | 'plain';
 }
@@ -64,6 +65,7 @@ export function RoadmapManagerPanel({
   onShareUser,
   onUpdateShare,
   onRevokeShare,
+  canCreateRoadmaps = true,
   shareOnly = false,
   variant = 'card',
 }: Props) {
@@ -1932,31 +1934,37 @@ export function RoadmapManagerPanel({
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               Create roadmap
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                type="text"
-                value={name}
-                onChange={(event) => setName(event.target.value.slice(0, MAX_NAME))}
-                maxLength={MAX_NAME}
-                placeholder="Roadmap name"
-                className="w-48 rounded-md border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
-              />
-              <button
-                type="button"
-                className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-                onClick={async () => {
-                  const trimmed = name.trim();
-                  if (!trimmed) return;
-                  const ok = await onCreateRoadmap(trimmed, '');
-                  if (ok) {
-                    setName('');
-                  }
-                }}
-                disabled={!name.trim()}
-              >
-                Create roadmap
-              </button>
-            </div>
+            {canCreateRoadmaps ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(event) => setName(event.target.value.slice(0, MAX_NAME))}
+                  maxLength={MAX_NAME}
+                  placeholder="Roadmap name"
+                  className="w-48 rounded-md border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                />
+                <button
+                  type="button"
+                  className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                  onClick={async () => {
+                    const trimmed = name.trim();
+                    if (!trimmed) return;
+                    const ok = await onCreateRoadmap(trimmed, '');
+                    if (ok) {
+                      setName('');
+                    }
+                  }}
+                  disabled={!name.trim()}
+                >
+                  Create roadmap
+                </button>
+              </div>
+            ) : (
+              <div className="text-[0.7rem] text-slate-500 dark:text-slate-400">
+                You don’t have permission to create roadmaps.
+              </div>
+            )}
           </div>
         </div>
       </SignedIn>
