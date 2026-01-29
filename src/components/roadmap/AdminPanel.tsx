@@ -128,6 +128,61 @@ export function AdminPanel({ isOpen, onClose }: Props) {
     });
   }, [query, users, showUnassignedAdOnly]);
 
+  const userLookup = useMemo(() => {
+    const lookup = new Map<string, AdminUserSummary>();
+    users.forEach((user) => lookup.set(user.id, user));
+    return lookup;
+  }, [users]);
+
+  const formatActor = (entry: AuditEntry) => {
+    const user = userLookup.get(entry.actorUserId);
+    if (!user) return entry.actorUserId;
+    if (user.displayName && user.email) return `${user.displayName} (${user.email})`;
+    return user.displayName || user.email || entry.actorUserId;
+  };
+
+  const formatTarget = (entry: AuditEntry) => {
+    const meta = entry.metadata ?? {};
+    const name = typeof meta.name === 'string' ? meta.name : '';
+    const title = typeof meta.title === 'string' ? meta.title : '';
+    const targetUserId =
+      typeof meta.targetUserId === 'string' ? meta.targetUserId : '';
+    const userEmail = typeof meta.userEmail === 'string' ? meta.userEmail : '';
+    const roadmapId = typeof meta.roadmapId === 'string' ? meta.roadmapId : '';
+    const viewId = typeof meta.viewId === 'string' ? meta.viewId : '';
+
+    if (entry.targetType === 'roadmap') {
+      return name || title || entry.targetId || 'Roadmap';
+    }
+    if (entry.targetType === 'user') {
+      const user = entry.targetId ? userLookup.get(entry.targetId) : null;
+      if (user) {
+        if (user.displayName && user.email) return `${user.displayName} (${user.email})`;
+        return user.displayName || user.email || entry.targetId || 'User';
+      }
+      return entry.targetId || 'User';
+    }
+    if (entry.targetType === 'roadmap_share') {
+      const userLabel =
+        userEmail ||
+        (targetUserId
+          ? userLookup.get(targetUserId)?.displayName ||
+            userLookup.get(targetUserId)?.email ||
+            targetUserId
+          : '') ||
+        'User';
+      if (roadmapId) return `Roadmap ${roadmapId} · ${userLabel}`;
+      return userLabel;
+    }
+    if (entry.targetType === 'view_link') {
+      if (entry.targetId && viewId) return `Link ${entry.targetId} (view ${viewId})`;
+      return entry.targetId || viewId || 'View link';
+    }
+
+    if (name || title) return name || title;
+    return entry.targetId ? `${entry.targetType}:${entry.targetId}` : entry.targetType;
+  };
+
   const updateRole = async (
     userId: string,
     updates: { isSystemAdmin?: boolean; canCreateRoadmaps?: boolean },
@@ -398,14 +453,15 @@ export function AdminPanel({ isOpen, onClose }: Props) {
                           {new Date(entry.createdAt).toLocaleString()}
                         </td>
                         <td className="px-3 py-2 text-slate-600 dark:text-slate-300">
-                          {entry.actorUserId}
+                          <span title={entry.actorUserId}>{formatActor(entry)}</span>
                         </td>
                         <td className="px-3 py-2 text-slate-600 dark:text-slate-300">
                           {entry.action}
                         </td>
                         <td className="px-3 py-2 text-slate-600 dark:text-slate-300">
-                          {entry.targetType}
-                          {entry.targetId ? `:${entry.targetId}` : ''}
+                          <span title={`${entry.targetType}${entry.targetId ? `:${entry.targetId}` : ''}`}>
+                            {formatTarget(entry)}
+                          </span>
                         </td>
                         <td className="px-3 py-2 text-[0.7rem] text-slate-500">
                           {entry.metadata
