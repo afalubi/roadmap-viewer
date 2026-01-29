@@ -10,6 +10,18 @@ type AdminStats = {
   unassignedAdUsers: number;
 };
 
+type AuditEntry = {
+  id: string;
+  actorUserId: string;
+  action: string;
+  targetType: string;
+  targetId?: string | null;
+  metadata?: Record<string, unknown> | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  createdAt: string;
+};
+
 interface Props {
   isOpen: boolean;
   onClose: () => void;
@@ -22,6 +34,12 @@ export function AdminPanel({ isOpen, onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [showUnassignedAdOnly, setShowUnassignedAdOnly] = useState(false);
+  const [activeTab, setActiveTab] = useState<'users' | 'audit'>('users');
+  const [audit, setAudit] = useState<AuditEntry[]>([]);
+  const [auditQuery, setAuditQuery] = useState('');
+  const [auditAction, setAuditAction] = useState('');
+  const [auditIsLoading, setAuditIsLoading] = useState(false);
+  const [auditError, setAuditError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -57,6 +75,42 @@ export function AdminPanel({ isOpen, onClose }: Props) {
       active = false;
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (activeTab !== 'audit') return;
+    let active = true;
+    const fetchAudit = async () => {
+      setAuditIsLoading(true);
+      setAuditError(null);
+      try {
+        const params = new URLSearchParams();
+        params.set('limit', '100');
+        if (auditQuery.trim()) params.set('q', auditQuery.trim());
+        if (auditAction.trim()) params.set('action', auditAction.trim());
+        const res = await fetch(`/api/admin/audit?${params.toString()}`);
+        if (!res.ok) {
+          setAuditError('Unable to load audit log.');
+          return;
+        }
+        const data = (await res.json()) as { audit?: AuditEntry[] };
+        if (!active) return;
+        setAudit(Array.isArray(data.audit) ? data.audit : []);
+      } catch {
+        if (active) {
+          setAuditError('Unable to load audit log.');
+        }
+      } finally {
+        if (active) {
+          setAuditIsLoading(false);
+        }
+      }
+    };
+    fetchAudit();
+    return () => {
+      active = false;
+    };
+  }, [activeTab, auditQuery, auditAction, isOpen]);
 
   const filteredUsers = useMemo(() => {
     const trimmed = query.trim().toLowerCase();
@@ -126,6 +180,33 @@ export function AdminPanel({ isOpen, onClose }: Props) {
           </button>
         </div>
 
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className={[
+              'rounded-full border px-3 py-1 text-xs',
+              activeTab === 'users'
+                ? 'border-sky-300 bg-sky-50 text-sky-700'
+                : 'border-slate-300 text-slate-600 hover:bg-slate-100',
+            ].join(' ')}
+            onClick={() => setActiveTab('users')}
+          >
+            Users
+          </button>
+          <button
+            type="button"
+            className={[
+              'rounded-full border px-3 py-1 text-xs',
+              activeTab === 'audit'
+                ? 'border-sky-300 bg-sky-50 text-sky-700'
+                : 'border-slate-300 text-slate-600 hover:bg-slate-100',
+            ].join(' ')}
+            onClick={() => setActiveTab('audit')}
+          >
+            Audit
+          </button>
+        </div>
+
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
             <div className="text-[0.65rem] uppercase tracking-wide text-slate-400">
@@ -153,112 +234,192 @@ export function AdminPanel({ isOpen, onClose }: Props) {
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <input
-            type="text"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search users"
-            className="w-64 rounded-md border border-slate-300 px-3 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200"
-          />
-          <button
-            type="button"
-            className={[
-              'rounded-full border px-3 py-1 text-[0.7rem]',
-              showUnassignedAdOnly
-                ? 'border-sky-300 bg-sky-50 text-sky-700'
-                : 'border-slate-300 text-slate-600 hover:bg-slate-100',
-            ].join(' ')}
-            onClick={() => setShowUnassignedAdOnly((prev) => !prev)}
-          >
-            {showUnassignedAdOnly ? 'Showing AD without access' : 'Filter AD without access'}
-          </button>
-          {isLoading ? (
-            <span className="text-xs text-slate-400">Loading...</span>
-          ) : null}
-          {error ? (
-            <span className="text-xs text-rose-600">{error}</span>
-          ) : null}
-        </div>
+        {activeTab === 'users' ? (
+          <>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <input
+                type="text"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search users"
+                className="w-64 rounded-md border border-slate-300 px-3 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200"
+              />
+              <button
+                type="button"
+                className={[
+                  'rounded-full border px-3 py-1 text-[0.7rem]',
+                  showUnassignedAdOnly
+                    ? 'border-sky-300 bg-sky-50 text-sky-700'
+                    : 'border-slate-300 text-slate-600 hover:bg-slate-100',
+                ].join(' ')}
+                onClick={() => setShowUnassignedAdOnly((prev) => !prev)}
+              >
+                {showUnassignedAdOnly
+                  ? 'Showing AD without access'
+                  : 'Filter AD without access'}
+              </button>
+              {isLoading ? (
+                <span className="text-xs text-slate-400">Loading...</span>
+              ) : null}
+              {error ? (
+                <span className="text-xs text-rose-600">{error}</span>
+              ) : null}
+            </div>
 
-        <div className="mt-3 max-h-[60vh] overflow-auto rounded-lg border border-slate-200 dark:border-slate-700">
-          <table className="min-w-full text-xs">
-            <thead className="sticky top-0 bg-slate-50 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
-              <tr>
-                <th className="px-3 py-2 text-left font-semibold">User</th>
-                <th className="px-3 py-2 text-left font-semibold">IdP</th>
-                <th className="px-3 py-2 text-left font-semibold">System Admin</th>
-                <th className="px-3 py-2 text-left font-semibold">Can Create</th>
-                <th className="px-3 py-2 text-left font-semibold">Owned</th>
-                <th className="px-3 py-2 text-left font-semibold">Shared</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-              {filteredUsers.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-3 py-4 text-center text-slate-400"
-                  >
-                    No users found.
-                  </td>
-                </tr>
-              ) : (
-                filteredUsers.map((user) => (
-                  <tr key={user.id} className="bg-white dark:bg-slate-900">
-                    <td className="px-3 py-2">
-                      <div className="font-semibold text-slate-800 dark:text-slate-100">
-                        {user.displayName || user.email || user.id}
-                      </div>
-                      <div className="text-[0.7rem] text-slate-500 dark:text-slate-400">
-                        {user.email ?? 'No email'}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-slate-500 dark:text-slate-300">
-                      {user.idp === 'azure_ad' ? 'Azure AD' : 'Clerk'}
-                    </td>
-                    <td className="px-3 py-2">
-                      <label className="inline-flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={user.isSystemAdmin}
-                          onChange={(event) =>
-                            updateRole(user.id, {
-                              isSystemAdmin: event.target.checked,
-                            })
-                          }
-                        />
-                        <span className="text-[0.7rem] text-slate-500">Admin</span>
-                      </label>
-                    </td>
-                    <td className="px-3 py-2">
-                      <label className="inline-flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={user.canCreateRoadmaps}
-                          onChange={(event) =>
-                            updateRole(user.id, {
-                              canCreateRoadmaps: event.target.checked,
-                            })
-                          }
-                        />
-                        <span className="text-[0.7rem] text-slate-500">
-                          Creator
-                        </span>
-                      </label>
-                    </td>
-                    <td className="px-3 py-2 text-slate-600 dark:text-slate-300">
-                      {user.ownedCount}
-                    </td>
-                    <td className="px-3 py-2 text-slate-600 dark:text-slate-300">
-                      {user.sharedCount}
-                    </td>
+            <div className="mt-3 max-h-[60vh] overflow-auto rounded-lg border border-slate-200 dark:border-slate-700">
+              <table className="min-w-full text-xs">
+                <thead className="sticky top-0 bg-slate-50 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-semibold">User</th>
+                    <th className="px-3 py-2 text-left font-semibold">IdP</th>
+                    <th className="px-3 py-2 text-left font-semibold">System Admin</th>
+                    <th className="px-3 py-2 text-left font-semibold">Can Create</th>
+                    <th className="px-3 py-2 text-left font-semibold">Owned</th>
+                    <th className="px-3 py-2 text-left font-semibold">Shared</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                  {filteredUsers.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="px-3 py-4 text-center text-slate-400"
+                      >
+                        No users found.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredUsers.map((user) => (
+                      <tr key={user.id} className="bg-white dark:bg-slate-900">
+                        <td className="px-3 py-2">
+                          <div className="font-semibold text-slate-800 dark:text-slate-100">
+                            {user.displayName || user.email || user.id}
+                          </div>
+                          <div className="text-[0.7rem] text-slate-500 dark:text-slate-400">
+                            {user.email ?? 'No email'}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-slate-500 dark:text-slate-300">
+                          {user.idp === 'azure_ad' ? 'Azure AD' : 'Clerk'}
+                        </td>
+                        <td className="px-3 py-2">
+                          <label className="inline-flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={user.isSystemAdmin}
+                              onChange={(event) =>
+                                updateRole(user.id, {
+                                  isSystemAdmin: event.target.checked,
+                                })
+                              }
+                            />
+                            <span className="text-[0.7rem] text-slate-500">Admin</span>
+                          </label>
+                        </td>
+                        <td className="px-3 py-2">
+                          <label className="inline-flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={user.canCreateRoadmaps}
+                              onChange={(event) =>
+                                updateRole(user.id, {
+                                  canCreateRoadmaps: event.target.checked,
+                                })
+                              }
+                            />
+                            <span className="text-[0.7rem] text-slate-500">
+                              Creator
+                            </span>
+                          </label>
+                        </td>
+                        <td className="px-3 py-2 text-slate-600 dark:text-slate-300">
+                          {user.ownedCount}
+                        </td>
+                        <td className="px-3 py-2 text-slate-600 dark:text-slate-300">
+                          {user.sharedCount}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <input
+                type="text"
+                value={auditQuery}
+                onChange={(event) => setAuditQuery(event.target.value)}
+                placeholder="Search audit (target or metadata)"
+                className="w-64 rounded-md border border-slate-300 px-3 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200"
+              />
+              <input
+                type="text"
+                value={auditAction}
+                onChange={(event) => setAuditAction(event.target.value)}
+                placeholder="Filter by action"
+                className="w-40 rounded-md border border-slate-300 px-3 py-1 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200"
+              />
+              {auditIsLoading ? (
+                <span className="text-xs text-slate-400">Loading...</span>
+              ) : null}
+              {auditError ? (
+                <span className="text-xs text-rose-600">{auditError}</span>
+              ) : null}
+            </div>
+
+            <div className="mt-3 max-h-[60vh] overflow-auto rounded-lg border border-slate-200 dark:border-slate-700">
+              <table className="min-w-full text-xs">
+                <thead className="sticky top-0 bg-slate-50 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-semibold">Time</th>
+                    <th className="px-3 py-2 text-left font-semibold">Actor</th>
+                    <th className="px-3 py-2 text-left font-semibold">Action</th>
+                    <th className="px-3 py-2 text-left font-semibold">Target</th>
+                    <th className="px-3 py-2 text-left font-semibold">Meta</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                  {audit.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className="px-3 py-4 text-center text-slate-400"
+                      >
+                        No audit entries found.
+                      </td>
+                    </tr>
+                  ) : (
+                    audit.map((entry) => (
+                      <tr key={entry.id} className="bg-white dark:bg-slate-900">
+                        <td className="px-3 py-2 text-[0.7rem] text-slate-500">
+                          {new Date(entry.createdAt).toLocaleString()}
+                        </td>
+                        <td className="px-3 py-2 text-slate-600 dark:text-slate-300">
+                          {entry.actorUserId}
+                        </td>
+                        <td className="px-3 py-2 text-slate-600 dark:text-slate-300">
+                          {entry.action}
+                        </td>
+                        <td className="px-3 py-2 text-slate-600 dark:text-slate-300">
+                          {entry.targetType}
+                          {entry.targetId ? `:${entry.targetId}` : ''}
+                        </td>
+                        <td className="px-3 py-2 text-[0.7rem] text-slate-500">
+                          {entry.metadata
+                            ? JSON.stringify(entry.metadata)
+                            : '—'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
     </div>,
     document.body,

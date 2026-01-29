@@ -4,6 +4,7 @@ import { ensureRoadmapsSchema } from '@/lib/roadmapsDb';
 import { getRoadmapRoleForUser, hasRoadmapRoleAtLeast } from '@/lib/roadmapsAccess';
 import { getAuthUser } from '@/lib/usersAccess';
 import type { RoadmapThemeConfig } from '@/types/theme';
+import { getRequestMeta, recordAuditEvent } from '@/lib/auditLog';
 
 const parseThemeConfig = (
   value?: string | null,
@@ -128,7 +129,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
   const authUser = await getAuthUser();
@@ -144,6 +145,22 @@ export async function DELETE(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  const nameRows = await sql`
+    SELECT name
+    FROM roadmaps
+    WHERE id = ${id}
+    LIMIT 1
+  `;
+  const name = (nameRows[0] as { name?: string } | undefined)?.name ?? null;
+
   await sql`DELETE FROM roadmaps WHERE id = ${id}`;
+  await recordAuditEvent({
+    actorUserId: authUser.id,
+    action: 'roadmap.delete',
+    targetType: 'roadmap',
+    targetId: id,
+    metadata: { name },
+    ...getRequestMeta(request.headers),
+  });
   return NextResponse.json({ success: true });
 }

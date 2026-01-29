@@ -9,6 +9,7 @@ import {
   type RoadmapRole,
 } from '@/lib/roadmapsAccess';
 import { getAuthUser } from '@/lib/usersAccess';
+import { getRequestMeta, recordAuditEvent } from '@/lib/auditLog';
 
 const VALID_ROLES: RoadmapRole[] = ['editor', 'owner'];
 
@@ -173,11 +174,25 @@ export async function PUT(
     WHERE roadmap_id = ${id} AND user_id = ${targetUserId}
   `;
 
+  await recordAuditEvent({
+    actorUserId: authUser.id,
+    action: 'roadmap.share.update',
+    targetType: 'roadmap_share',
+    targetId: `${id}:${targetUserId}`,
+    metadata: {
+      roadmapId: id,
+      targetUserId,
+      role: requestedRole,
+      userEmail: resolvedEmail,
+    },
+    ...getRequestMeta(request.headers),
+  });
+
   return NextResponse.json({ success: true });
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string; userId: string }> },
 ) {
   const authUser = await getAuthUser();
@@ -242,6 +257,18 @@ export async function DELETE(
     DELETE FROM roadmap_shares
     WHERE roadmap_id = ${id} AND user_id = ${targetUserId}
   `;
+
+  await recordAuditEvent({
+    actorUserId: authUser.id,
+    action: 'roadmap.share.remove',
+    targetType: 'roadmap_share',
+    targetId: `${id}:${targetUserId}`,
+    metadata: {
+      roadmapId: id,
+      targetUserId,
+    },
+    ...getRequestMeta(request.headers),
+  });
 
   return NextResponse.json({ success: true });
 }

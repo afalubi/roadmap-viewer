@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { sql } from '@/lib/neon';
 import { ensureRoadmapsSchema } from '@/lib/roadmapsDb';
 import { getAuthUser } from '@/lib/usersAccess';
+import { getRequestMeta, recordAuditEvent } from '@/lib/auditLog';
 
 export async function GET() {
   const authUser = await getAuthUser();
@@ -87,6 +88,15 @@ export async function POST(request: Request) {
     VALUES (${id}, 'csv', '{}')
     ON CONFLICT (roadmap_id) DO NOTHING
   `;
+
+  await recordAuditEvent({
+    actorUserId: authUser.id,
+    action: 'roadmap.create',
+    targetType: 'roadmap',
+    targetId: id,
+    metadata: { name },
+    ...getRequestMeta(request.headers),
+  });
 
   return NextResponse.json({
     roadmap: {

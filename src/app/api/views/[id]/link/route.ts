@@ -5,6 +5,7 @@ import { ensureViewsSchema } from '@/lib/viewsDb';
 import { ensureRoadmapsSchema } from '@/lib/roadmapsDb';
 import { getRoadmapRoleForUser, hasRoadmapRoleAtLeast } from '@/lib/roadmapsAccess';
 import { getAuthUser } from '@/lib/usersAccess';
+import { getRequestMeta, recordAuditEvent } from '@/lib/auditLog';
 
 const generateSlug = () =>
   Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
@@ -106,11 +107,20 @@ export async function POST(
     ON CONFLICT (slug) DO NOTHING
   `;
 
+  await recordAuditEvent({
+    actorUserId: authUser.id,
+    action: existingSlug && rotate ? 'view_link.rotate' : 'view_link.create',
+    targetType: 'view_link',
+    targetId: slug,
+    metadata: { viewId: id },
+    ...getRequestMeta(request.headers),
+  });
+
   return NextResponse.json({ slug });
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
   const authUser = await getAuthUser();
@@ -142,6 +152,15 @@ export async function DELETE(
     DELETE FROM view_links
     WHERE view_id = ${id}
   `;
+
+  await recordAuditEvent({
+    actorUserId: authUser.id,
+    action: 'view_link.remove',
+    targetType: 'view_link',
+    targetId: id,
+    metadata: { viewId: id },
+    ...getRequestMeta(request.headers),
+  });
 
   return NextResponse.json({ success: true });
 }

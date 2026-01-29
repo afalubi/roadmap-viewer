@@ -9,6 +9,7 @@ import {
   type RoadmapRole,
 } from '@/lib/roadmapsAccess';
 import { getAuthUser } from '@/lib/usersAccess';
+import { getRequestMeta, recordAuditEvent } from '@/lib/auditLog';
 
 const VALID_ROLES: RoadmapRole[] = ['editor', 'owner'];
 
@@ -238,6 +239,20 @@ export async function POST(
       updated_at = ${now},
       updated_by = ${authUser.id}
   `;
+
+  await recordAuditEvent({
+    actorUserId: authUser.id,
+    action: target?.role ? 'roadmap.share.update' : 'roadmap.share.add',
+    targetType: 'roadmap_share',
+    targetId: `${id}:${targetUserId}`,
+    metadata: {
+      roadmapId: id,
+      targetUserId,
+      role: requestedRole,
+      userEmail: resolvedEmail,
+    },
+    ...getRequestMeta(request.headers),
+  });
 
   return NextResponse.json({ success: true });
 }
