@@ -172,6 +172,7 @@ export function RoadmapSwimlane({
               item.shortDescription &&
               displayOptions.itemStyle !== 'line';
             const hasInlineText = Boolean(hasInlineTitle || hasInlineShort);
+            const effortType = getEffortType(item.disposition);
             const lineHeight = displayOptions.itemStyle === 'line' ? 6 : 8;
             const itemTop =
               displayOptions.itemStyle === 'line'
@@ -218,9 +219,12 @@ export function RoadmapSwimlane({
                     displayOptions.itemStyle === 'line'
                       ? lineBorderClasses
                       : itemColorClasses,
+                    effortType === 'project'
+                      ? 'border-2 border-slate-700/80 dark:border-slate-200/80'
+                      : '',
                     displayOptions.itemStyle === 'line'
                       ? [
-                          'h-1.5 py-0 rounded-full',
+                          'h-1.5 py-0 rounded-full border',
                           lineFillClasses.fill,
                           lineFillClasses.hover,
                         ].join(' ')
@@ -323,6 +327,14 @@ function stripBgClasses(classes: string): string {
 function stripHtml(value: string): string {
   if (!value) return '';
   return value.replace(/<[^>]*>/g, '').trim();
+}
+
+function getEffortType(value?: string | null): 'discovery' | 'project' | null {
+  const normalized = (value ?? '').trim().toLowerCase();
+  if (!normalized) return null;
+  if (normalized.includes('discovery')) return 'discovery';
+  if (normalized.includes('project')) return 'project';
+  return null;
 }
 
 function renderRegionBadges(
