@@ -386,6 +386,8 @@ function buildLaneRows(
 function getTitlePrefix(title: string): string {
   const safe = (title || '').trim();
   if (!safe) return '';
-  const [prefix] = safe.split(':', 1);
+  const delimiterIndex = safe.search(/[:(]/);
+  const prefix =
+    delimiterIndex === -1 ? safe : safe.slice(0, delimiterIndex);
   return prefix.trim().toLowerCase();
 }
