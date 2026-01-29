@@ -255,6 +255,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
           : fallback;
       storage.setItem("roadmap-tab-id", tabId);
     }
+    setIsHydrated(false);
     setSettingsKey(`roadmap-viewer-settings:${tabId}`);
   }, []);
 
