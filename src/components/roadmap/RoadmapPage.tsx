@@ -137,13 +137,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
   } | null>(null);
   const [viewPasswordInput, setViewPasswordInput] = useState("");
   const [isViewPasswordLoading, setIsViewPasswordLoading] = useState(false);
-  const [isSharedViewPending, setIsSharedViewPending] = useState(() => {
-    if (typeof window === "undefined") return false;
-    const params = new URLSearchParams(window.location.search);
-    const hasParam = Boolean(params.get("view"));
-    const hasStored = Boolean(window.sessionStorage.getItem("sharedViewSlug"));
-    return hasParam || hasStored;
-  });
+  const [isSharedViewPending, setIsSharedViewPending] = useState(false);
+  const [hasMounted, setHasMounted] = useState(false);
   const [isRoadmapManageOpen, setIsRoadmapManageOpen] = useState(false);
   const [shareRoadmapId, setShareRoadmapId] = useState<string | null>(null);
   const [loadedView, setLoadedView] = useState<SavedView | null>(null);
@@ -164,6 +159,17 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       window.removeEventListener("online", updateOnlineStatus);
       window.removeEventListener("offline", updateOnlineStatus);
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setHasMounted(true);
+    const params = new URLSearchParams(window.location.search);
+    const hasParam = Boolean(params.get("view"));
+    const hasStored = Boolean(window.sessionStorage.getItem("sharedViewSlug"));
+    if (hasParam || hasStored) {
+      setIsSharedViewPending(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -1126,7 +1132,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
 
   const hasSharedView = isSharedViewActive || Boolean(sharedViewSlug);
   const isSharedViewLocked = Boolean(viewPasswordPrompt) || isSharedViewPending;
-  const shouldShowExitSharedView = isSharedViewActive || isSharedViewLocked;
+  const shouldShowExitSharedView =
+    hasMounted && (isSharedViewActive || isSharedViewLocked);
   const canCreateRoadmaps = Boolean(
     userRoles?.canCreateRoadmaps || userRoles?.isSystemAdmin
   );
@@ -1740,7 +1747,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                   Theme editor
                 </Link>
               ) : null}
-              {userRoles?.isSystemAdmin ? (
+              {userRoles?.isSystemAdmin && !shouldShowExitSharedView ? (
                 <button
                   type="button"
                   className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
