@@ -11,6 +11,12 @@ export interface MonthBucket {
   start: Date;
 }
 
+export interface WeekBucket {
+  label: string; // e.g., "Jan 6"
+  start: Date;
+  end: Date;
+}
+
 function getQuarter(date: Date): 1 | 2 | 3 | 4 {
   const month = date.getUTCMonth();
   return (Math.floor(month / 3) + 1) as 1 | 2 | 3 | 4;
@@ -116,6 +122,44 @@ export function buildMonthBuckets(start: Date, end: Date): MonthBucket[] {
     });
     buckets.push({ label, start: new Date(cursor) });
     cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+  }
+
+  return buckets;
+}
+
+function startOfWeekUTC(date: Date): Date {
+  const day = date.getUTCDay(); // 0 = Sunday
+  const diff = day === 0 ? -6 : 1 - day; // Monday start
+  return new Date(Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate() + diff,
+  ));
+}
+
+export function buildWeekBuckets(start: Date, end: Date): WeekBucket[] {
+  const buckets: WeekBucket[] = [];
+  const cursor = startOfWeekUTC(start);
+  const endTime = end.getTime();
+
+  while (cursor.getTime() <= endTime) {
+    const label = cursor.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'UTC',
+    });
+    const bucketStart = new Date(cursor);
+    const bucketEnd = new Date(Date.UTC(
+      cursor.getUTCFullYear(),
+      cursor.getUTCMonth(),
+      cursor.getUTCDate() + 6,
+      23,
+      59,
+      59,
+      999,
+    ));
+    buckets.push({ label, start: bucketStart, end: bucketEnd });
+    cursor.setUTCDate(cursor.getUTCDate() + 7);
   }
 
   return buckets;

@@ -21,6 +21,7 @@ import { buildCsvFromItems } from "@/lib/roadmapCsv";
 import { RoadmapFilters } from "@/components/roadmap/RoadmapFilters";
 import { RoadmapTimeline } from "@/components/roadmap/RoadmapTimeline";
 import { UnplannedList } from "@/components/roadmap/UnplannedList";
+import { CapacityView } from "@/components/roadmap/CapacityView";
 import { RoadmapManagerPanel } from "@/components/roadmap/RoadmapManagerPanel";
 import { AdminPanel } from "@/components/roadmap/AdminPanel";
 import { SavedViewsPanel } from "@/components/roadmap/SavedViewsPanel";
@@ -35,7 +36,7 @@ import type {
   ViewPayload,
 } from "@/types/views";
 
-type RoadmapPageMode = "planned" | "unplanned";
+type RoadmapPageMode = "planned" | "unplanned" | "capacity";
 
 export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
   const router = useRouter();
@@ -144,8 +145,16 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
   const [loadedView, setLoadedView] = useState<SavedView | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   const [viewMode, setViewMode] = useState<RoadmapPageMode>(mode);
+  const [capacityBucketSize, setCapacityBucketSize] = useState<
+    "week" | "quarter"
+  >("week");
+  const [capacityRoles, setCapacityRoles] = useState<Array<"lead" | "sme">>([
+    "lead",
+    "sme",
+  ]);
   const [userRoles, setUserRoles] = useState<UserRoles | null>(null);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const isAdmin = Boolean(userRoles?.isSystemAdmin);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -175,20 +184,32 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
-    const nextMode = params.get("mode") === "unplanned" ? "unplanned" : "planned";
+    const modeParam = params.get("mode");
+    const nextMode =
+      modeParam === "unplanned"
+        ? "unplanned"
+        : modeParam === "capacity" && isAdmin
+          ? "capacity"
+          : "planned";
     setViewMode(nextMode);
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const handlePopState = () => {
       const params = new URLSearchParams(window.location.search);
-      const nextMode = params.get("mode") === "unplanned" ? "unplanned" : "planned";
+      const modeParam = params.get("mode");
+      const nextMode =
+        modeParam === "unplanned"
+          ? "unplanned"
+          : modeParam === "capacity" && isAdmin
+            ? "capacity"
+            : "planned";
       setViewMode(nextMode);
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -277,9 +298,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const key = getScrollStorageKey(
-      mode === "unplanned" ? "/unplanned" : "/"
-    );
+    const key = getScrollStorageKey(viewMode);
     const raw = window.sessionStorage.getItem(key);
     if (!raw) return;
     const value = Number(raw);
@@ -287,7 +306,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     window.requestAnimationFrame(() => {
       window.scrollTo({ top: value, behavior: "auto" });
     });
-  }, [mode]);
+  }, [viewMode]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -367,6 +386,10 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       startDate,
       quartersToShow,
     },
+    capacity: {
+      bucketSize: capacityBucketSize,
+      roles: capacityRoles,
+    },
   });
 
   const applyViewPayload = (payload: ViewPayload) => {
@@ -379,11 +402,15 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       payload.filters?.impactedStakeholders ?? []
     );
     if (payload.mode) {
-      setViewMode(payload.mode);
+      const nextMode =
+        payload.mode === "capacity" && !isAdmin ? "planned" : payload.mode;
+      setViewMode(nextMode);
       if (typeof window !== "undefined") {
         const nextUrl = new URL(window.location.href);
-        if (payload.mode === "unplanned") {
+        if (nextMode === "unplanned") {
           nextUrl.searchParams.set("mode", "unplanned");
+        } else if (nextMode === "capacity") {
+          nextUrl.searchParams.set("mode", "capacity");
         } else {
           nextUrl.searchParams.delete("mode");
         }
@@ -410,6 +437,12 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     }
     if (payload.timeline?.quartersToShow) {
       setQuartersToShow(payload.timeline.quartersToShow);
+    }
+    if (payload.capacity?.bucketSize) {
+      setCapacityBucketSize(payload.capacity.bucketSize);
+    }
+    if (payload.capacity?.roles) {
+      setCapacityRoles(payload.capacity.roles);
     }
   };
 
@@ -1485,6 +1518,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
         unplannedLayout: "list" | "board";
         fullWidth: boolean;
         unplannedFullWidth: boolean;
+        capacityBucketSize: "week" | "quarter";
+        capacityRoles: Array<"lead" | "sme">;
       }>;
 
       if (parsed.selectedPillars) setSelectedPillars(parsed.selectedPillars);
@@ -1519,6 +1554,12 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       } else if (typeof parsed.unplannedFullWidth === "boolean") {
         setFullWidth(parsed.unplannedFullWidth);
       }
+      if (parsed.capacityBucketSize) {
+        setCapacityBucketSize(parsed.capacityBucketSize);
+      }
+      if (parsed.capacityRoles) {
+        setCapacityRoles(parsed.capacityRoles);
+      }
     } catch {
       // Ignore corrupted storage entries.
     } finally {
@@ -1544,6 +1585,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       isHeaderCollapsed,
       unplannedLayout,
       fullWidth,
+      capacityBucketSize,
+      capacityRoles,
     };
     localStorage.setItem(settingsKey, JSON.stringify(payload));
   }, [
@@ -1563,6 +1606,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     isHeaderCollapsed,
     unplannedLayout,
     fullWidth,
+    capacityBucketSize,
+    capacityRoles,
     settingsKey,
   ]);
 
@@ -1623,10 +1668,22 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
   ]);
 
   const isUnplanned = viewMode === "unplanned";
+  const isCapacity = viewMode === "capacity";
   const plannedItems = filteredItems.filter(hasValidTimelineDates);
   const unplannedItems = filteredItems.filter(
     (item) => !hasValidTimelineDates(item)
   );
+
+  useEffect(() => {
+    if (!isAdmin && viewMode === "capacity") {
+      setViewMode("planned");
+      if (typeof window !== "undefined") {
+        const nextUrl = new URL(window.location.href);
+        nextUrl.searchParams.delete("mode");
+        window.history.replaceState(null, "", nextUrl.toString());
+      }
+    }
+  }, [isAdmin, viewMode]);
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -1672,7 +1729,9 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
             <p className="text-sm text-slate-600 dark:text-slate-300">
               {isUnplanned
                 ? "Review unplanned work items that need dates."
-                : "Visualize roadmap ideas across pillars, time, and regions."}
+                : isCapacity
+                  ? "Review workload by person and time bucket."
+                  : "Visualize roadmap ideas across pillars, time, and regions."}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -2256,8 +2315,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                       <button
                         type="button"
                         onClick={() => {
-                          if (!isUnplanned) return;
-                          saveScrollPosition(isUnplanned);
+                          if (viewMode === "planned") return;
+                          saveScrollPosition(viewMode);
                           setViewMode("planned");
                           if (typeof window !== "undefined") {
                             const nextUrl = new URL(window.location.href);
@@ -2267,7 +2326,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                         }}
                         className={[
                           "px-3 py-1 rounded-full transition-colors",
-                          !isUnplanned
+                          viewMode === "planned"
                             ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
                             : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100",
                         ].join(" ")}
@@ -2277,8 +2336,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                       <button
                         type="button"
                         onClick={() => {
-                          if (isUnplanned) return;
-                          saveScrollPosition(isUnplanned);
+                          if (viewMode === "unplanned") return;
+                          saveScrollPosition(viewMode);
                           setViewMode("unplanned");
                           if (typeof window !== "undefined") {
                             const nextUrl = new URL(window.location.href);
@@ -2288,15 +2347,38 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                         }}
                         className={[
                           "px-3 py-1 rounded-full transition-colors",
-                          isUnplanned
+                          viewMode === "unplanned"
                             ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
                             : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100",
                         ].join(" ")}
                       >
                         Unplanned
                       </button>
+                      {isAdmin ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (viewMode === "capacity") return;
+                            saveScrollPosition(viewMode);
+                            setViewMode("capacity");
+                            if (typeof window !== "undefined") {
+                              const nextUrl = new URL(window.location.href);
+                              nextUrl.searchParams.set("mode", "capacity");
+                              window.history.replaceState(null, "", nextUrl.toString());
+                            }
+                          }}
+                          className={[
+                            "px-3 py-1 rounded-full transition-colors",
+                            viewMode === "capacity"
+                              ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                              : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100",
+                          ].join(" ")}
+                        >
+                          Capacity
+                        </button>
+                      ) : null}
                     </div>
-                    {!isSharedViewActive ? (
+                    {!isSharedViewActive && !isCapacity ? (
                       <>
                         <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                           Saved Views:
@@ -2362,6 +2444,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
                     {!isSharedViewActive &&
+                    !isCapacity &&
                     activeRoadmapRole &&
                     activeRoadmapRole !== "viewer" ? (
                     <details className="relative" data-dropdown>
@@ -2657,6 +2740,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                 >
                   <RoadmapFilters
                     items={items}
+                    isCapacity={viewMode === "capacity"}
                     selectedPillars={selectedPillars}
                     setSelectedPillars={setSelectedPillars}
                     selectedRegions={selectedRegions}
@@ -2697,7 +2781,17 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                     : "",
                 ].join(" ")}
               >
-                {isUnplanned ? (
+                {isCapacity ? (
+                  <CapacityView
+                    items={plannedItems}
+                    startDate={startDate}
+                    quartersToShow={quartersToShow}
+                    bucketSize={capacityBucketSize}
+                    roles={capacityRoles}
+                    onBucketSizeChange={setCapacityBucketSize}
+                    onRolesChange={setCapacityRoles}
+                  />
+                ) : isUnplanned ? (
                   <UnplannedList
                     items={unplannedItems}
                     groupBy={selectedGroupBy}
@@ -2979,17 +3073,9 @@ function normalizeFilterValue(value: string): string {
   return (value || "").trim().toLowerCase();
 }
 
-function getToggleViewHref(isUnplanned: boolean): string {
-  const basePath = isUnplanned ? "/" : "/unplanned";
-  if (typeof window === "undefined") return basePath;
-  const params = new URLSearchParams(window.location.search);
-  const query = params.toString();
-  return query ? `${basePath}?${query}` : basePath;
-}
-
-function saveScrollPosition(isUnplanned: boolean) {
+function saveScrollPosition(mode: RoadmapPageMode) {
   if (typeof window === "undefined") return;
-  const key = getScrollStorageKey(isUnplanned ? "/unplanned" : "/");
+  const key = getScrollStorageKey(mode);
   try {
     window.sessionStorage.setItem(key, String(window.scrollY || 0));
   } catch {
@@ -2997,6 +3083,8 @@ function saveScrollPosition(isUnplanned: boolean) {
   }
 }
 
-function getScrollStorageKey(pathname: string): string {
-  return `roadmap-scroll:${pathname}`;
+function getScrollStorageKey(mode: RoadmapPageMode): string {
+  const suffix =
+    mode === "unplanned" ? "unplanned" : mode === "capacity" ? "capacity" : "planned";
+  return `roadmap-scroll:${suffix}`;
 }

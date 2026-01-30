@@ -46,7 +46,7 @@ export interface ViewPayload {
     primaryStakeholders: string[];
     impactedStakeholders: string[];
   };
-  mode?: 'planned' | 'unplanned';
+  mode?: 'planned' | 'unplanned' | 'capacity';
   display: {
     groupBy: GroupByOption;
     theme: ThemeOption;
@@ -56,6 +56,10 @@ export interface ViewPayload {
   timeline: {
     startDate: string;
     quartersToShow: number;
+  };
+  capacity?: {
+    bucketSize: 'week' | 'quarter';
+    roles: Array<'lead' | 'sme'>;
   };
 }
 

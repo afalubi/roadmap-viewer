@@ -8,6 +8,7 @@ import { parseStakeholders } from '@/lib/stakeholders';
 
 interface Props {
   items: RoadmapItem[];
+  isCapacity?: boolean;
   selectedPillars: string[];
   setSelectedPillars: (value: string[]) => void;
   selectedRegions: Region[];
@@ -57,7 +58,7 @@ interface Props {
   setStartDate: (value: string) => void;
   quartersToShow: number;
   setQuartersToShow: (value: number) => void;
-  viewMode: 'planned' | 'unplanned';
+  viewMode: 'planned' | 'unplanned' | 'capacity';
   savedViewsPanel?: React.ReactNode;
   showDebugOutlines?: boolean;
   isCollapsed?: boolean;
@@ -66,6 +67,7 @@ interface Props {
 
 export function RoadmapFilters({
   items,
+  isCapacity = false,
   selectedPillars,
   setSelectedPillars,
   selectedRegions,
@@ -383,7 +385,8 @@ export function RoadmapFilters({
               <div className="px-3 py-3">{savedViewsPanel}</div>
             ) : null}
 
-            <div className="space-y-3 px-3 py-3">
+            {!isCapacity ? (
+              <div className="space-y-3 px-3 py-3">
               <div className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 Item options
               </div>
@@ -513,8 +516,9 @@ export function RoadmapFilters({
                 ) : null}
               </div>
             </div>
+            ) : null}
 
-            {!isUnplanned ? (
+            {!isUnplanned && !isCapacity ? (
               <div className="space-y-3 px-3 py-3">
                 <div className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   Board options
