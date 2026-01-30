@@ -12,22 +12,12 @@ import {
 import { RoadmapSwimlane } from './RoadmapSwimlane';
 import { RoadmapItemDetailDialog } from './RoadmapItemDetailDialog';
 import type { ThemeOverrides } from '@/types/theme';
+import type { DisplayOptions } from '@/types/views';
 
 interface Props {
   items: RoadmapItem[];
   groupBy: 'pillar' | 'stakeholder' | 'criticality' | 'region' | 'disposition';
-  displayOptions: {
-    showRegionEmojis: boolean;
-    showShortDescription: boolean;
-    titleAbove: boolean;
-    itemVerticalPadding: number;
-    laneDividerOpacity: number;
-    itemStyle: 'tile' | 'line';
-    lineTitleGap: number;
-    showQuarters: boolean;
-    showMonths: boolean;
-    darkMode: boolean;
-  };
+  displayOptions: DisplayOptions;
   theme:
     | 'coastal'
     | 'orchard'

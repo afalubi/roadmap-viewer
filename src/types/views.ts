@@ -14,6 +14,9 @@ export interface DisplayOptions {
   showMonths: boolean;
   showDynamicHeader: boolean;
   darkMode: boolean;
+  showBoldProjectBorders: boolean;
+  boldProjectBorderColor: string;
+  boldProjectBorderAlternateColor: string;
 }
 
 export type ThemeOption =

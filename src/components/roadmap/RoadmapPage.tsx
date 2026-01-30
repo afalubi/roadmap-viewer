@@ -73,6 +73,9 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     showMonths: false,
     showDynamicHeader: true,
     darkMode: false,
+    showBoldProjectBorders: true,
+    boldProjectBorderColor: "#334155",
+    boldProjectBorderAlternateColor: "#ffffff",
   };
   const [displayOptions, setDisplayOptions] = useState<DisplayOptions>(
     defaultDisplayOptions
@@ -1404,6 +1407,9 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
           showMonths: boolean;
           showDynamicHeader: boolean;
           darkMode: boolean;
+          showBoldProjectBorders: boolean;
+          boldProjectBorderColor: string;
+          boldProjectBorderAlternateColor: string;
         };
         startDate: string;
         quartersToShow: number;

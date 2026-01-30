@@ -2,6 +2,7 @@
 
 import type React from 'react';
 import type { RoadmapItem } from '@/types/roadmap';
+import type { DisplayOptions } from '@/types/views';
 import type { Region } from '@/lib/region';
 import { parseStakeholders } from '@/lib/stakeholders';
 
@@ -28,32 +29,8 @@ interface Props {
   setSelectedGroupBy: (
     value: 'pillar' | 'stakeholder' | 'criticality' | 'region' | 'disposition',
   ) => void;
-  displayOptions: {
-    showRegionEmojis: boolean;
-    showShortDescription: boolean;
-    titleAbove: boolean;
-    itemVerticalPadding: number;
-    laneDividerOpacity: number;
-    itemStyle: 'tile' | 'line';
-    lineTitleGap: number;
-    showQuarters: boolean;
-    showMonths: boolean;
-    showDynamicHeader: boolean;
-    darkMode: boolean;
-  };
-  setDisplayOptions: (value: {
-    showRegionEmojis: boolean;
-    showShortDescription: boolean;
-    titleAbove: boolean;
-    itemVerticalPadding: number;
-    laneDividerOpacity: number;
-    itemStyle: 'tile' | 'line';
-    lineTitleGap: number;
-    showQuarters: boolean;
-    showMonths: boolean;
-    showDynamicHeader: boolean;
-    darkMode: boolean;
-  }) => void;
+  displayOptions: DisplayOptions;
+  setDisplayOptions: (value: DisplayOptions) => void;
   selectedTheme:
     | 'coastal'
     | 'orchard'
@@ -739,6 +716,54 @@ export function RoadmapFilters({
                         }
                         className="w-14 rounded-md border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
                       />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
+                      <input
+                        type="checkbox"
+                        className={checkboxClasses}
+                        checked={displayOptions.showBoldProjectBorders}
+                        onChange={(e) =>
+                          setDisplayOptions({
+                            ...displayOptions,
+                            showBoldProjectBorders: e.target.checked,
+                          })
+                        }
+                      />
+                      Bold borders for project/backlog
+                    </label>
+                    <div className="mt-2 flex flex-wrap items-center gap-3">
+                      <label className="flex items-center gap-2 text-[0.7rem] text-slate-600 dark:text-slate-300">
+                        <input
+                          type="color"
+                          value={displayOptions.boldProjectBorderColor}
+                          onChange={(e) =>
+                            setDisplayOptions({
+                              ...displayOptions,
+                              boldProjectBorderColor: e.target.value,
+                            })
+                          }
+                          disabled={!displayOptions.showBoldProjectBorders}
+                          className="h-7 w-10 cursor-pointer rounded border border-slate-300 bg-white p-0 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:bg-slate-900"
+                        />
+                        Primary
+                      </label>
+                      <label className="flex items-center gap-2 text-[0.7rem] text-slate-600 dark:text-slate-300">
+                        <input
+                          type="color"
+                          value={displayOptions.boldProjectBorderAlternateColor}
+                          onChange={(e) =>
+                            setDisplayOptions({
+                              ...displayOptions,
+                              boldProjectBorderAlternateColor: e.target.value,
+                            })
+                          }
+                          disabled={!displayOptions.showBoldProjectBorders}
+                          className="h-7 w-10 cursor-pointer rounded border border-slate-300 bg-white p-0 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:bg-slate-900"
+                        />
+                        Alternate
+                      </label>
                     </div>
                   </div>
                 </div>

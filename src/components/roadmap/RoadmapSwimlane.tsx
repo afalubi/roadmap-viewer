@@ -33,6 +33,9 @@ interface Props {
     showQuarters: boolean;
     showMonths: boolean;
     darkMode: boolean;
+    showBoldProjectBorders: boolean;
+    boldProjectBorderColor: string;
+    boldProjectBorderAlternateColor: string;
   };
   theme:
     | 'coastal'
@@ -160,6 +163,8 @@ export function RoadmapSwimlane({
         firstItemOffset +
         (positionedItems.maxRow + 1) * laneRowHeight
       : lanePaddingTop + lanePaddingBottom + firstItemOffset + rowHeight;
+  const defaultItemHex = extractHexFromClass(itemColorClasses);
+  const defaultLineHex = extractHexFromClass(lineFillClasses.fill) ?? defaultItemHex;
 
   return (
     <div
@@ -227,6 +232,20 @@ export function RoadmapSwimlane({
               displayOptions.itemStyle !== 'line';
             const hasInlineText = Boolean(hasInlineTitle || hasInlineShort);
             const effortType = getEffortType(item.disposition);
+            const itemFillColor =
+              (itemStyle?.backgroundColor as string | undefined) ??
+              defaultLineHex ??
+              defaultItemHex;
+            const shouldEmphasize =
+              displayOptions.showBoldProjectBorders &&
+              (effortType === 'project' || effortType === 'backlog');
+            const resolvedBorderColor = shouldEmphasize
+              ? adjustBorderColor(
+                  displayOptions.boldProjectBorderColor,
+                  displayOptions.boldProjectBorderAlternateColor,
+                  itemFillColor,
+                )
+              : undefined;
             const lineHeight = displayOptions.itemStyle === 'line' ? 6 : 8;
             const itemTop =
               displayOptions.itemStyle === 'line'
@@ -282,8 +301,8 @@ export function RoadmapSwimlane({
                     displayOptions.itemStyle === 'line'
                       ? lineBorderClasses
                       : itemColorClasses,
-                    effortType === 'project'
-                      ? 'border-2 border-slate-700/80 dark:border-slate-200/80'
+                    shouldEmphasize
+                      ? 'border-2'
                       : '',
                     displayOptions.itemStyle === 'line'
                       ? [
@@ -295,7 +314,10 @@ export function RoadmapSwimlane({
                         ? ''
                         : 'h-2 py-0 rounded-full',
                   ].join(' ')}
-                  style={itemStyle}
+                  style={{
+                    ...itemStyle,
+                    borderColor: resolvedBorderColor,
+                  }}
                   onClick={() => onSelectItem(item)}
                   onMouseEnter={(event) =>
                     setTooltip({
@@ -392,11 +414,14 @@ function stripHtml(value: string): string {
   return value.replace(/<[^>]*>/g, '').trim();
 }
 
-function getEffortType(value?: string | null): 'discovery' | 'project' | null {
+function getEffortType(
+  value?: string | null,
+): 'discovery' | 'project' | 'backlog' | null {
   const normalized = (value ?? '').trim().toLowerCase();
   if (!normalized) return null;
   if (normalized.includes('discovery')) return 'discovery';
   if (normalized.includes('project')) return 'project';
+  if (normalized.includes('backlog')) return 'backlog';
   return null;
 }
 
@@ -406,6 +431,102 @@ function estimateTitleWidth(title: string, regionCount: number): number {
   const avgCharWidth = fontSizePx * 0.45;
   const regionWidth = regionCount * 20;
   return Math.ceil(title.length * avgCharWidth + regionWidth + 8);
+}
+
+function extractHexFromClass(value: string): string | null {
+  const match = value.match(/bg-\[#([0-9a-fA-F]{6})\](?:\/\d+)?/);
+  return match ? `#${match[1]}` : null;
+}
+
+function adjustBorderColor(
+  borderHex: string,
+  alternateHex: string,
+  itemHex?: string | null,
+): string {
+  const border = hexToRgb(borderHex);
+  const alternate = hexToRgb(alternateHex);
+  const item = itemHex ? hexToRgb(itemHex) : null;
+  if (!border || !item) return borderHex;
+  const distance = colorDistance(border, item);
+  const contrast = contrastRatio(border, item);
+  if (distance >= 40 && contrast >= 1.6) return borderHex;
+  if (alternate) return alternateHex;
+  const itemLum = relativeLuminance(item);
+  const target = itemLum > 0.5 ? { r: 0, g: 0, b: 0 } : { r: 255, g: 255, b: 255 };
+  const adjusted = mixColors(border, target, 0.7);
+  if (contrastRatio(adjusted, item) < 2.2) {
+    return rgbToHex(target);
+  }
+  return rgbToHex(adjusted);
+}
+
+function hexToRgb(value: string): { r: number; g: number; b: number } | null {
+  const hex = value.replace('#', '').trim();
+  if (hex.length === 3) {
+    const r = parseInt(hex[0] + hex[0], 16);
+    const g = parseInt(hex[1] + hex[1], 16);
+    const b = parseInt(hex[2] + hex[2], 16);
+    return { r, g, b };
+  }
+  if (hex.length !== 6) return null;
+  return {
+    r: parseInt(hex.slice(0, 2), 16),
+    g: parseInt(hex.slice(2, 4), 16),
+    b: parseInt(hex.slice(4, 6), 16),
+  };
+}
+
+function rgbToHex(value: { r: number; g: number; b: number }): string {
+  const toHex = (channel: number) =>
+    Math.max(0, Math.min(255, Math.round(channel)))
+      .toString(16)
+      .padStart(2, '0');
+  return `#${toHex(value.r)}${toHex(value.g)}${toHex(value.b)}`;
+}
+
+function mixColors(
+  a: { r: number; g: number; b: number },
+  b: { r: number; g: number; b: number },
+  amount: number,
+) {
+  const t = Math.max(0, Math.min(1, amount));
+  return {
+    r: a.r + (b.r - a.r) * t,
+    g: a.g + (b.g - a.g) * t,
+    b: a.b + (b.b - a.b) * t,
+  };
+}
+
+function relativeLuminance(color: { r: number; g: number; b: number }): number {
+  const transform = (channel: number) => {
+    const value = channel / 255;
+    return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  };
+  const r = transform(color.r);
+  const g = transform(color.g);
+  const b = transform(color.b);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrastRatio(
+  a: { r: number; g: number; b: number },
+  b: { r: number; g: number; b: number },
+): number {
+  const lumA = relativeLuminance(a);
+  const lumB = relativeLuminance(b);
+  const lighter = Math.max(lumA, lumB);
+  const darker = Math.min(lumA, lumB);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function colorDistance(
+  a: { r: number; g: number; b: number },
+  b: { r: number; g: number; b: number },
+): number {
+  const dr = a.r - b.r;
+  const dg = a.g - b.g;
+  const db = a.b - b.b;
+  return Math.sqrt(dr * dr + dg * dg + db * db);
 }
 
 function renderRegionBadges(
