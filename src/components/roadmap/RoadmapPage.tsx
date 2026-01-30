@@ -137,6 +137,13 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
   } | null>(null);
   const [viewPasswordInput, setViewPasswordInput] = useState("");
   const [isViewPasswordLoading, setIsViewPasswordLoading] = useState(false);
+  const [isSharedViewPending, setIsSharedViewPending] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const params = new URLSearchParams(window.location.search);
+    const hasParam = Boolean(params.get("view"));
+    const hasStored = Boolean(window.sessionStorage.getItem("sharedViewSlug"));
+    return hasParam || hasStored;
+  });
   const [isRoadmapManageOpen, setIsRoadmapManageOpen] = useState(false);
   const [shareRoadmapId, setShareRoadmapId] = useState<string | null>(null);
   const [loadedView, setLoadedView] = useState<SavedView | null>(null);
@@ -465,6 +472,9 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     setIsSharedViewActive(false);
     setLoadedSharedSlug("");
     setSharedViewSlug("");
+    setIsSharedViewPending(false);
+    setViewPasswordPrompt(null);
+    setViewPasswordInput("");
     if (typeof window !== "undefined") {
       const nextUrl = new URL(window.location.href);
       nextUrl.searchParams.delete("viewId");
@@ -472,6 +482,17 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       window.history.replaceState(null, "", nextUrl.toString());
       window.sessionStorage.removeItem("sharedViewSlug");
     }
+  };
+
+  const handleExitSharedView = () => {
+    if (typeof window !== "undefined") {
+      const slugParam = new URLSearchParams(window.location.search).get("view") ?? "";
+      const slug = loadedSharedSlug || sharedViewSlug || slugParam;
+      if (slug) {
+        window.sessionStorage.removeItem(`view-link-password:${slug}`);
+      }
+    }
+    clearActiveView();
   };
 
   const handleUpdateView = async (view: SavedView): Promise<boolean> => {
@@ -1038,6 +1059,9 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     setSharedViewSlug("");
     setLoadedSharedSlug("");
     setIsSharedViewActive(false);
+    setIsSharedViewPending(false);
+    setViewPasswordPrompt(null);
+    setViewPasswordInput("");
     setLoadedView(null);
   };
 
@@ -1046,9 +1070,15 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     if (!isOnline) return;
     const params = new URLSearchParams(window.location.search);
     const slug = params.get("view") ?? "";
-    if (!slug || slug === loadedSharedSlug) return;
+    if (!slug || slug === loadedSharedSlug) {
+      if (!slug) {
+        setIsSharedViewPending(false);
+      }
+      return;
+    }
 
     const storedPassword = getStoredViewPassword(slug);
+    setIsSharedViewPending(true);
     loadSharedViewBySlug(slug, storedPassword).then((result) => {
       if (result.status === "password") {
         if (storedPassword) {
@@ -1057,6 +1087,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
         setViewPasswordPrompt({ slug, error: result.error });
         setViewPasswordInput("");
       }
+      setIsSharedViewPending(false);
     });
   }, [loadedSharedSlug, isOnline]);
 
@@ -1071,8 +1102,10 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       return;
     }
     setIsViewPasswordLoading(true);
+    setIsSharedViewPending(true);
     const result = await loadSharedViewBySlug(viewPasswordPrompt.slug, password);
     setIsViewPasswordLoading(false);
+    setIsSharedViewPending(false);
     if (result.status === "ok") {
       setViewPasswordPrompt(null);
       setViewPasswordInput("");
@@ -1092,6 +1125,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
   };
 
   const hasSharedView = isSharedViewActive || Boolean(sharedViewSlug);
+  const isSharedViewLocked = Boolean(viewPasswordPrompt) || isSharedViewPending;
+  const shouldShowExitSharedView = isSharedViewActive || isSharedViewLocked;
   const canCreateRoadmaps = Boolean(
     userRoles?.canCreateRoadmaps || userRoles?.isSystemAdmin
   );
@@ -1608,182 +1643,208 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <SignedIn>
-              <div className="flex flex-wrap items-center gap-2">
-                {!isSharedViewActive ? (
-                  <>
-                    <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                      Roadmap
-                    </span>
-                    <details
-                      data-dropdown
-                      className="relative"
-                      open={isRoadmapMenuOpen}
-                      onToggle={(event) =>
-                        setIsRoadmapMenuOpen(
-                          (event.target as HTMLDetailsElement).open
-                        )
-                      }
-                    >
-                      <summary className="list-none inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 cursor-pointer hover:border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800">
-                        <span className="max-w-[220px] truncate">
-                          {selectedRoadmapOption?.roadmap.name ?? "Select roadmap"}
-                        </span>
-                        <svg
-                          viewBox="0 0 24 24"
-                          aria-hidden="true"
-                          className="h-3 w-3 text-slate-400"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M6 9l6 6 6-6" />
-                        </svg>
-                      </summary>
-                      <div className="absolute right-0 z-[120] mt-2 w-[22rem] max-w-[90vw] rounded-lg border border-slate-200 bg-white p-2 text-xs shadow-lg dark:border-slate-700 dark:bg-slate-900">
-                        <div className="max-h-72 overflow-auto">
-                          {roadmapOptions.map((option) => (
-                            <div
-                              key={option.value}
-                              className="flex items-center justify-between gap-2 rounded-md px-2 py-2 hover:bg-slate-50 dark:hover:bg-slate-800"
-                            >
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  handleRoadmapSelect(option.value);
-                                  setIsRoadmapMenuOpen(false);
-                                }}
-                                className="flex-1 text-left"
-                              >
-                                <div className="text-xs font-semibold text-slate-800 dark:text-slate-100">
-                                  {option.roadmap.name}
-                                </div>
-                                <div className="text-[0.65rem] uppercase tracking-wide text-slate-400">
-                                  {option.roadmap.role}
-                                </div>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  handleRoadmapSelect(option.value);
-                                  setIsRoadmapMenuOpen(false);
-                                  setIsRoadmapManageOpen(true);
-                                }}
-                                className="rounded-full border border-slate-200 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800"
-                              >
-                                Manage
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                        {canCreateRoadmaps ? (
-                          <div className="mt-2 border-t border-slate-200 pt-2 dark:border-slate-700">
+        {(isSignedIn || isSharedViewActive) ? (
+          <SignedIn>
+            <div className="flex flex-wrap items-center gap-2">
+              {!isSharedViewActive ? (
+                <>
+                  <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    Roadmap
+                  </span>
+                  <details
+                    data-dropdown
+                    className="relative"
+                    open={isRoadmapMenuOpen}
+                    onToggle={(event) =>
+                      setIsRoadmapMenuOpen(
+                        (event.target as HTMLDetailsElement).open
+                      )
+                    }
+                  >
+                    <summary className="list-none inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 cursor-pointer hover:border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800">
+                      <span className="max-w-[220px] truncate">
+                        {selectedRoadmapOption?.roadmap.name ?? "Select roadmap"}
+                      </span>
+                      <svg
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                        className="h-3 w-3 text-slate-400"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M6 9l6 6 6-6" />
+                      </svg>
+                    </summary>
+                    <div className="absolute right-0 z-[120] mt-2 w-[22rem] max-w-[90vw] rounded-lg border border-slate-200 bg-white p-2 text-xs shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                      <div className="max-h-72 overflow-auto">
+                        {roadmapOptions.map((option) => (
+                          <div
+                            key={option.value}
+                            className="flex items-center justify-between gap-2 rounded-md px-2 py-2 hover:bg-slate-50 dark:hover:bg-slate-800"
+                          >
                             <button
                               type="button"
                               onClick={() => {
+                                handleRoadmapSelect(option.value);
+                                setIsRoadmapMenuOpen(false);
+                              }}
+                              className="flex-1 text-left"
+                            >
+                              <div className="text-xs font-semibold text-slate-800 dark:text-slate-100">
+                                {option.roadmap.name}
+                              </div>
+                              <div className="text-[0.65rem] uppercase tracking-wide text-slate-400">
+                                {option.roadmap.role}
+                              </div>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleRoadmapSelect(option.value);
                                 setIsRoadmapMenuOpen(false);
                                 setIsRoadmapManageOpen(true);
                               }}
-                              className="w-full rounded-md border border-slate-200 px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                              className="rounded-full border border-slate-200 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800"
                             >
-                              Create new roadmap
+                              Manage
                             </button>
                           </div>
-                        ) : null}
+                        ))}
                       </div>
-                    </details>
-                  </>
-                ) : null}
-                {activeRoadmapId && activeRoadmapRole && activeRoadmapRole !== "viewer" ? (
-                  <Link
-                    href={`/theme-editor?roadmapId=${activeRoadmapId}`}
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
-                  >
-                    Theme editor
-                  </Link>
-                ) : null}
-                {userRoles?.isSystemAdmin ? (
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
-                    onClick={() => setIsAdminOpen(true)}
-                  >
-                    Admin
-                  </button>
-                ) : null}
-                {!isSharedViewActive ? (
-                  <button
-                    type="button"
-                    className={[
-                      "inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800",
-                    ].join(" ")}
-                    onClick={() => {
-                      if (activeRoadmapId) {
-                        setShareRoadmapId(activeRoadmapId);
-                      }
-                    }}
-                    disabled={
-                      !activeRoadmapId ||
-                      !activeRoadmapRole ||
-                      activeRoadmapRole === "viewer"
+                      {canCreateRoadmaps ? (
+                        <div className="mt-2 border-t border-slate-200 pt-2 dark:border-slate-700">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsRoadmapMenuOpen(false);
+                              setIsRoadmapManageOpen(true);
+                            }}
+                            className="w-full rounded-md border border-slate-200 px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                          >
+                            Create new roadmap
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  </details>
+                </>
+              ) : null}
+              {activeRoadmapId && activeRoadmapRole && activeRoadmapRole !== "viewer" ? (
+                <Link
+                  href={`/theme-editor?roadmapId=${activeRoadmapId}`}
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                >
+                  Theme editor
+                </Link>
+              ) : null}
+              {userRoles?.isSystemAdmin ? (
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                  onClick={() => setIsAdminOpen(true)}
+                >
+                  Admin
+                </button>
+              ) : null}
+              {!shouldShowExitSharedView ? (
+                <button
+                  type="button"
+                  className={[
+                    "inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800",
+                  ].join(" ")}
+                  onClick={() => {
+                    if (activeRoadmapId) {
+                      setShareRoadmapId(activeRoadmapId);
                     }
-                    title="Share current roadmap"
-                  >
-                    <span className="inline-flex h-4 w-4 items-center justify-center text-sky-600">
-                      <svg
-                        viewBox="0 0 24 24"
-                        aria-hidden="true"
-                        className="h-4 w-4"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.6"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <circle cx="18" cy="5" r="2" />
-                        <circle cx="6" cy="12" r="2" />
-                        <circle cx="18" cy="19" r="2" />
-                        <path d="M8 12l8-6" />
-                        <path d="M8 12l8 6" />
-                      </svg>
-                    </span>
-                    Share
-                  </button>
-                ) : null}
-                {activeDatasourceType === "azure-devops" ? (
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
-                    onClick={handleRefreshDatasource}
-                    disabled={!activeRoadmapId || !isOnline || isRefreshingDatasource}
-                    title={
-                      !isOnline
-                        ? "Offline. Refresh paused."
-                        : "Refresh datasource"
+                  }}
+                  disabled={
+                    !activeRoadmapId ||
+                    !activeRoadmapRole ||
+                    activeRoadmapRole === "viewer"
+                  }
+                  title="Share current roadmap"
+                >
+                  <span className="inline-flex h-4 w-4 items-center justify-center text-sky-600">
+                    <svg
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="18" cy="5" r="2" />
+                      <circle cx="6" cy="12" r="2" />
+                      <circle cx="18" cy="19" r="2" />
+                      <path d="M8 12l8-6" />
+                      <path d="M8 12l8 6" />
+                    </svg>
+                  </span>
+                  Share
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                  onClick={() => {
+                    handleExitSharedView();
+                    if (isSignedIn && isOnline) {
+                      fetchRoadmaps();
                     }
-                  >
-                    <span className="inline-flex h-4 w-4 items-center justify-center text-emerald-600">
-                      <svg
-                        viewBox="0 0 24 24"
-                        aria-hidden="true"
-                        className="h-4 w-4"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.6"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-                        <path d="M21 3v6h-6" />
-                      </svg>
-                    </span>
-                    {isRefreshingDatasource ? "Refreshing..." : "Refresh data"}
-                  </button>
-                ) : null}
-              </div>
-            </SignedIn>
+                  }}
+                  title="Exit shared view"
+                >
+                  Exit shared view
+                </button>
+              )}
+              {activeDatasourceType === "azure-devops" ? (
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                  onClick={handleRefreshDatasource}
+                  disabled={!activeRoadmapId || !isOnline || isRefreshingDatasource}
+                  title={
+                    !isOnline
+                      ? "Offline. Refresh paused."
+                      : "Refresh datasource"
+                  }
+                >
+                  <span className="inline-flex h-4 w-4 items-center justify-center text-emerald-600">
+                    <svg
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                      <path d="M21 3v6h-6" />
+                    </svg>
+                  </span>
+                  {isRefreshingDatasource ? "Refreshing..." : "Refresh data"}
+                </button>
+              ) : null}
+            </div>
+          </SignedIn>
+        ) : null}
+        {!isSignedIn && shouldShowExitSharedView ? (
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+            onClick={handleExitSharedView}
+            title="Exit shared view"
+          >
+            Exit shared view
+          </button>
+        ) : null}
             <SignedOut>
               <SignInButton mode="modal">
                 <button
@@ -1800,37 +1861,48 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
           </div>
         </header>
 
-        <SignedOut>
-          <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-slate-100 p-8 shadow-sm dark:border-slate-700 dark:from-slate-900 dark:via-slate-900/70 dark:to-slate-950">
-            <div className="max-w-2xl space-y-3">
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                Tech Roadmap Viewer
-              </div>
-              <h2 className="text-2xl font-semibold text-slate-900 sm:text-3xl dark:text-slate-100">
-                Sign in to view and manage roadmaps.
-              </h2>
-              <p className="text-sm text-slate-600 dark:text-slate-300">
-                Use your organization account to access your saved roadmaps,
-                manage sharing, and keep timelines aligned.
-              </p>
-              <div className="flex flex-wrap items-center gap-3">
-                <SignInButton mode="modal">
-                  <button
-                    type="button"
-                    className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100"
-                  >
-                    Sign in
-                  </button>
-                </SignInButton>
-                <span className="text-xs text-slate-500 dark:text-slate-400">
-                  You can still browse the demo data while signed out.
-                </span>
+        {!hasSharedView && !isSharedViewLocked ? (
+          <SignedOut>
+            <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-slate-100 p-8 shadow-sm dark:border-slate-700 dark:from-slate-900 dark:via-slate-900/70 dark:to-slate-950">
+              <div className="max-w-2xl space-y-3">
+                <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                  Tech Roadmap Viewer
+                </div>
+                <h2 className="text-2xl font-semibold text-slate-900 sm:text-3xl dark:text-slate-100">
+                  Sign in to view and manage roadmaps.
+                </h2>
+                <p className="text-sm text-slate-600 dark:text-slate-300">
+                  Use your organization account to access your saved roadmaps,
+                  manage sharing, and keep timelines aligned.
+                </p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <SignInButton mode="modal">
+                    <button
+                      type="button"
+                      className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-sm hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100"
+                    >
+                      Sign in
+                    </button>
+                  </SignInButton>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    You can still browse the demo data while signed out.
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
-        </SignedOut>
+          </SignedOut>
+        ) : null}
 
-        <SignedIn>
+        {isSignedIn || hasSharedView || isSharedViewLocked ? (
+          <>
+            {isSharedViewLocked ? (
+              <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                {viewPasswordPrompt
+                  ? "Enter the password to view this shared roadmap."
+                  : "Validating shared link..."}
+              </div>
+            ) : null}
+            <div className={isSharedViewLocked ? "hidden" : ""}>
           {isLoadingRoadmaps ? (
             <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
               Loading roadmaps...
@@ -2625,7 +2697,9 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
             </div>
           </div>
         ) : null}
-        </SignedIn>
+        </div>
+          </>
+        ) : null}
         {isRoadmapManageOpen && typeof document !== "undefined"
           ? createPortal(
               <div className="fixed inset-0 z-[140] flex items-center justify-center bg-slate-900/40 px-4">
