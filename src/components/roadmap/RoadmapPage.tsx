@@ -2788,6 +2788,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                     quartersToShow={quartersToShow}
                     bucketSize={capacityBucketSize}
                     roles={capacityRoles}
+                    fullWidth={fullWidth}
+                    onFullWidthChange={setFullWidth}
                     onBucketSizeChange={setCapacityBucketSize}
                     onRolesChange={setCapacityRoles}
                   />

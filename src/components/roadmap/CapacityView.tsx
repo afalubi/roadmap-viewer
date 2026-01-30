@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { RoadmapItem } from '@/types/roadmap';
 import { buildQuarterBuckets, buildWeekBuckets } from '@/lib/timeScale';
@@ -14,6 +14,8 @@ interface Props {
   quartersToShow: number;
   bucketSize: 'week' | 'quarter';
   roles: CapacityRole[];
+  fullWidth: boolean;
+  onFullWidthChange: (value: boolean) => void;
   onBucketSizeChange: (value: 'week' | 'quarter') => void;
   onRolesChange: (value: CapacityRole[]) => void;
 }
@@ -37,6 +39,8 @@ export function CapacityView({
   quartersToShow,
   bucketSize,
   roles,
+  fullWidth,
+  onFullWidthChange,
   onBucketSizeChange,
   onRolesChange,
 }: Props) {
@@ -50,24 +54,9 @@ export function CapacityView({
     bucketLabel: string;
     items: RoadmapItem[];
     rect: DOMRect;
+    key: string;
   } | null>(null);
   const [selectedItem, setSelectedItem] = useState<RoadmapItem | null>(null);
-  const hoverCloseTimeout = useRef<number | null>(null);
-
-  const clearHoverClose = () => {
-    if (hoverCloseTimeout.current !== null) {
-      window.clearTimeout(hoverCloseTimeout.current);
-      hoverCloseTimeout.current = null;
-    }
-  };
-
-  const scheduleHoverClose = () => {
-    if (typeof window === 'undefined') return;
-    clearHoverClose();
-    hoverCloseTimeout.current = window.setTimeout(() => {
-      setHoverCell(null);
-    }, 140);
-  };
 
   const bucketInfo = useMemo(() => {
     const quarters = buildQuarterBuckets([], quartersToShow, startDate);
@@ -197,6 +186,19 @@ export function CapacityView({
             className="w-48 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900"
           />
         </div>
+        <label className="inline-flex items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
+          <span>Use full width</span>
+          <span className="relative inline-flex h-5 w-10 items-center">
+            <input
+              type="checkbox"
+              checked={fullWidth}
+              onChange={(event) => onFullWidthChange(event.target.checked)}
+              className="peer sr-only"
+            />
+            <span className="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-sky-600 dark:bg-slate-700 dark:peer-checked:bg-sky-400" />
+            <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5 dark:bg-slate-900 dark:peer-checked:bg-slate-900" />
+          </span>
+        </label>
       </div>
 
       {roleSections.length === 0 ? (
@@ -338,13 +340,14 @@ export function CapacityView({
                         const bucketItems = row.buckets.get(bucket.key) ?? [];
                         const count = bucketItems.length;
                         const intensity = heatmapClass(count);
+                        const cellKey = `${section.role}-${row.personKey}-${bucket.key}`;
                         const isMonthBoundary = bucket.start.getUTCDate() <= 7;
                         const isQuarterBoundary =
                           bucket.start.getUTCMonth() % 3 === 0 && isMonthBoundary;
                         return (
                           <button
                             type="button"
-                            key={`${section.role}-${row.personKey}-${bucket.key}`}
+                            key={cellKey}
                             className={[
                               'border-l text-center text-[0.7rem] transition',
                               styleMode === 'dashboard'
@@ -365,18 +368,21 @@ export function CapacityView({
                                     : 'border-r border-slate-100 dark:border-slate-800'
                                 : '',
                             ].join(' ')}
-                            onMouseEnter={(event) => {
-                              clearHoverClose();
+                            onClick={(event) => {
                               if (!count) return;
+                              if (hoverCell?.key === cellKey) {
+                                setHoverCell(null);
+                                return;
+                              }
                               setHoverCell({
                                 role: section.role,
                                 person: row.name,
                                 bucketLabel: bucket.label,
                                 items: bucketItems,
                                 rect: event.currentTarget.getBoundingClientRect(),
+                                key: cellKey,
                               });
                             }}
-                            onMouseLeave={scheduleHoverClose}
                             disabled={!count}
                           >
                             {count ? count : '–'}
@@ -395,18 +401,24 @@ export function CapacityView({
       {hoverCell && typeof document !== 'undefined'
         ? createPortal(
             <div
-              className="pointer-events-auto fixed z-[160] w-64 rounded-lg border border-slate-200 bg-white p-3 text-[0.7rem] text-slate-700 shadow-lg dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              className="pointer-events-auto fixed z-[210] w-64 rounded-lg border border-slate-200 bg-white p-3 text-[0.7rem] text-slate-700 shadow-lg dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               style={{
                 left: Math.min(hoverCell.rect.left, window.innerWidth - 280),
                 top: hoverCell.rect.bottom + 6,
               }}
-              onMouseEnter={() => {
-                clearHoverClose();
-              }}
-              onMouseLeave={scheduleHoverClose}
             >
-              <div className="font-semibold text-slate-900 dark:text-slate-100">
-                {hoverCell.person} · {hoverCell.bucketLabel}
+              <div className="flex items-start justify-between gap-2">
+                <div className="font-semibold text-slate-900 dark:text-slate-100">
+                  {hoverCell.person} · {hoverCell.bucketLabel}
+                </div>
+                <button
+                  type="button"
+                  className="text-[0.65rem] text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+                  onClick={() => setHoverCell(null)}
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
               </div>
               <div className="text-[0.65rem] text-slate-500 dark:text-slate-400">
                 {hoverCell.role === 'lead' ? 'Lead' : 'SME'} assignments
@@ -416,9 +428,12 @@ export function CapacityView({
                   <button
                     key={item.id}
                     type="button"
-                    className="block w-full truncate text-left text-[0.7rem] text-slate-700 hover:text-slate-900 dark:text-slate-200 dark:hover:text-white"
+                    className="group flex w-full items-center gap-2 rounded-md px-1 py-0.5 text-left text-[0.7rem] text-slate-700 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-white"
                     onClick={() => setSelectedItem(item)}
                   >
+                    <span className="text-[0.7rem] text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300">
+                      ↗
+                    </span>
                     {item.title}
                   </button>
                 ))}
