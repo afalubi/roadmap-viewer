@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode, CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { FaCanadianMapleLeaf } from 'react-icons/fa';
@@ -100,6 +100,59 @@ export function RoadmapSwimlane({
     displayOptions.itemStyle === 'line'
       ? Array.from(new Set(positionedItems.items.map((entry) => entry.row)))
       : [];
+  const laneRef = useRef<HTMLDivElement | null>(null);
+  const [laneWidth, setLaneWidth] = useState(0);
+
+  useEffect(() => {
+    if (!laneRef.current) return;
+    const updateWidth = () => {
+      if (!laneRef.current) return;
+      setLaneWidth(laneRef.current.getBoundingClientRect().width);
+    };
+    updateWidth();
+    if (typeof ResizeObserver === 'undefined') {
+      return;
+    }
+    const observer = new ResizeObserver(() => updateWidth());
+    observer.observe(laneRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const lineTitleMaxWidthById = useMemo(() => {
+    const map = new Map<string, number>();
+    if (displayOptions.itemStyle !== 'line' || !laneWidth) return map;
+    const rows = new Map<number, Array<{ id: string; left: number; title: string; regions: number }>>();
+
+    positionedItems.items.forEach(({ item, row }) => {
+      const pos = getTimelinePosition(item, quarters);
+      if (pos.widthPercent <= 0) return;
+      const regions = displayOptions.showRegionEmojis
+        ? getRegionFlagAssets(item.region).length
+        : 0;
+      if (!rows.has(row)) rows.set(row, []);
+      rows.get(row)!.push({
+        id: item.id,
+        left: pos.leftPercent,
+        title: item.title ?? '',
+        regions,
+      });
+    });
+
+    rows.forEach((items) => {
+      const sorted = items.sort((a, b) => a.left - b.left);
+      sorted.forEach((item, index) => {
+        const nextLeft = sorted[index + 1]?.left ?? 100;
+        const availablePercent = Math.max(0, nextLeft - item.left);
+        const availablePx = (availablePercent / 100) * laneWidth;
+        const estimated = estimateTitleWidth(item.title, item.regions);
+        if (estimated > availablePx) {
+          map.set(item.id, Math.max(0, availablePx - 2));
+        }
+      });
+    });
+
+    return map;
+  }, [displayOptions.itemStyle, displayOptions.showRegionEmojis, laneWidth, positionedItems.items, quarters]);
   const laneHeight =
     positionedItems.maxRow >= 0
       ? lanePaddingTop +
@@ -133,6 +186,7 @@ export function RoadmapSwimlane({
       <div
         className={['relative', laneBodyClasses].join(' ')}
         style={{ gridColumn: '3 / -1', minHeight: laneHeight, ...laneBodyStyle }}
+        ref={laneRef}
       >
         <div
           className="relative h-full isolate"
@@ -201,10 +255,19 @@ export function RoadmapSwimlane({
                 {titleAbove ? (
                   <div
                     className={[
-                      "text-[0.7rem] font-semibold leading-none text-slate-800 truncate tracking-tight",
+                      'text-[0.7rem] font-semibold leading-none text-slate-800 tracking-tight',
                       useDarkItemText ? 'dark:text-slate-800' : 'dark:text-slate-100',
+                      displayOptions.itemStyle === 'line' &&
+                      lineTitleMaxWidthById.has(item.id)
+                        ? 'truncate'
+                        : 'overflow-visible whitespace-nowrap',
                     ].join(' ')}
-                    style={{ fontFamily: '"Inter Tight", "Inter", "Arial", sans-serif' }}
+                    style={{
+                      fontFamily: '"Inter Tight", "Inter", "Arial", sans-serif',
+                      maxWidth: lineTitleMaxWidthById.get(item.id)
+                        ? `${lineTitleMaxWidthById.get(item.id)}px`
+                        : undefined,
+                    }}
                   >
                     {regionBadges}
                     {item.title}
@@ -335,6 +398,14 @@ function getEffortType(value?: string | null): 'discovery' | 'project' | null {
   if (normalized.includes('discovery')) return 'discovery';
   if (normalized.includes('project')) return 'project';
   return null;
+}
+
+function estimateTitleWidth(title: string, regionCount: number): number {
+  if (!title) return 0;
+  const fontSizePx = 11.2;
+  const avgCharWidth = fontSizePx * 0.45;
+  const regionWidth = regionCount * 20;
+  return Math.ceil(title.length * avgCharWidth + regionWidth + 8);
 }
 
 function renderRegionBadges(
