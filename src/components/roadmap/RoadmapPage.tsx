@@ -928,7 +928,9 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     if (!isLoaded) return;
     if (typeof window === "undefined") return;
     if (!isOnline) return;
+    if (isSharedViewActive || isSharedViewPending) return;
     const params = new URLSearchParams(window.location.search);
+    if (params.get("view")) return;
     const roadmapIdParam = params.get("roadmapId") ?? "";
 
     if (isSignedIn && roadmapIdParam && roadmapIdParam !== activeRoadmapId) {
@@ -956,6 +958,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     roadmaps,
     isOnline,
     userRoles,
+    isSharedViewActive,
+    isSharedViewPending,
   ]);
 
   useEffect(() => {
