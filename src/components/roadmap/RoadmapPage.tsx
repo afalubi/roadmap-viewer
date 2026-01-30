@@ -421,6 +421,42 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     }
   };
 
+  const shiftQuarter = (delta: number) => {
+    const [year, month, day] = startDate.split("-").map(Number);
+    const base = year && month
+      ? new Date(Date.UTC(year, month - 1, day || 1))
+      : new Date();
+    const shifted = new Date(
+      Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + delta * 3, 1),
+    );
+    const aligned = getQuarterStartDate(shifted);
+    setStartDate(formatDateInput(aligned));
+  };
+
+  const getQuarterOffset = () => {
+    const [year, month, day] = startDate.split("-").map(Number);
+    const base = year && month
+      ? new Date(Date.UTC(year, month - 1, day || 1))
+      : new Date();
+    const aligned = getQuarterStartDate(base);
+    const nowAligned = getQuarterStartDate(new Date());
+    const diffMonths =
+      (aligned.getUTCFullYear() - nowAligned.getUTCFullYear()) * 12 +
+      (aligned.getUTCMonth() - nowAligned.getUTCMonth());
+    return Math.round(diffMonths / 3);
+  };
+
+  const setQuarterOffset = (offset: number) => {
+    const nowAligned = getQuarterStartDate(new Date());
+    const shifted = new Date(
+      Date.UTC(
+        nowAligned.getUTCFullYear(),
+        nowAligned.getUTCMonth() + offset * 3,
+        1,
+      ),
+    );
+    setStartDate(formatDateInput(shifted));
+  };
   const clearActiveView = () => {
     setLoadedView(null);
     setIsSharedViewActive(false);
@@ -2491,19 +2527,56 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                     }}
                     headerRight={
                       !isExporting ? (
-                        <label className="inline-flex items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
-                          <span>Use full width</span>
-                          <span className="relative inline-flex h-5 w-10 items-center">
+                        <div className="flex flex-wrap items-center justify-end gap-3">
+                          <div className="inline-flex items-center gap-3 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                            <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                              Quarter
+                            </span>
                             <input
-                              type="checkbox"
-                              checked={fullWidth}
-                              onChange={(event) => setFullWidth(event.target.checked)}
-                              className="peer sr-only"
+                              type="range"
+                              min={-8}
+                              max={8}
+                              step={1}
+                              value={getQuarterOffset()}
+                              onChange={(event) =>
+                                setQuarterOffset(Number(event.target.value))
+                              }
+                              className="h-2 w-32 accent-sky-600"
+                              aria-label="Shift timeline quarters"
                             />
-                            <span className="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-sky-600 dark:bg-slate-700 dark:peer-checked:bg-sky-400" />
-                            <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5 dark:bg-slate-900 dark:peer-checked:bg-slate-900" />
-                          </span>
-                        </label>
+                            <span className="text-[0.7rem] font-semibold text-slate-500 dark:text-slate-400">
+                              {getQuarterOffset() >= 0
+                                ? `+${getQuarterOffset()}`
+                                : getQuarterOffset()}
+                            </span>
+                            <select
+                              className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[0.7rem] text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                              value={quartersToShow}
+                              onChange={(event) =>
+                                setQuartersToShow(Number(event.target.value))
+                              }
+                            >
+                              {[3, 4, 5, 6, 8, 10, 12].map((count) => (
+                                <option key={count} value={count}>
+                                  {count}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <label className="inline-flex items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
+                            <span>Use full width</span>
+                            <span className="relative inline-flex h-5 w-10 items-center">
+                              <input
+                                type="checkbox"
+                                checked={fullWidth}
+                                onChange={(event) => setFullWidth(event.target.checked)}
+                                className="peer sr-only"
+                              />
+                              <span className="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-sky-600 dark:bg-slate-700 dark:peer-checked:bg-sky-400" />
+                              <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5 dark:bg-slate-900 dark:peer-checked:bg-slate-900" />
+                            </span>
+                          </label>
+                        </div>
                       ) : null
                     }
                     isExporting={isExporting}

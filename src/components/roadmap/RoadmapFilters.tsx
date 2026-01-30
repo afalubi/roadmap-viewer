@@ -406,6 +406,137 @@ export function RoadmapFilters({
               <div className="px-3 py-3">{savedViewsPanel}</div>
             ) : null}
 
+            <div className="space-y-3 px-3 py-3">
+              <div className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Item options
+              </div>
+              <div className="space-y-3">
+                {!isUnplanned ? (
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-2 dark:text-slate-300">
+                      Item style
+                    </label>
+                    <div className="flex items-center gap-3 text-xs text-slate-700 dark:text-slate-200">
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="item-style"
+                          value="tile"
+                          checked={displayOptions.itemStyle === 'tile'}
+                          onChange={() =>
+                            setDisplayOptions({
+                              ...displayOptions,
+                              itemStyle: 'tile',
+                            })
+                          }
+                        />
+                        Tile
+                      </label>
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="item-style"
+                          value="line"
+                          checked={displayOptions.itemStyle === 'line'}
+                          onChange={() =>
+                            setDisplayOptions({
+                              ...displayOptions,
+                              itemStyle: 'line',
+                            })
+                          }
+                        />
+                        Line
+                      </label>
+                    </div>
+                  </div>
+                ) : null}
+                {!isUnplanned && displayOptions.itemStyle === 'line' ? (
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1 dark:text-slate-300">
+                      Line title gap
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="range"
+                        min={0}
+                        max={12}
+                        step={1}
+                        value={displayOptions.lineTitleGap}
+                        onChange={(e) =>
+                          setDisplayOptions({
+                            ...displayOptions,
+                            lineTitleGap: Number(e.target.value),
+                          })
+                        }
+                        className="w-28"
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        max={12}
+                        step={1}
+                        value={displayOptions.lineTitleGap}
+                        onChange={(e) =>
+                          setDisplayOptions({
+                            ...displayOptions,
+                            lineTitleGap: Number(e.target.value),
+                          })
+                        }
+                        className="w-14 rounded-md border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                      />
+                      <span className="text-[0.7rem] text-slate-500 dark:text-slate-400">px</span>
+                    </div>
+                  </div>
+                ) : null}
+                <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
+                  <input
+                    type="checkbox"
+                    className={checkboxClasses}
+                    checked={displayOptions.showRegionEmojis}
+                    onChange={(e) =>
+                      setDisplayOptions({
+                        ...displayOptions,
+                        showRegionEmojis: e.target.checked,
+                      })
+                    }
+                  />
+                  Show region flags
+                </label>
+                {!isUnplanned ? (
+                  <>
+                    <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
+                      <input
+                        type="checkbox"
+                        className={checkboxClasses}
+                        checked={displayOptions.showShortDescription}
+                        onChange={(e) =>
+                          setDisplayOptions({
+                            ...displayOptions,
+                            showShortDescription: e.target.checked,
+                          })
+                        }
+                      />
+                      Show short description
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
+                      <input
+                        type="checkbox"
+                        className={checkboxClasses}
+                        checked={displayOptions.titleAbove}
+                        onChange={(e) =>
+                          setDisplayOptions({
+                            ...displayOptions,
+                            titleAbove: e.target.checked,
+                          })
+                        }
+                      />
+                      Title above item
+                    </label>
+                  </>
+                ) : null}
+              </div>
+            </div>
+
             {!isUnplanned ? (
               <div className="space-y-3 px-3 py-3">
                 <div className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -613,137 +744,6 @@ export function RoadmapFilters({
                 </div>
               </div>
             ) : null}
-
-            <div className="space-y-3 px-3 py-3">
-              <div className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Item options
-              </div>
-              <div className="space-y-3">
-                {!isUnplanned ? (
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-2 dark:text-slate-300">
-                      Item style
-                    </label>
-                    <div className="flex items-center gap-3 text-xs text-slate-700 dark:text-slate-200">
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          name="item-style"
-                          value="tile"
-                          checked={displayOptions.itemStyle === 'tile'}
-                          onChange={() =>
-                            setDisplayOptions({
-                              ...displayOptions,
-                              itemStyle: 'tile',
-                            })
-                          }
-                        />
-                        Tile
-                      </label>
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          name="item-style"
-                          value="line"
-                          checked={displayOptions.itemStyle === 'line'}
-                          onChange={() =>
-                            setDisplayOptions({
-                              ...displayOptions,
-                              itemStyle: 'line',
-                            })
-                          }
-                        />
-                        Line
-                      </label>
-                    </div>
-                  </div>
-                ) : null}
-                {!isUnplanned && displayOptions.itemStyle === 'line' ? (
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1 dark:text-slate-300">
-                      Line title gap
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="range"
-                        min={0}
-                        max={12}
-                        step={1}
-                        value={displayOptions.lineTitleGap}
-                        onChange={(e) =>
-                          setDisplayOptions({
-                            ...displayOptions,
-                            lineTitleGap: Number(e.target.value),
-                          })
-                        }
-                        className="w-28"
-                      />
-                      <input
-                        type="number"
-                        min={0}
-                        max={12}
-                        step={1}
-                        value={displayOptions.lineTitleGap}
-                        onChange={(e) =>
-                          setDisplayOptions({
-                            ...displayOptions,
-                            lineTitleGap: Number(e.target.value),
-                          })
-                        }
-                        className="w-14 rounded-md border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
-                      />
-                      <span className="text-[0.7rem] text-slate-500 dark:text-slate-400">px</span>
-                    </div>
-                  </div>
-                ) : null}
-                <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
-                  <input
-                    type="checkbox"
-                    className={checkboxClasses}
-                    checked={displayOptions.showRegionEmojis}
-                    onChange={(e) =>
-                      setDisplayOptions({
-                        ...displayOptions,
-                        showRegionEmojis: e.target.checked,
-                      })
-                    }
-                  />
-                  Show region flags
-                </label>
-                {!isUnplanned ? (
-                  <>
-                    <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
-                      <input
-                        type="checkbox"
-                        className={checkboxClasses}
-                        checked={displayOptions.showShortDescription}
-                        onChange={(e) =>
-                          setDisplayOptions({
-                            ...displayOptions,
-                            showShortDescription: e.target.checked,
-                          })
-                        }
-                      />
-                      Show short description
-                    </label>
-                    <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
-                      <input
-                        type="checkbox"
-                        className={checkboxClasses}
-                        checked={displayOptions.titleAbove}
-                        onChange={(e) =>
-                          setDisplayOptions({
-                            ...displayOptions,
-                            titleAbove: e.target.checked,
-                          })
-                        }
-                      />
-                      Title above item
-                    </label>
-                  </>
-                ) : null}
-              </div>
-            </div>
           </div>
         )}
       </div>
