@@ -1216,6 +1216,28 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     }
   };
 
+  const handleRefreshSharedView = async () => {
+    if (isRefreshingDatasource || !isOnline) return;
+    let slug = sharedViewSlug || loadedSharedSlug;
+    if (!slug && typeof window !== "undefined") {
+      slug = new URLSearchParams(window.location.search).get("view") ?? "";
+    }
+    if (!slug) return;
+    setIsRefreshingDatasource(true);
+    setIsSharedViewPending(true);
+    const storedPassword = getStoredViewPassword(slug);
+    const result = await loadSharedViewBySlug(slug, storedPassword);
+    setIsRefreshingDatasource(false);
+    setIsSharedViewPending(false);
+    if (result.status === "password") {
+      if (storedPassword) {
+        setStoredViewPassword(slug, null);
+      }
+      setViewPasswordPrompt({ slug, error: result.error });
+      setViewPasswordInput("");
+    }
+  };
+
   const applyCsvText = (text: string) => {
     const parsedItems = parseRoadmapCsv(text);
     setItems(parsedItems);
@@ -1799,24 +1821,70 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                   Share
                 </button>
               ) : (
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
-                  onClick={() => {
-                    handleExitSharedView();
-                    if (isSignedIn && isOnline) {
-                      fetchRoadmaps();
-                    }
-                  }}
-                  title="Exit shared view"
-                >
-                  Exit shared view
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className={[
+                      "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs",
+                      "disabled:cursor-not-allowed disabled:opacity-60",
+                      isRefreshingDatasource
+                        ? "border-emerald-300 bg-emerald-50 text-emerald-900 shadow-sm shadow-emerald-200/60 animate-pulse dark:border-emerald-500/60 dark:bg-emerald-900/30 dark:text-emerald-100 dark:shadow-emerald-500/20"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800",
+                    ].join(" ")}
+                    onClick={handleRefreshSharedView}
+                    disabled={!isOnline || isRefreshingDatasource}
+                    title={isOnline ? "Refresh shared view" : "Offline. Refresh paused."}
+                  >
+                    <span
+                      className={[
+                        "inline-flex h-4 w-4 items-center justify-center",
+                        isRefreshingDatasource ? "text-emerald-700 dark:text-emerald-200" : "text-emerald-600",
+                      ].join(" ")}
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                        className={[
+                          "h-4 w-4",
+                          isRefreshingDatasource ? "animate-spin" : "",
+                        ].join(" ")}
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                        <path d="M21 3v6h-6" />
+                      </svg>
+                    </span>
+                    Refresh data
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                    onClick={() => {
+                      handleExitSharedView();
+                      if (isSignedIn && isOnline) {
+                        fetchRoadmaps();
+                      }
+                    }}
+                    title="Exit shared view"
+                  >
+                    Exit shared view
+                  </button>
+                </>
               )}
               {activeDatasourceType === "azure-devops" ? (
                 <button
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                  className={[
+                    "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs",
+                    "disabled:cursor-not-allowed disabled:opacity-60",
+                    isRefreshingDatasource
+                      ? "border-emerald-300 bg-emerald-50 text-emerald-900 shadow-sm shadow-emerald-200/60 animate-pulse dark:border-emerald-500/60 dark:bg-emerald-900/30 dark:text-emerald-100 dark:shadow-emerald-500/20"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800",
+                  ].join(" ")}
                   onClick={handleRefreshDatasource}
                   disabled={!activeRoadmapId || !isOnline || isRefreshingDatasource}
                   title={
@@ -1825,11 +1893,19 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                       : "Refresh datasource"
                   }
                 >
-                  <span className="inline-flex h-4 w-4 items-center justify-center text-emerald-600">
+                  <span
+                    className={[
+                      "inline-flex h-4 w-4 items-center justify-center",
+                      isRefreshingDatasource ? "text-emerald-700 dark:text-emerald-200" : "text-emerald-600",
+                    ].join(" ")}
+                  >
                     <svg
                       viewBox="0 0 24 24"
                       aria-hidden="true"
-                      className="h-4 w-4"
+                      className={[
+                        "h-4 w-4",
+                        isRefreshingDatasource ? "animate-spin" : "",
+                      ].join(" ")}
                       fill="none"
                       stroke="currentColor"
                       strokeWidth="1.6"
@@ -1847,14 +1923,54 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
           </SignedIn>
         ) : null}
         {!isSignedIn && shouldShowExitSharedView ? (
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
-            onClick={handleExitSharedView}
-            title="Exit shared view"
-          >
-            Exit shared view
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className={[
+                "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs",
+                "disabled:cursor-not-allowed disabled:opacity-60",
+                isRefreshingDatasource
+                  ? "border-emerald-300 bg-emerald-50 text-emerald-900 shadow-sm shadow-emerald-200/60 animate-pulse dark:border-emerald-500/60 dark:bg-emerald-900/30 dark:text-emerald-100 dark:shadow-emerald-500/20"
+                  : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800",
+              ].join(" ")}
+              onClick={handleRefreshSharedView}
+              disabled={!isOnline || isRefreshingDatasource}
+              title={isOnline ? "Refresh shared view" : "Offline. Refresh paused."}
+            >
+              <span
+                className={[
+                  "inline-flex h-4 w-4 items-center justify-center",
+                  isRefreshingDatasource ? "text-emerald-700 dark:text-emerald-200" : "text-emerald-600",
+                ].join(" ")}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  className={[
+                    "h-4 w-4",
+                    isRefreshingDatasource ? "animate-spin" : "",
+                  ].join(" ")}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                  <path d="M21 3v6h-6" />
+                </svg>
+              </span>
+              Refresh data
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+              onClick={handleExitSharedView}
+              title="Exit shared view"
+            >
+              Exit shared view
+            </button>
+          </div>
         ) : null}
             <SignedOut>
               <SignInButton mode="modal">
