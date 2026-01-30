@@ -5,11 +5,10 @@ import { ensureViewsSchema } from '@/lib/viewsDb';
 import { ensureRoadmapsSchema } from '@/lib/roadmapsDb';
 import { fetchDatasourceItems } from '@/lib/roadmapDatasourceServer';
 
-export async function GET(
-  request: NextRequest,
-  context: { params: Promise<{ slug: string }> },
+async function resolveSharedView(
+  slug: string,
+  password: string | null,
 ) {
-  const { slug } = await context.params;
   await ensureViewsSchema();
   const rows = await sql`
     SELECT v.id, v.name, v.payload, v.roadmap_id, vl.slug, vl.password_hash
@@ -29,23 +28,17 @@ export async function GET(
       }
     | undefined;
   if (!viewRow) {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    return { status: 404 as const };
   }
 
   if (viewRow.password_hash) {
-    const provided = (request.headers.get('x-view-link-password') ?? '').trim();
+    const provided = (password ?? '').trim();
     if (!provided) {
-      return NextResponse.json(
-        { error: 'Password required', requiresPassword: true },
-        { status: 401 },
-      );
+      return { status: 401 as const, error: 'Password required' };
     }
     const providedHash = createHash('sha256').update(provided).digest('hex');
     if (providedHash !== viewRow.password_hash) {
-      return NextResponse.json(
-        { error: 'Invalid password', requiresPassword: true },
-        { status: 401 },
-      );
+      return { status: 401 as const, error: 'Invalid password' };
     }
   }
 
@@ -73,7 +66,8 @@ export async function GET(
     items = [];
   }
 
-  return NextResponse.json({
+  return {
+    status: 200 as const,
     view: {
       id: viewRow.id,
       name: viewRow.name,
@@ -82,7 +76,48 @@ export async function GET(
       sharedSlug: viewRow.slug,
       roadmapCsvText,
       items,
-      role: 'viewer',
+      role: 'viewer' as const,
     },
-  });
+  };
+}
+
+export async function GET(
+  request: NextRequest,
+  context: { params: Promise<{ slug: string }> },
+) {
+  const { slug } = await context.params;
+  const headerPassword = request.headers.get('x-view-link-password') ?? null;
+  const result = await resolveSharedView(slug, headerPassword);
+  if (result.status === 404) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+  if (result.status === 401) {
+    return NextResponse.json(
+      { error: result.error, requiresPassword: true },
+      { status: 401 },
+    );
+  }
+  return NextResponse.json({ view: result.view });
+}
+
+export async function POST(
+  request: NextRequest,
+  context: { params: Promise<{ slug: string }> },
+) {
+  const { slug } = await context.params;
+  const body = (await request.json().catch(() => ({}))) as {
+    password?: string | null;
+  };
+  const provided = typeof body.password === 'string' ? body.password : null;
+  const result = await resolveSharedView(slug, provided);
+  if (result.status === 404) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+  if (result.status === 401) {
+    return NextResponse.json(
+      { error: result.error, requiresPassword: true },
+      { status: 401 },
+    );
+  }
+  return NextResponse.json({ view: result.view });
 }

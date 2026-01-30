@@ -448,31 +448,26 @@ export function SavedViewsPanel({
                       </button>
                     </div>
 
-                    <div className="space-y-2">
-                      <div className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        Share link
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                          <span className="truncate">
-                            {buildShareUrl(shareView) ?? 'Link unavailable'}
-                          </span>
-                          <button
-                            type="button"
-                            className="ml-auto inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[0.7rem] text-slate-600 hover:border-slate-300 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
-                            onClick={handleShareCopy}
-                            disabled={!shareView.sharedSlug}
-                            title="Copy share link"
-                          >
-                            {shareCopied ? 'Copied' : 'Copy'}
-                          </button>
+                    {shareView.sharedSlug ? (
+                      <div className="space-y-2">
+                        <div className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                          Share link
                         </div>
-                        {!shareView.sharedSlug ? (
-                          <span className="text-[0.7rem] text-slate-400 dark:text-slate-500">
-                            Create a link below to share this view.
-                          </span>
-                        ) : null}
-                        {shareView.sharedSlug ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                            <span className="truncate">
+                              {buildShareUrl(shareView) ?? 'Link unavailable'}
+                            </span>
+                            <button
+                              type="button"
+                              className="ml-auto inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[0.7rem] text-slate-600 hover:border-slate-300 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                              onClick={handleShareCopy}
+                              disabled={!shareView.sharedSlug}
+                              title="Copy share link"
+                            >
+                              {shareCopied ? 'Copied' : 'Copy'}
+                            </button>
+                          </div>
                           <button
                             type="button"
                             className="rounded-full border border-rose-200 px-3 py-1 text-xs text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-700/60 dark:text-rose-200 dark:hover:bg-rose-900/40"
@@ -482,23 +477,23 @@ export function SavedViewsPanel({
                           >
                             Remove link
                           </button>
-                        ) : null}
-                        {showDebugOutlines ? (
-                          <button
-                            type="button"
-                            className="rounded-full border border-slate-300 px-3 py-1 text-[0.65rem] text-slate-500 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
-                            onClick={() => {
-                              if (!shareView) return;
-                              const url = buildShareUrl(shareView) ?? '';
-                              setShareCopyFallbackValue(url);
-                              setShareCopyFallbackOpen(true);
-                            }}
-                          >
-                            Test copy dialog
-                          </button>
-                        ) : null}
+                          {showDebugOutlines ? (
+                            <button
+                              type="button"
+                              className="rounded-full border border-slate-300 px-3 py-1 text-[0.65rem] text-slate-500 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                              onClick={() => {
+                                if (!shareView) return;
+                                const url = buildShareUrl(shareView) ?? '';
+                                setShareCopyFallbackValue(url);
+                                setShareCopyFallbackOpen(true);
+                              }}
+                            >
+                              Test copy dialog
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
-                    </div>
+                    ) : null}
 
                     <div className="space-y-2">
                       <div className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">

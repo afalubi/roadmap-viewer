@@ -970,11 +970,11 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     password?: string | null
   ) => {
     try {
-      const headers: HeadersInit = {};
-      if (password) {
-        headers["x-view-link-password"] = password;
-      }
-      const res = await fetch(`/api/views/slug/${slug}`, { headers });
+      const res = await fetch(`/api/views/slug/${slug}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: password ?? null }),
+      });
       if (res.status === 401) {
         const data = await res.json().catch(() => null);
         return {
