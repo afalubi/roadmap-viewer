@@ -35,7 +35,7 @@ export async function GET(
   }
 
   const rows = await sql`
-    SELECT r.id, r.name, r.csv_text, r.theme_json, r.created_at, r.updated_at, ds.type AS datasource_type
+    SELECT r.id, r.name, r.display_title, r.csv_text, r.theme_json, r.created_at, r.updated_at, ds.type AS datasource_type
     FROM roadmaps r
     LEFT JOIN roadmap_datasources ds ON ds.roadmap_id = r.id
     WHERE r.id = ${id}
@@ -45,6 +45,7 @@ export async function GET(
     | {
         id: string;
         name: string;
+        display_title?: string | null;
         csv_text: string;
         theme_json?: string | null;
         created_at: string;
@@ -61,6 +62,7 @@ export async function GET(
     roadmap: {
       id: row.id,
       name: row.name,
+      displayTitle: row.display_title ?? null,
       csvText: row.csv_text,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
@@ -84,11 +86,16 @@ export async function PUT(
   const body = (await request.json()) as {
     name?: string;
     csvText?: string;
+    displayTitle?: string | null;
   };
   const name = body.name?.trim();
   const hasCsv = typeof body.csvText !== 'undefined';
+  const displayTitle =
+    typeof body.displayTitle === 'string'
+      ? body.displayTitle.trim() || null
+      : body.displayTitle ?? undefined;
 
-  if (!name && !hasCsv) {
+  if (!name && !hasCsv && typeof displayTitle === 'undefined') {
     return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
   }
 
@@ -120,6 +127,7 @@ export async function PUT(
     UPDATE roadmaps
     SET name = COALESCE(${name ?? null}, name),
         csv_text = COALESCE(${body.csvText ?? null}, csv_text),
+        display_title = COALESCE(${displayTitle ?? null}, display_title),
         updated_by = ${authUser.id},
         updated_at = ${now}
     WHERE id = ${id}

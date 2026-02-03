@@ -26,6 +26,7 @@ export async function GET() {
       u.updated_at,
       COALESCE(ur.is_system_admin, false) AS is_system_admin,
       COALESCE(ur.can_create_roadmaps, false) AS can_create_roadmaps,
+      COALESCE(ur.can_view_capacity, false) AS can_view_capacity,
       COALESCE(rs.owned_count, 0) AS owned_count,
       COALESCE(rs.shared_count, 0) AS shared_count
     FROM users u
@@ -51,6 +52,7 @@ export async function GET() {
     updatedAt: row.updated_at,
     isSystemAdmin: Boolean(row.is_system_admin),
     canCreateRoadmaps: Boolean(row.can_create_roadmaps),
+    canViewCapacity: Boolean(row.can_view_capacity),
     ownedCount: Number(row.owned_count ?? 0),
     sharedCount: Number(row.shared_count ?? 0),
   }));

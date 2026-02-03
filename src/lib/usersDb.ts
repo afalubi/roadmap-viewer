@@ -25,12 +25,14 @@ export async function ensureUsersSchema() {
       user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
       is_system_admin BOOLEAN NOT NULL DEFAULT false,
       can_create_roadmaps BOOLEAN NOT NULL DEFAULT false,
+      can_view_capacity BOOLEAN NOT NULL DEFAULT false,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
   `;
   await sql`ALTER TABLE user_roles ADD COLUMN IF NOT EXISTS is_system_admin BOOLEAN;`;
   await sql`ALTER TABLE user_roles ADD COLUMN IF NOT EXISTS can_create_roadmaps BOOLEAN;`;
+  await sql`ALTER TABLE user_roles ADD COLUMN IF NOT EXISTS can_view_capacity BOOLEAN;`;
 }
 
 export async function upsertUser(params: {
@@ -59,8 +61,8 @@ export async function ensureUserRoles(userId: string) {
   await ensureUsersSchema();
   const now = new Date().toISOString();
   await sql`
-    INSERT INTO user_roles (user_id, is_system_admin, can_create_roadmaps, created_at, updated_at)
-    VALUES (${userId}, false, false, ${now}, ${now})
+    INSERT INTO user_roles (user_id, is_system_admin, can_create_roadmaps, can_view_capacity, created_at, updated_at)
+    VALUES (${userId}, false, false, false, ${now}, ${now})
     ON CONFLICT (user_id) DO NOTHING
   `;
 }
@@ -68,17 +70,22 @@ export async function ensureUserRoles(userId: string) {
 export async function getUserRoles(userId: string): Promise<UserRoles> {
   await ensureUsersSchema();
   const rows = await sql`
-    SELECT is_system_admin, can_create_roadmaps
+    SELECT is_system_admin, can_create_roadmaps, can_view_capacity
     FROM user_roles
     WHERE user_id = ${userId}
     LIMIT 1
   `;
   const row = rows[0] as
-    | { is_system_admin?: boolean | null; can_create_roadmaps?: boolean | null }
+    | {
+        is_system_admin?: boolean | null;
+        can_create_roadmaps?: boolean | null;
+        can_view_capacity?: boolean | null;
+      }
     | undefined;
   return {
     isSystemAdmin: Boolean(row?.is_system_admin),
     canCreateRoadmaps: Boolean(row?.can_create_roadmaps),
+    canViewCapacity: Boolean(row?.can_view_capacity),
   };
 }
 
@@ -93,6 +100,7 @@ export async function updateUserRoles(
     UPDATE user_roles
     SET is_system_admin = COALESCE(${roles.isSystemAdmin ?? null}, is_system_admin),
         can_create_roadmaps = COALESCE(${roles.canCreateRoadmaps ?? null}, can_create_roadmaps),
+        can_view_capacity = COALESCE(${roles.canViewCapacity ?? null}, can_view_capacity),
         updated_at = ${now}
     WHERE user_id = ${userId}
   `;

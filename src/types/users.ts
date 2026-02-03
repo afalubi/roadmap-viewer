@@ -3,6 +3,7 @@ export type IdentityProvider = 'clerk' | 'azure_ad';
 export type UserRoles = {
   isSystemAdmin: boolean;
   canCreateRoadmaps: boolean;
+  canViewCapacity: boolean;
 };
 
 export type UserRecord = {

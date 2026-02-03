@@ -20,6 +20,7 @@ export async function PUT(
   const body = (await request.json()) as {
     isSystemAdmin?: boolean;
     canCreateRoadmaps?: boolean;
+    canViewCapacity?: boolean;
   };
 
   if (typeof body.isSystemAdmin === 'boolean') {
@@ -67,6 +68,10 @@ export async function PUT(
       typeof body.canCreateRoadmaps === 'boolean'
         ? body.canCreateRoadmaps
         : undefined,
+    canViewCapacity:
+      typeof body.canViewCapacity === 'boolean'
+        ? body.canViewCapacity
+        : undefined,
   });
 
   await recordAuditEvent({
@@ -77,6 +82,7 @@ export async function PUT(
     metadata: {
       isSystemAdmin: body.isSystemAdmin,
       canCreateRoadmaps: body.canCreateRoadmaps,
+      canViewCapacity: body.canViewCapacity,
     },
     ...getRequestMeta(request.headers),
   });

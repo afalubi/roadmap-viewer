@@ -155,6 +155,13 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
   const [userRoles, setUserRoles] = useState<UserRoles | null>(null);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const isAdmin = Boolean(userRoles?.isSystemAdmin);
+  const canViewCapacity = Boolean(
+    userRoles?.isSystemAdmin || userRoles?.canViewCapacity
+  );
+  const canEditTitle =
+    !isSharedViewActive &&
+    Boolean(activeRoadmapRole) &&
+    activeRoadmapRole !== "viewer";
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -188,11 +195,11 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     const nextMode =
       modeParam === "unplanned"
         ? "unplanned"
-        : modeParam === "capacity" && isAdmin
+        : modeParam === "capacity" && canViewCapacity
           ? "capacity"
           : "planned";
     setViewMode(nextMode);
-  }, [isAdmin]);
+  }, [canViewCapacity]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -202,14 +209,14 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       const nextMode =
         modeParam === "unplanned"
           ? "unplanned"
-          : modeParam === "capacity" && isAdmin
+          : modeParam === "capacity" && canViewCapacity
             ? "capacity"
             : "planned";
       setViewMode(nextMode);
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [isAdmin]);
+  }, [canViewCapacity]);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -403,7 +410,9 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     );
     if (payload.mode) {
       const nextMode =
-        payload.mode === "capacity" && !isAdmin ? "planned" : payload.mode;
+        payload.mode === "capacity" && !canViewCapacity
+          ? "planned"
+          : payload.mode;
       setViewMode(nextMode);
       if (typeof window !== "undefined") {
         const nextUrl = new URL(window.location.href);
@@ -422,9 +431,6 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     }
     if (payload.display?.theme) {
       setSelectedTheme(payload.display.theme);
-    }
-    if (payload.display?.titlePrefix) {
-      setTitlePrefix(payload.display.titlePrefix);
     }
     if (payload.display?.options) {
       setDisplayOptions({
@@ -684,6 +690,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       if (!res.ok) return;
       const data = (await res.json()) as { roadmap?: RoadmapDetail };
       if (data.roadmap) {
+        setTitlePrefix(data.roadmap.displayTitle ?? data.roadmap.name);
         setRoadmapThemeConfig(data.roadmap.themeConfig ?? null);
         if (data.roadmap.themeConfig?.baseTheme) {
           setSelectedTheme(data.roadmap.themeConfig.baseTheme);
@@ -837,6 +844,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     if (data.roadmap?.id) {
       setActiveRoadmapId(data.roadmap.id);
       setActiveRoadmapRole(data.roadmap.role);
+      setTitlePrefix(name);
       applyCsvText(csvText);
       setLoadedView(null);
       setShareRoadmapId(null);
@@ -860,8 +868,55 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       body: JSON.stringify({ name }),
     });
     if (!res.ok) return false;
-    await fetchRoadmaps();
+    const updatedAt = new Date().toISOString();
+    setRoadmaps((current) =>
+      current.map((roadmap) =>
+        roadmap.id === id
+          ? { ...roadmap, name, updatedAt }
+          : roadmap
+      )
+    );
     return true;
+  };
+
+  const commitTitleEdit = async () => {
+    const nextTitle = titleDraft.trim();
+    const previousTitle = titlePrefix;
+    if (!nextTitle) {
+      setTitleDraft(previousTitle);
+      setIsEditingTitle(false);
+      return;
+    }
+    if (!canEditTitle) {
+      setTitleDraft(previousTitle);
+      setIsEditingTitle(false);
+      return;
+    }
+    if (nextTitle === previousTitle) {
+      setIsEditingTitle(false);
+      return;
+    }
+    setTitlePrefix(nextTitle);
+    setTitleDraft(nextTitle);
+    setIsEditingTitle(false);
+    if (activeRoadmapId) {
+      const ok = await handleUpdateRoadmapTitle(activeRoadmapId, nextTitle);
+      if (!ok) {
+        setTitlePrefix(previousTitle);
+        setTitleDraft(previousTitle);
+      }
+    }
+  };
+
+  const handleUpdateRoadmapTitle = async (id: string, displayTitle: string) => {
+    if (!isSignedIn) return false;
+    if (!isOnline) return false;
+    const res = await fetch(`/api/roadmaps/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ displayTitle }),
+    });
+    return res.ok;
   };
 
   const handleDeleteRoadmap = async (id: string) => {
@@ -1495,7 +1550,6 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
           | "metro"
           | "metro-dark"
           | "executive";
-        titlePrefix: string;
         displayOptions: {
           showRegionEmojis: boolean;
           showShortDescription: boolean;
@@ -1534,7 +1588,6 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
         setSelectedImpactedStakeholders(parsed.selectedImpactedStakeholders);
       if (parsed.selectedGroupBy) setSelectedGroupBy(parsed.selectedGroupBy);
       if (parsed.selectedTheme) setSelectedTheme(parsed.selectedTheme);
-      if (parsed.titlePrefix) setTitlePrefix(parsed.titlePrefix);
       if (parsed.displayOptions) {
         setDisplayOptions((current) => ({
           ...current,
@@ -1578,7 +1631,6 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
       selectedImpactedStakeholders,
       selectedGroupBy,
       selectedTheme,
-      titlePrefix,
       displayOptions,
       startDate,
       quartersToShow,
@@ -1599,7 +1651,6 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     selectedImpactedStakeholders,
     selectedGroupBy,
     selectedTheme,
-    titlePrefix,
     displayOptions,
     startDate,
     quartersToShow,
@@ -1675,7 +1726,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
   );
 
   useEffect(() => {
-    if (!isAdmin && viewMode === "capacity") {
+    if (!canViewCapacity && viewMode === "capacity") {
       setViewMode("planned");
       if (typeof window !== "undefined") {
         const nextUrl = new URL(window.location.href);
@@ -1683,7 +1734,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
         window.history.replaceState(null, "", nextUrl.toString());
       }
     }
-  }, [isAdmin, viewMode]);
+  }, [canViewCapacity, viewMode]);
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -2233,23 +2284,13 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                 {displayOptions.showDynamicHeader ? (
                   <div className="flex items-center gap-2 min-w-0">
                     {(() => {
-                      const canEditTitle =
-                        !isSharedViewActive &&
-                        Boolean(activeRoadmapRole) &&
-                        activeRoadmapRole !== "viewer";
                       return isEditingTitle ? (
                         <input
                           type="text"
                           value={titleDraft}
                           onChange={(event) => setTitleDraft(event.target.value)}
                           onBlur={() => {
-                            const nextTitle = titleDraft.trim();
-                            if (nextTitle) {
-                              setTitlePrefix(nextTitle);
-                            } else {
-                              setTitleDraft(titlePrefix);
-                            }
-                            setIsEditingTitle(false);
+                            commitTitleEdit();
                           }}
                           onKeyDown={(event) => {
                             if (event.key === "Enter") {
@@ -2362,7 +2403,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                       >
                         Unplanned
                       </button>
-                      {isAdmin ? (
+                      {canViewCapacity ? (
                         <button
                           type="button"
                           onClick={() => {

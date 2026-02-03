@@ -185,7 +185,11 @@ export function AdminPanel({ isOpen, onClose }: Props) {
 
   const updateRole = async (
     userId: string,
-    updates: { isSystemAdmin?: boolean; canCreateRoadmaps?: boolean },
+    updates: {
+      isSystemAdmin?: boolean;
+      canCreateRoadmaps?: boolean;
+      canViewCapacity?: boolean;
+    },
   ) => {
     setUsers((current) =>
       current.map((user) =>
@@ -329,6 +333,7 @@ export function AdminPanel({ isOpen, onClose }: Props) {
                     <th className="px-3 py-2 text-left font-semibold">IdP</th>
                     <th className="px-3 py-2 text-left font-semibold">System Admin</th>
                     <th className="px-3 py-2 text-left font-semibold">Can Create</th>
+                    <th className="px-3 py-2 text-left font-semibold">Capacity</th>
                     <th className="px-3 py-2 text-left font-semibold">Owned</th>
                     <th className="px-3 py-2 text-left font-semibold">Shared</th>
                   </tr>
@@ -337,7 +342,7 @@ export function AdminPanel({ isOpen, onClose }: Props) {
                   {filteredUsers.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={6}
+                        colSpan={7}
                         className="px-3 py-4 text-center text-slate-400"
                       >
                         No users found.
@@ -384,6 +389,22 @@ export function AdminPanel({ isOpen, onClose }: Props) {
                             />
                             <span className="text-[0.7rem] text-slate-500">
                               Creator
+                            </span>
+                          </label>
+                        </td>
+                        <td className="px-3 py-2">
+                          <label className="inline-flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={user.canViewCapacity}
+                              onChange={(event) =>
+                                updateRole(user.id, {
+                                  canViewCapacity: event.target.checked,
+                                })
+                              }
+                            />
+                            <span className="text-[0.7rem] text-slate-500">
+                              View
                             </span>
                           </label>
                         </td>

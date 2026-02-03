@@ -5,6 +5,7 @@ export async function ensureRoadmapsSchema() {
     CREATE TABLE IF NOT EXISTS roadmaps (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
+      display_title TEXT,
       csv_text TEXT NOT NULL,
       theme_json TEXT,
       created_by TEXT NOT NULL,
@@ -13,6 +14,7 @@ export async function ensureRoadmapsSchema() {
       updated_at TEXT NOT NULL
     );
   `;
+  await sql`ALTER TABLE roadmaps ADD COLUMN IF NOT EXISTS display_title TEXT;`;
   await sql`ALTER TABLE roadmaps ADD COLUMN IF NOT EXISTS theme_json TEXT;`;
   await sql`CREATE INDEX IF NOT EXISTS idx_roadmaps_name ON roadmaps(name);`;
 

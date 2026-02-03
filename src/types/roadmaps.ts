@@ -13,6 +13,7 @@ export interface RoadmapSummary {
 
 export interface RoadmapDetail extends RoadmapSummary {
   csvText: string;
+  displayTitle?: string | null;
   datasourceType?: 'csv' | 'azure-devops';
   items?: RoadmapItem[];
   themeConfig?: RoadmapThemeConfig | null;
