@@ -41,6 +41,8 @@ interface Props {
   showDebugOutlines?: boolean;
   showNotes?: boolean;
   onOpenNotes?: (item: RoadmapItem) => void;
+  onPrefetchNotes?: (item: RoadmapItem) => void;
+  notesReadyMap?: Record<string, boolean>;
 }
 
 const GROUP_LABELS: Record<
@@ -84,6 +86,8 @@ export function RoadmapTimeline({
   showDebugOutlines = false,
   showNotes = false,
   onOpenNotes,
+  onPrefetchNotes,
+  notesReadyMap = {},
 }: Props) {
   const labelWidth = 160;
   const timelinePadding = 8;
@@ -296,6 +300,8 @@ export function RoadmapTimeline({
         onClose={() => setSelectedItem(null)}
         showNotes={showNotes}
         onOpenNotes={onOpenNotes}
+        onPrefetchNotes={onPrefetchNotes}
+        notesReady={selectedItem ? notesReadyMap[selectedItem.id] ?? false : false}
       />
     </section>
   );

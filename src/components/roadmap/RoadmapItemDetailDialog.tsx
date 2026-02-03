@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import type { RoadmapItem } from '@/types/roadmap';
 import { getRegionFlagAssets } from '@/lib/region';
 import { renderRoadmapDescription } from '@/lib/markdown';
@@ -9,6 +10,8 @@ interface Props {
   onClose: () => void;
   showNotes?: boolean;
   onOpenNotes?: (item: RoadmapItem) => void;
+  onPrefetchNotes?: (item: RoadmapItem) => void;
+  notesReady?: boolean;
   hideDates?: boolean;
 }
 
@@ -17,8 +20,16 @@ export function RoadmapItemDetailDialog({
   onClose,
   showNotes = false,
   onOpenNotes,
+  onPrefetchNotes,
+  notesReady = false,
   hideDates = false,
 }: Props) {
+  useEffect(() => {
+    if (!item) return;
+    if (!showNotes || !onPrefetchNotes) return;
+    onPrefetchNotes(item);
+  }, [item, showNotes, onPrefetchNotes]);
+
   if (!item) return null;
 
   return (
@@ -58,7 +69,13 @@ export function RoadmapItemDetailDialog({
               <button
                 type="button"
                 onClick={() => onOpenNotes(item)}
-                className="text-[0.65rem] font-semibold uppercase tracking-wide rounded-full border border-slate-200 px-2 py-1 text-slate-600 hover:border-slate-300 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                disabled={!notesReady}
+                className={[
+                  'text-[0.65rem] font-semibold uppercase tracking-wide rounded-full border px-2 py-1',
+                  notesReady
+                    ? 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800'
+                    : 'border-slate-200/60 text-slate-400 cursor-not-allowed dark:border-slate-700/60 dark:text-slate-500',
+                ].join(' ')}
               >
                 Notes
               </button>

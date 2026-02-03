@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   SignedIn,
@@ -175,12 +175,20 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
   const [notes, setNotes] = useState<RoadmapItemNote[]>([]);
   const [notesLoading, setNotesLoading] = useState(false);
   const [notesError, setNotesError] = useState<string | null>(null);
+  const notesCacheRef = useRef<Record<string, RoadmapItemNote[]>>({});
+  const [notesReadyMap, setNotesReadyMap] = useState<Record<string, boolean>>({});
+  const notesReadyRef = useRef<Record<string, boolean>>({});
+  const notesInFlightRef = useRef<Record<string, boolean>>({});
 
   useEffect(() => {
     setNotesItem(null);
     setNotes([]);
     setNotesError(null);
     setNotesLoading(false);
+    notesCacheRef.current = {};
+    setNotesReadyMap({});
+    notesReadyRef.current = {};
+    notesInFlightRef.current = {};
   }, [activeRoadmapId]);
 
   useEffect(() => {
@@ -962,7 +970,14 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
   const handleOpenNotes = async (item: RoadmapItem) => {
     if (!activeRoadmapId) return;
     if (!canViewNotes) return;
+    const cached = notesCacheRef.current[item.id];
     setNotesItem(item);
+    if (cached) {
+      setNotes(cached);
+      setNotesError(null);
+      setNotesLoading(false);
+      return;
+    }
     setNotes([]);
     setNotesError(null);
     setNotesLoading(true);
@@ -976,7 +991,17 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
         return;
       }
       const data = (await res.json()) as { comments?: RoadmapItemNote[] };
-      setNotes(Array.isArray(data.comments) ? data.comments : []);
+      const nextNotes = Array.isArray(data.comments) ? data.comments : [];
+      setNotes(nextNotes);
+      notesCacheRef.current = {
+        ...notesCacheRef.current,
+        [item.id]: nextNotes,
+      };
+      notesReadyRef.current = { ...notesReadyRef.current, [item.id]: true };
+      notesInFlightRef.current = { ...notesInFlightRef.current, [item.id]: false };
+      setNotesReadyMap((current) =>
+        current[item.id] === true ? current : { ...current, [item.id]: true }
+      );
     } catch {
       setNotesError("Unable to load notes.");
     } finally {
@@ -990,6 +1015,47 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     setNotesError(null);
     setNotesLoading(false);
   };
+
+  const handlePrefetchNotes = useCallback(async (item: RoadmapItem) => {
+    if (!activeRoadmapId) return;
+    if (!canViewNotes) return;
+    if (!isOnline) return;
+    if (notesCacheRef.current[item.id]) return;
+    if (notesInFlightRef.current[item.id]) return;
+    if (notesReadyRef.current[item.id] === false) return;
+    notesInFlightRef.current = { ...notesInFlightRef.current, [item.id]: true };
+    notesReadyRef.current = { ...notesReadyRef.current, [item.id]: false };
+    setNotesReadyMap((current) =>
+      current[item.id] === false ? current : { ...current, [item.id]: false }
+    );
+    try {
+      const res = await fetch(
+        `/api/roadmaps/${activeRoadmapId}/notes/${encodeURIComponent(item.id)}`
+      );
+      if (!res.ok) return;
+      const data = (await res.json()) as { comments?: RoadmapItemNote[] };
+      const nextNotes = Array.isArray(data.comments) ? data.comments : [];
+      notesCacheRef.current = {
+        ...notesCacheRef.current,
+        [item.id]: nextNotes,
+      };
+      notesReadyRef.current = { ...notesReadyRef.current, [item.id]: true };
+      notesInFlightRef.current = { ...notesInFlightRef.current, [item.id]: false };
+      setNotesReadyMap((current) =>
+        current[item.id] === true ? current : { ...current, [item.id]: true }
+      );
+    } catch {
+      // Ignore prefetch errors.
+    } finally {
+      notesInFlightRef.current = { ...notesInFlightRef.current, [item.id]: false };
+      if (!notesCacheRef.current[item.id]) {
+        notesReadyRef.current = { ...notesReadyRef.current, [item.id]: true };
+        setNotesReadyMap((current) =>
+          current[item.id] === true ? current : { ...current, [item.id]: true }
+        );
+      }
+    }
+  }, [activeRoadmapId, canViewNotes, isOnline]);
 
   const handleShareRoadmapUser = async (
     id: string,
@@ -2902,6 +2968,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                     showRegionEmojis={displayOptions.showRegionEmojis}
                     showNotes={canViewNotes}
                     onOpenNotes={handleOpenNotes}
+                    onPrefetchNotes={handlePrefetchNotes}
+                    notesReadyMap={notesReadyMap}
                     layout={unplannedLayout}
                     onLayoutChange={setUnplannedLayout}
                     fullWidth={fullWidth}
@@ -2926,6 +2994,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                     quartersToShow={quartersToShow}
                     showNotes={canViewNotes}
                     onOpenNotes={handleOpenNotes}
+                    onPrefetchNotes={handlePrefetchNotes}
+                    notesReadyMap={notesReadyMap}
                     exportSummary={{
                       viewBy: summaryViewBy,
                       titlePrefix,
