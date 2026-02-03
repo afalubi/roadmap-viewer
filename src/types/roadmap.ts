@@ -23,4 +23,5 @@ export interface RoadmapItem {
   expenseType: string;
   pointOfContact: string;
   lead: string;
+  tags: string;
 }

@@ -32,19 +32,35 @@ export function RoadmapItemDetailDialog({
   relatedReady = false,
   hideDates = false,
 }: Props) {
+  const hasWorkstreamTag = (value: string) =>
+    value
+      .split(/[;,]/)
+      .map((part) => part.trim().toLowerCase())
+      .filter(Boolean)
+      .includes('workstream');
+
+  const isWorkstream = Boolean(item?.tags && hasWorkstreamTag(item.tags));
+
   useEffect(() => {
     if (!item) return;
+    if (isWorkstream && showRelated && onOpenRelated) {
+      onOpenRelated(item);
+      onClose();
+      return;
+    }
     if (!showNotes || !onPrefetchNotes) return;
     onPrefetchNotes(item);
-  }, [item, showNotes, onPrefetchNotes]);
+  }, [item, isWorkstream, showRelated, onOpenRelated, onClose, showNotes, onPrefetchNotes]);
 
   useEffect(() => {
     if (!item) return;
+    if (isWorkstream && showRelated) return;
     if (!showRelated || !onPrefetchRelated) return;
     onPrefetchRelated(item);
-  }, [item, showRelated, onPrefetchRelated]);
+  }, [item, isWorkstream, showRelated, onPrefetchRelated]);
 
   if (!item) return null;
+  if (isWorkstream && showRelated) return null;
 
   return (
     <div className="fixed inset-0 z-[240] flex items-center justify-center bg-black/40 dark:bg-black/60">

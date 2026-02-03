@@ -61,6 +61,15 @@ const GROUP_LABELS: Record<
 };
 
 function getGroupKey(item: RoadmapItem, groupBy: Props['groupBy']): string {
+  const isWorkstream =
+    item.tags
+      ?.split(/[;,]/)
+      .map((part) => part.trim().toLowerCase())
+      .filter(Boolean)
+      .includes('workstream') ?? false;
+  if (isWorkstream) {
+    return 'Workstreams';
+  }
   if (groupBy === 'stakeholder') {
     return item.executiveSponsor || '';
   }
@@ -128,7 +137,13 @@ export function RoadmapTimeline({
     pillarsMap.get(key)!.push(item);
   }
 
-  const pillars = Array.from(pillarsMap.keys()).sort();
+  const pillars = Array.from(pillarsMap.keys()).sort((a, b) => {
+    const aIsWorkstreams = a === 'Workstreams';
+    const bIsWorkstreams = b === 'Workstreams';
+    if (aIsWorkstreams && !bIsWorkstreams) return 1;
+    if (!aIsWorkstreams && bIsWorkstreams) return -1;
+    return a.localeCompare(b);
+  });
 
   const getOverrideColor = (
     palette: Array<string | null> | undefined,

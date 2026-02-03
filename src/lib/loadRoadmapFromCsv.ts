@@ -55,5 +55,6 @@ export function parseRoadmapCsv(text: string): RoadmapItem[] {
     expenseType: row.expenseType ?? '',
     pointOfContact: row.pointOfContact ?? '',
     lead: row.lead ?? '',
+    tags: row.tags ?? '',
   }));
 }

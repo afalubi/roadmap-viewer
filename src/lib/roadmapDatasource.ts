@@ -258,6 +258,7 @@ export const mapAzureDevopsItem = (
       fieldMap.lead,
       'Custom.Lead',
     ]),
+    tags: getFieldValue(fields, 'System.Tags'),
   };
 };
 
