@@ -25,6 +25,10 @@ import { CapacityView } from "@/components/roadmap/CapacityView";
 import { RoadmapManagerPanel } from "@/components/roadmap/RoadmapManagerPanel";
 import { AdminPanel } from "@/components/roadmap/AdminPanel";
 import { SavedViewsPanel } from "@/components/roadmap/SavedViewsPanel";
+import {
+  RoadmapItemNotesDialog,
+  type RoadmapItemNote,
+} from "@/components/roadmap/RoadmapItemNotesDialog";
 import type { RoadmapDetail, RoadmapSummary } from "@/types/roadmaps";
 import type { RoadmapThemeConfig } from "@/types/theme";
 import type { UserRoles } from "@/types/users";
@@ -162,6 +166,22 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     !isSharedViewActive &&
     Boolean(activeRoadmapRole) &&
     activeRoadmapRole !== "viewer";
+  const canViewNotes =
+    !isSharedViewActive &&
+    Boolean(activeRoadmapRole) &&
+    activeRoadmapRole !== "viewer" &&
+    activeDatasourceType === "azure-devops";
+  const [notesItem, setNotesItem] = useState<RoadmapItem | null>(null);
+  const [notes, setNotes] = useState<RoadmapItemNote[]>([]);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [notesError, setNotesError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setNotesItem(null);
+    setNotes([]);
+    setNotesError(null);
+    setNotesLoading(false);
+  }, [activeRoadmapId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -937,6 +957,38 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     }
     await fetchRoadmaps();
     return true;
+  };
+
+  const handleOpenNotes = async (item: RoadmapItem) => {
+    if (!activeRoadmapId) return;
+    if (!canViewNotes) return;
+    setNotesItem(item);
+    setNotes([]);
+    setNotesError(null);
+    setNotesLoading(true);
+    try {
+      const res = await fetch(
+        `/api/roadmaps/${activeRoadmapId}/notes/${encodeURIComponent(item.id)}`
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setNotesError(data?.error ?? "Unable to load notes.");
+        return;
+      }
+      const data = (await res.json()) as { comments?: RoadmapItemNote[] };
+      setNotes(Array.isArray(data.comments) ? data.comments : []);
+    } catch {
+      setNotesError("Unable to load notes.");
+    } finally {
+      setNotesLoading(false);
+    }
+  };
+
+  const handleCloseNotes = () => {
+    setNotesItem(null);
+    setNotes([]);
+    setNotesError(null);
+    setNotesLoading(false);
   };
 
   const handleShareRoadmapUser = async (
@@ -2848,6 +2900,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                     groupBy={selectedGroupBy}
                     showShortDescription={displayOptions.showShortDescription}
                     showRegionEmojis={displayOptions.showRegionEmojis}
+                    showNotes={canViewNotes}
+                    onOpenNotes={handleOpenNotes}
                     layout={unplannedLayout}
                     onLayoutChange={setUnplannedLayout}
                     fullWidth={fullWidth}
@@ -2870,6 +2924,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                     themeOverrides={activeThemeOverrides}
                     startDate={startDate}
                     quartersToShow={quartersToShow}
+                    showNotes={canViewNotes}
+                    onOpenNotes={handleOpenNotes}
                     exportSummary={{
                       viewBy: summaryViewBy,
                       titlePrefix,
@@ -3029,6 +3085,13 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
             variant="plain"
           />
         ) : null}
+        <RoadmapItemNotesDialog
+          item={notesItem}
+          notes={notes}
+          isLoading={notesLoading}
+          error={notesError}
+          onClose={handleCloseNotes}
+        />
         {userRoles?.isSystemAdmin ? (
           <AdminPanel isOpen={isAdminOpen} onClose={() => setIsAdminOpen(false)} />
         ) : null}

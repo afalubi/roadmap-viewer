@@ -7,10 +7,18 @@ import { renderRoadmapDescription } from '@/lib/markdown';
 interface Props {
   item: RoadmapItem | null;
   onClose: () => void;
+  showNotes?: boolean;
+  onOpenNotes?: (item: RoadmapItem) => void;
   hideDates?: boolean;
 }
 
-export function RoadmapItemDetailDialog({ item, onClose, hideDates = false }: Props) {
+export function RoadmapItemDetailDialog({
+  item,
+  onClose,
+  showNotes = false,
+  onOpenNotes,
+  hideDates = false,
+}: Props) {
   if (!item) return null;
 
   return (
@@ -45,13 +53,24 @@ export function RoadmapItemDetailDialog({ item, onClose, hideDates = false }: Pr
               />
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-xs px-2 py-1 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
-          >
-            Close
-          </button>
+          <div className="flex items-center gap-2">
+            {showNotes && onOpenNotes ? (
+              <button
+                type="button"
+                onClick={() => onOpenNotes(item)}
+                className="text-[0.65rem] font-semibold uppercase tracking-wide rounded-full border border-slate-200 px-2 py-1 text-slate-600 hover:border-slate-300 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                Notes
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-xs px-2 py-1 rounded-md border border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              Close
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">

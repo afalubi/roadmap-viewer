@@ -39,6 +39,8 @@ interface Props {
   isExporting: boolean;
   headerRight?: React.ReactNode;
   showDebugOutlines?: boolean;
+  showNotes?: boolean;
+  onOpenNotes?: (item: RoadmapItem) => void;
 }
 
 const GROUP_LABELS: Record<
@@ -80,6 +82,8 @@ export function RoadmapTimeline({
   isExporting,
   headerRight,
   showDebugOutlines = false,
+  showNotes = false,
+  onOpenNotes,
 }: Props) {
   const labelWidth = 160;
   const timelinePadding = 8;
@@ -262,24 +266,24 @@ export function RoadmapTimeline({
                             ? 'bg-[repeating-linear-gradient(to_right,var(--quarter-divider)_0,var(--quarter-divider)_1px,transparent_1px,transparent_calc(100%/var(--quarter-count)))]'
                             : '',
                     ].join(' ')}
-                  laneBodyStyle={
-                    laneOverride ? { backgroundColor: laneOverride } : undefined
-                  }
-                  laneSpacerClassName={getLaneClassesByIndex(index, theme)}
-                  laneSpacerStyle={
-                    laneOverride ? { backgroundColor: laneOverride } : undefined
-                  }
-                  timelinePadding={timelinePadding}
-                  todayLeftPercent={todayLeft}
-                  displayOptions={displayOptions}
-                  theme={theme}
-                  laneIndex={index}
-                  itemStyle={
-                    itemOverride
-                      ? { backgroundColor: itemOverride, borderColor: itemOverride }
-                      : undefined
-                  }
-                />
+                    laneBodyStyle={
+                      laneOverride ? { backgroundColor: laneOverride } : undefined
+                    }
+                    laneSpacerClassName={getLaneClassesByIndex(index, theme)}
+                    laneSpacerStyle={
+                      laneOverride ? { backgroundColor: laneOverride } : undefined
+                    }
+                    timelinePadding={timelinePadding}
+                    todayLeftPercent={todayLeft}
+                    displayOptions={displayOptions}
+                    theme={theme}
+                    laneIndex={index}
+                    itemStyle={
+                      itemOverride
+                        ? { backgroundColor: itemOverride, borderColor: itemOverride }
+                        : undefined
+                    }
+                  />
                 );
               })}
             </div>
@@ -290,6 +294,8 @@ export function RoadmapTimeline({
       <RoadmapItemDetailDialog
         item={selectedItem}
         onClose={() => setSelectedItem(null)}
+        showNotes={showNotes}
+        onOpenNotes={onOpenNotes}
       />
     </section>
   );

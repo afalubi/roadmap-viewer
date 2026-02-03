@@ -18,6 +18,14 @@ import {
 } from '@/lib/roadmapDatasource';
 import { decryptSecret, encryptSecret } from '@/lib/secretStore';
 
+type AzureDevopsComment = {
+  id: number;
+  text: string;
+  createdBy?: { displayName?: string; uniqueName?: string } | null;
+  createdDate?: string;
+  revisedDate?: string;
+};
+
 type DatasourceRecord = {
   roadmap_id: string;
   type: string;
@@ -461,6 +469,41 @@ export async function fetchAzureDevopsDebugPayload(
     wiqlResponse,
     batchResponse,
   };
+}
+
+export async function fetchAzureDevopsWorkItemComments(
+  roadmapId: string,
+  workItemId: string,
+): Promise<AzureDevopsComment[]> {
+  const record = await getDatasourceRecord(roadmapId);
+  const type = resolveDatasourceType(record?.type);
+  if (type !== 'azure-devops') {
+    throw new Error('Datasource is not Azure DevOps.');
+  }
+
+  const config = sanitizeAzureConfig(parseConfig(record?.config_json));
+  const normalizedUrl = normalizeOrganizationUrl(config.organizationUrl);
+  if (!normalizedUrl || !config.project) {
+    throw new Error('Azure DevOps configuration is incomplete.');
+  }
+  if (!record?.secret_encrypted) {
+    throw new Error('Azure DevOps PAT is missing.');
+  }
+
+  const pat = decryptSecret(record.secret_encrypted);
+  const headers = buildAzureDevopsRequestHeaders(pat);
+  const commentsUrl = `${normalizedUrl}/${encodeURIComponent(
+    config.project,
+  )}/_apis/wit/workItems/${encodeURIComponent(workItemId)}/comments?api-version=7.1-preview.3`;
+  const res = await fetch(commentsUrl, { headers });
+  if (!res.ok) {
+    const errorText = await res.text().catch(() => '');
+    throw new Error(
+      `Azure DevOps comments request failed (${res.status}). ${errorText}`.trim(),
+    );
+  }
+  const data = (await res.json()) as { comments?: AzureDevopsComment[] };
+  return Array.isArray(data.comments) ? data.comments : [];
 }
 
 export async function validateAzureDevopsConfig(

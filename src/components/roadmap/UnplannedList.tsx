@@ -10,6 +10,8 @@ interface Props {
   groupBy: 'pillar' | 'stakeholder' | 'criticality' | 'region' | 'disposition';
   showShortDescription: boolean;
   showRegionEmojis: boolean;
+  showNotes?: boolean;
+  onOpenNotes?: (item: RoadmapItem) => void;
   layout: 'list' | 'board';
   onLayoutChange: (value: 'list' | 'board') => void;
   fullWidth: boolean;
@@ -62,6 +64,8 @@ export function UnplannedList({
   groupBy,
   showShortDescription,
   showRegionEmojis,
+  showNotes = false,
+  onOpenNotes,
   layout,
   onLayoutChange,
   fullWidth,
@@ -320,6 +324,8 @@ export function UnplannedList({
         item={selectedItem}
         onClose={() => setSelectedItem(null)}
         hideDates
+        showNotes={showNotes}
+        onOpenNotes={onOpenNotes}
       />
     </section>
   );
