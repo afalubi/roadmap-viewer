@@ -11,7 +11,7 @@ import {
 import { getAuthUser } from '@/lib/usersAccess';
 import { getRequestMeta, recordAuditEvent } from '@/lib/auditLog';
 
-const VALID_ROLES: RoadmapRole[] = ['editor', 'owner'];
+const VALID_ROLES: RoadmapRole[] = ['viewer', 'editor', 'owner'];
 
 const canModifyShareEntry = (
   grantorRole: RoadmapRole,

@@ -1792,17 +1792,19 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                                 {option.roadmap.role}
                               </div>
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                handleRoadmapSelect(option.value);
-                                setIsRoadmapMenuOpen(false);
-                                setIsRoadmapManageOpen(true);
-                              }}
-                              className="rounded-full border border-slate-200 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800"
-                            >
-                              Manage
-                            </button>
+                            {option.roadmap.role !== "viewer" ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleRoadmapSelect(option.value);
+                                  setIsRoadmapMenuOpen(false);
+                                  setIsRoadmapManageOpen(true);
+                                }}
+                                className="rounded-full border border-slate-200 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800"
+                              >
+                                Manage
+                              </button>
+                            ) : null}
                           </div>
                         ))}
                       </div>
@@ -2187,7 +2189,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                     ? "You don’t have any roadmaps yet. Create one to start adding items or import a CSV."
                     : "You don’t have access to any roadmaps yet. Ask an owner to share one with you."}
                 </p>
-                {canCreateRoadmaps ? (
+                {canCreateRoadmaps && activeRoadmapRole !== "viewer" ? (
                   <button
                     type="button"
                     className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
@@ -2230,81 +2232,87 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
               <div className="px-1 py-1 pl-5">
                 {displayOptions.showDynamicHeader ? (
                   <div className="flex items-center gap-2 min-w-0">
-                    {isEditingTitle ? (
-                      <input
-                        type="text"
-                        value={titleDraft}
-                        onChange={(event) => setTitleDraft(event.target.value)}
-                        onBlur={() => {
-                          const nextTitle = titleDraft.trim();
-                          if (nextTitle) {
-                            setTitlePrefix(nextTitle);
-                          } else {
-                            setTitleDraft(titlePrefix);
-                          }
-                          setIsEditingTitle(false);
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            event.currentTarget.blur();
-                          }
-                          if (event.key === "Escape") {
-                            setTitleDraft(titlePrefix);
+                    {(() => {
+                      const canEditTitle =
+                        !isSharedViewActive &&
+                        Boolean(activeRoadmapRole) &&
+                        activeRoadmapRole !== "viewer";
+                      return isEditingTitle ? (
+                        <input
+                          type="text"
+                          value={titleDraft}
+                          onChange={(event) => setTitleDraft(event.target.value)}
+                          onBlur={() => {
+                            const nextTitle = titleDraft.trim();
+                            if (nextTitle) {
+                              setTitlePrefix(nextTitle);
+                            } else {
+                              setTitleDraft(titlePrefix);
+                            }
                             setIsEditingTitle(false);
-                          }
-                        }}
-                        className="w-full max-w-md rounded-md border border-slate-200 bg-white px-2 py-1 text-xl font-semibold text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-sky-700"
-                        aria-label="Edit roadmap title"
-                        autoFocus
-                      />
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          className={[
-                            "text-left text-xl font-semibold text-slate-900 truncate dark:text-slate-100",
-                            isSharedViewActive
-                              ? ""
-                              : "hover:text-slate-700 dark:hover:text-slate-200",
-                          ].join(" ")}
-                          onClick={() => {
-                            if (isSharedViewActive) return;
-                            setTitleDraft(titlePrefix);
-                            setIsEditingTitle(true);
                           }}
-                          title={isSharedViewActive ? "Roadmap title" : "Edit title"}
-                          aria-label="Roadmap title"
-                        >
-                          {titlePrefix}
-                        </button>
-                        {!isSharedViewActive ? (
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              event.currentTarget.blur();
+                            }
+                            if (event.key === "Escape") {
+                              setTitleDraft(titlePrefix);
+                              setIsEditingTitle(false);
+                            }
+                          }}
+                          className="w-full max-w-md rounded-md border border-slate-200 bg-white px-2 py-1 text-xl font-semibold text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-sky-700"
+                          aria-label="Edit roadmap title"
+                          autoFocus
+                        />
+                      ) : (
+                        <>
                           <button
                             type="button"
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                            className={[
+                              "text-left text-xl font-semibold text-slate-900 truncate dark:text-slate-100",
+                              canEditTitle
+                                ? "hover:text-slate-700 dark:hover:text-slate-200"
+                                : "",
+                            ].join(" ")}
                             onClick={() => {
+                              if (!canEditTitle) return;
                               setTitleDraft(titlePrefix);
                               setIsEditingTitle(true);
                             }}
-                            title="Edit title"
-                            aria-label="Edit roadmap title"
+                            title={canEditTitle ? "Edit title" : "Roadmap title"}
+                            aria-label="Roadmap title"
                           >
-                            <svg
-                              viewBox="0 0 24 24"
-                              aria-hidden="true"
-                              className="h-3.5 w-3.5"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.6"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="M12 20h9" />
-                              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z" />
-                            </svg>
+                            {titlePrefix}
                           </button>
-                        ) : null}
-                      </>
-                    )}
+                          {canEditTitle ? (
+                            <button
+                              type="button"
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                              onClick={() => {
+                                setTitleDraft(titlePrefix);
+                                setIsEditingTitle(true);
+                              }}
+                              title="Edit title"
+                              aria-label="Edit roadmap title"
+                            >
+                              <svg
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                                className="h-3.5 w-3.5"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.6"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M12 20h9" />
+                                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z" />
+                              </svg>
+                            </button>
+                          ) : null}
+                        </>
+                      );
+                    })()}
                   </div>
                 ) : null}
               </div>

@@ -85,7 +85,7 @@ export function RoadmapManagerPanel({
   const [isShareLoading, setIsShareLoading] = useState(false);
   const [shareUserQuery, setShareUserQuery] = useState('');
   const [shareSelectedUser, setShareSelectedUser] = useState<DirectoryUser | null>(null);
-  const [shareRole, setShareRole] = useState<RoadmapRole>('editor');
+  const [shareRole, setShareRole] = useState<RoadmapRole>('viewer');
   const [datasourceRoadmap, setDatasourceRoadmap] = useState<RoadmapSummary | null>(null);
   const [datasourceType, setDatasourceType] = useState<RoadmapDatasourceType>('csv');
   const [datasourceConfig, setDatasourceConfig] = useState<AzureDevopsDatasourceConfig>({
@@ -794,10 +794,10 @@ export function RoadmapManagerPanel({
   };
 
   const shareRoleOptions = shareRoadmap
-    ? (['editor', 'owner'] as RoadmapRole[]).filter(
+    ? (['viewer', 'editor', 'owner'] as RoadmapRole[]).filter(
         (role) => ROLE_ORDER[role] <= ROLE_ORDER[shareRoadmap.role],
       )
-    : (['editor', 'owner'] as RoadmapRole[]);
+    : (['viewer', 'editor', 'owner'] as RoadmapRole[]);
 
   const canManageShare = shareRoadmap ? canShare(shareRoadmap.role) : false;
   const canModifyEntry = (role: RoadmapRole, entryUserId: string) => {
@@ -1998,6 +1998,9 @@ export function RoadmapManagerPanel({
               <div className="space-y-2">
                 <div className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   Share with user
+                </div>
+                <div className="text-[0.7rem] text-slate-500 dark:text-slate-400">
+                  Viewer access is read-only.
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <UserSearchInput
