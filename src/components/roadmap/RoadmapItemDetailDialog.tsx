@@ -12,6 +12,10 @@ interface Props {
   onOpenNotes?: (item: RoadmapItem) => void;
   onPrefetchNotes?: (item: RoadmapItem) => void;
   notesReady?: boolean;
+  showRelated?: boolean;
+  onOpenRelated?: (item: RoadmapItem) => void;
+  onPrefetchRelated?: (item: RoadmapItem) => void;
+  relatedReady?: boolean;
   hideDates?: boolean;
 }
 
@@ -22,6 +26,10 @@ export function RoadmapItemDetailDialog({
   onOpenNotes,
   onPrefetchNotes,
   notesReady = false,
+  showRelated = false,
+  onOpenRelated,
+  onPrefetchRelated,
+  relatedReady = false,
   hideDates = false,
 }: Props) {
   useEffect(() => {
@@ -29,6 +37,12 @@ export function RoadmapItemDetailDialog({
     if (!showNotes || !onPrefetchNotes) return;
     onPrefetchNotes(item);
   }, [item, showNotes, onPrefetchNotes]);
+
+  useEffect(() => {
+    if (!item) return;
+    if (!showRelated || !onPrefetchRelated) return;
+    onPrefetchRelated(item);
+  }, [item, showRelated, onPrefetchRelated]);
 
   if (!item) return null;
 
@@ -65,6 +79,21 @@ export function RoadmapItemDetailDialog({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {showRelated && onOpenRelated ? (
+              <button
+                type="button"
+                onClick={() => onOpenRelated(item)}
+                disabled={!relatedReady}
+                className={[
+                  'text-[0.65rem] font-semibold uppercase tracking-wide rounded-full border px-2 py-1',
+                  relatedReady
+                    ? 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800'
+                    : 'border-slate-200/60 text-slate-400 cursor-not-allowed dark:border-slate-700/60 dark:text-slate-500',
+                ].join(' ')}
+              >
+                Related
+              </button>
+            ) : null}
             {showNotes && onOpenNotes ? (
               <button
                 type="button"

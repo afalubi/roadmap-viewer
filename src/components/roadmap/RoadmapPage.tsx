@@ -29,6 +29,10 @@ import {
   RoadmapItemNotesDialog,
   type RoadmapItemNote,
 } from "@/components/roadmap/RoadmapItemNotesDialog";
+import {
+  RoadmapItemRelatedDialog,
+  type RoadmapItemRelated,
+} from "@/components/roadmap/RoadmapItemRelatedDialog";
 import type { RoadmapDetail, RoadmapSummary } from "@/types/roadmaps";
 import type { RoadmapThemeConfig } from "@/types/theme";
 import type { UserRoles } from "@/types/users";
@@ -171,6 +175,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     Boolean(activeRoadmapRole) &&
     activeRoadmapRole !== "viewer" &&
     activeDatasourceType === "azure-devops";
+  const canViewRelated = canViewNotes;
   const [notesItem, setNotesItem] = useState<RoadmapItem | null>(null);
   const [notes, setNotes] = useState<RoadmapItemNote[]>([]);
   const [notesLoading, setNotesLoading] = useState(false);
@@ -179,6 +184,17 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
   const [notesReadyMap, setNotesReadyMap] = useState<Record<string, boolean>>({});
   const notesReadyRef = useRef<Record<string, boolean>>({});
   const notesInFlightRef = useRef<Record<string, boolean>>({});
+
+  const [relatedItem, setRelatedItem] = useState<RoadmapItem | null>(null);
+  const [relatedGroups, setRelatedGroups] = useState<
+    Array<{ state: string; items: RoadmapItemRelated[] }>
+  >([]);
+  const [relatedLoading, setRelatedLoading] = useState(false);
+  const [relatedError, setRelatedError] = useState<string | null>(null);
+  const relatedCacheRef = useRef<Record<string, RoadmapItemRelated[]>>({});
+  const [relatedReadyMap, setRelatedReadyMap] = useState<Record<string, boolean>>({});
+  const relatedReadyRef = useRef<Record<string, boolean>>({});
+  const relatedInFlightRef = useRef<Record<string, boolean>>({});
 
   useEffect(() => {
     setNotesItem(null);
@@ -189,6 +205,15 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     setNotesReadyMap({});
     notesReadyRef.current = {};
     notesInFlightRef.current = {};
+
+    setRelatedItem(null);
+    setRelatedGroups([]);
+    setRelatedError(null);
+    setRelatedLoading(false);
+    relatedCacheRef.current = {};
+    setRelatedReadyMap({});
+    relatedReadyRef.current = {};
+    relatedInFlightRef.current = {};
   }, [activeRoadmapId]);
 
   useEffect(() => {
@@ -655,6 +680,14 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     setSelectedImpactedStakeholders([]);
     setCurrentCsvText(csvText);
     setIsItemsLoading(false);
+    notesCacheRef.current = {};
+    notesReadyRef.current = {};
+    notesInFlightRef.current = {};
+    setNotesReadyMap({});
+    relatedCacheRef.current = {};
+    relatedReadyRef.current = {};
+    relatedInFlightRef.current = {};
+    setRelatedReadyMap({});
   };
 
   const fetchDatasourceItems = async (roadmapId: string, forceRefresh = false) => {
@@ -1016,6 +1049,143 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     setNotesLoading(false);
   };
 
+  const groupRelatedByState = (items: RoadmapItemRelated[]) => {
+    const ORDER = ['Active', 'New', 'Testing', 'Completed', 'Removed'];
+    const normalizeGroup = (state: string) => {
+      const trimmed = state.trim().toLowerCase();
+      if (trimmed === 'active') return 'Active';
+      if (trimmed === 'new') return 'New';
+      if (trimmed === 'resolved') return 'Testing';
+      if (trimmed === 'closed') return 'Completed';
+      if (trimmed === 'removed') return 'Removed';
+      return 'Other';
+    };
+    const groups = new Map<string, RoadmapItemRelated[]>();
+    items.forEach((item) => {
+      const key = normalizeGroup(item.state || 'Other');
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(item);
+    });
+    const sortedGroups = Array.from(groups.entries()).sort(([a], [b]) => {
+      const aIndex = ORDER.includes(a) ? ORDER.indexOf(a) : ORDER.length;
+      const bIndex = ORDER.includes(b) ? ORDER.indexOf(b) : ORDER.length;
+      return aIndex - bIndex;
+    });
+    return sortedGroups.map(([state, groupItems]) => ({
+      state,
+      items: [...groupItems].sort((a, b) => {
+        const aDate = a.createdDate ? Date.parse(a.createdDate) : 0;
+        const bDate = b.createdDate ? Date.parse(b.createdDate) : 0;
+        return bDate - aDate;
+      }),
+    }));
+  };
+
+  const handleOpenRelated = async (item: RoadmapItem) => {
+    if (!activeRoadmapId) return;
+    if (!canViewRelated) return;
+    const cached = relatedCacheRef.current[item.id];
+    setRelatedItem(item);
+    if (cached) {
+      relatedReadyRef.current = { ...relatedReadyRef.current, [item.id]: true };
+      setRelatedReadyMap((current) =>
+        current[item.id] === true ? current : { ...current, [item.id]: true }
+      );
+      setRelatedGroups(groupRelatedByState(cached));
+      setRelatedError(null);
+      setRelatedLoading(false);
+      return;
+    }
+    setRelatedGroups([]);
+    setRelatedError(null);
+    setRelatedLoading(true);
+    try {
+      const res = await fetch(
+        `/api/roadmaps/${activeRoadmapId}/related/${encodeURIComponent(item.id)}`
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setRelatedError(data?.error ?? 'Unable to load related items.');
+        return;
+      }
+      const data = (await res.json()) as { related?: RoadmapItemRelated[] };
+      const nextRelated = Array.isArray(data.related) ? data.related : [];
+      relatedCacheRef.current = {
+        ...relatedCacheRef.current,
+        [item.id]: nextRelated,
+      };
+      relatedReadyRef.current = { ...relatedReadyRef.current, [item.id]: true };
+      relatedInFlightRef.current = { ...relatedInFlightRef.current, [item.id]: false };
+      setRelatedReadyMap((current) =>
+        current[item.id] === true ? current : { ...current, [item.id]: true }
+      );
+      setRelatedGroups(groupRelatedByState(nextRelated));
+    } catch {
+      setRelatedError('Unable to load related items.');
+    } finally {
+      setRelatedLoading(false);
+    }
+  };
+
+  const handlePrefetchRelated = useCallback(
+    async (item: RoadmapItem) => {
+      if (!activeRoadmapId) return;
+      if (!canViewRelated) return;
+      if (!isOnline) return;
+      if (relatedCacheRef.current[item.id]) return;
+      if (relatedInFlightRef.current[item.id]) return;
+      if (relatedReadyRef.current[item.id] === false) return;
+      relatedInFlightRef.current = {
+        ...relatedInFlightRef.current,
+        [item.id]: true,
+      };
+      relatedReadyRef.current = { ...relatedReadyRef.current, [item.id]: false };
+      setRelatedReadyMap((current) =>
+        current[item.id] === false ? current : { ...current, [item.id]: false }
+      );
+      try {
+        const res = await fetch(
+          `/api/roadmaps/${activeRoadmapId}/related/${encodeURIComponent(item.id)}`
+        );
+        if (!res.ok) return;
+        const data = (await res.json()) as { related?: RoadmapItemRelated[] };
+        const nextRelated = Array.isArray(data.related) ? data.related : [];
+        relatedCacheRef.current = {
+          ...relatedCacheRef.current,
+          [item.id]: nextRelated,
+        };
+        relatedReadyRef.current = { ...relatedReadyRef.current, [item.id]: true };
+        relatedInFlightRef.current = {
+          ...relatedInFlightRef.current,
+          [item.id]: false,
+        };
+        setRelatedReadyMap((current) =>
+          current[item.id] === true ? current : { ...current, [item.id]: true }
+        );
+      } catch {
+        // Ignore prefetch errors.
+      } finally {
+        relatedInFlightRef.current = {
+          ...relatedInFlightRef.current,
+          [item.id]: false,
+        };
+        if (!relatedCacheRef.current[item.id]) {
+          relatedReadyRef.current = { ...relatedReadyRef.current, [item.id]: true };
+          setRelatedReadyMap((current) =>
+            current[item.id] === true ? current : { ...current, [item.id]: true }
+          );
+        }
+      }
+    },
+    [activeRoadmapId, canViewRelated, isOnline],
+  );
+
+  const handleCloseRelated = () => {
+    setRelatedItem(null);
+    setRelatedGroups([]);
+    setRelatedError(null);
+    setRelatedLoading(false);
+  };
   const handlePrefetchNotes = useCallback(async (item: RoadmapItem) => {
     if (!activeRoadmapId) return;
     if (!canViewNotes) return;
@@ -1454,6 +1624,14 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     setSelectedImpactedStakeholders([]);
     setCurrentCsvText(text);
     setIsItemsLoading(false);
+    notesCacheRef.current = {};
+    notesReadyRef.current = {};
+    notesInFlightRef.current = {};
+    setNotesReadyMap({});
+    relatedCacheRef.current = {};
+    relatedReadyRef.current = {};
+    relatedInFlightRef.current = {};
+    setRelatedReadyMap({});
   };
 
   const handleCsvUploadText = async (text: string) => {
@@ -2970,6 +3148,10 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                     onOpenNotes={handleOpenNotes}
                     onPrefetchNotes={handlePrefetchNotes}
                     notesReadyMap={notesReadyMap}
+                    showRelated={canViewRelated}
+                    onOpenRelated={handleOpenRelated}
+                    onPrefetchRelated={handlePrefetchRelated}
+                    relatedReadyMap={relatedReadyMap}
                     layout={unplannedLayout}
                     onLayoutChange={setUnplannedLayout}
                     fullWidth={fullWidth}
@@ -2996,6 +3178,10 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
                     onOpenNotes={handleOpenNotes}
                     onPrefetchNotes={handlePrefetchNotes}
                     notesReadyMap={notesReadyMap}
+                    showRelated={canViewRelated}
+                    onOpenRelated={handleOpenRelated}
+                    onPrefetchRelated={handlePrefetchRelated}
+                    relatedReadyMap={relatedReadyMap}
                     exportSummary={{
                       viewBy: summaryViewBy,
                       titlePrefix,
@@ -3161,6 +3347,13 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
           isLoading={notesLoading}
           error={notesError}
           onClose={handleCloseNotes}
+        />
+        <RoadmapItemRelatedDialog
+          item={relatedItem}
+          groups={relatedGroups}
+          isLoading={relatedLoading}
+          error={relatedError}
+          onClose={handleCloseRelated}
         />
         {userRoles?.isSystemAdmin ? (
           <AdminPanel isOpen={isAdminOpen} onClose={() => setIsAdminOpen(false)} />

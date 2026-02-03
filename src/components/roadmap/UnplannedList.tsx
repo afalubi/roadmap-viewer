@@ -14,6 +14,10 @@ interface Props {
   onOpenNotes?: (item: RoadmapItem) => void;
   onPrefetchNotes?: (item: RoadmapItem) => void;
   notesReadyMap?: Record<string, boolean>;
+  showRelated?: boolean;
+  onOpenRelated?: (item: RoadmapItem) => void;
+  onPrefetchRelated?: (item: RoadmapItem) => void;
+  relatedReadyMap?: Record<string, boolean>;
   layout: 'list' | 'board';
   onLayoutChange: (value: 'list' | 'board') => void;
   fullWidth: boolean;
@@ -70,6 +74,10 @@ export function UnplannedList({
   onOpenNotes,
   onPrefetchNotes,
   notesReadyMap = {},
+  showRelated = false,
+  onOpenRelated,
+  onPrefetchRelated,
+  relatedReadyMap = {},
   layout,
   onLayoutChange,
   fullWidth,
@@ -330,6 +338,12 @@ export function UnplannedList({
         onOpenNotes={onOpenNotes}
         onPrefetchNotes={onPrefetchNotes}
         notesReady={selectedItem ? notesReadyMap[selectedItem.id] ?? false : false}
+        showRelated={showRelated}
+        onOpenRelated={onOpenRelated}
+        onPrefetchRelated={onPrefetchRelated}
+        relatedReady={
+          selectedItem ? relatedReadyMap[selectedItem.id] ?? false : false
+        }
       />
     </section>
   );

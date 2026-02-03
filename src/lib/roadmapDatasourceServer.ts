@@ -26,6 +26,17 @@ type AzureDevopsComment = {
   revisedDate?: string;
 };
 
+type AzureDevopsRelation = {
+  rel?: string;
+  url?: string;
+  attributes?: { name?: string; comment?: string };
+};
+
+type AzureDevopsWorkItemDetail = {
+  id: number;
+  fields?: Record<string, unknown>;
+};
+
 type DatasourceRecord = {
   roadmap_id: string;
   type: string;
@@ -504,6 +515,134 @@ export async function fetchAzureDevopsWorkItemComments(
   }
   const data = (await res.json()) as { comments?: AzureDevopsComment[] };
   return Array.isArray(data.comments) ? data.comments : [];
+}
+
+export async function fetchAzureDevopsWorkItemRelatedItems(
+  roadmapId: string,
+  workItemId: string,
+): Promise<
+  Array<{
+    id: number;
+    title: string;
+    state: string;
+    createdDate: string | null;
+    url: string;
+  }>
+> {
+  const record = await getDatasourceRecord(roadmapId);
+  const type = resolveDatasourceType(record?.type);
+  if (type !== 'azure-devops') {
+    throw new Error('Datasource is not Azure DevOps.');
+  }
+
+  const config = sanitizeAzureConfig(parseConfig(record?.config_json));
+  const normalizedUrl = normalizeOrganizationUrl(config.organizationUrl);
+  if (!normalizedUrl || !config.project) {
+    throw new Error('Azure DevOps configuration is incomplete.');
+  }
+  if (!record?.secret_encrypted) {
+    throw new Error('Azure DevOps PAT is missing.');
+  }
+
+  const pat = decryptSecret(record.secret_encrypted);
+  const headers = buildAzureDevopsRequestHeaders(pat);
+  const workItemUrl = `${normalizedUrl}/${encodeURIComponent(
+    config.project,
+  )}/_apis/wit/workitems/${encodeURIComponent(
+    workItemId,
+  )}?$expand=relations&api-version=7.1-preview.3`;
+  const res = await fetch(workItemUrl, { headers });
+  if (!res.ok) {
+    const errorText = await res.text().catch(() => '');
+    throw new Error(
+      `Azure DevOps work item request failed (${res.status}). ${errorText}`.trim(),
+    );
+  }
+  const data = (await res.json()) as { relations?: AzureDevopsRelation[] };
+  const relations = Array.isArray(data.relations) ? data.relations : [];
+  const relatedIds = relations
+    .filter((relation) => relation.rel === 'System.LinkTypes.Related')
+    .map((relation) => relation.url ?? '')
+    .map((url) => {
+      const match = /workItems\/(\d+)/i.exec(url);
+      return match ? Number.parseInt(match[1], 10) : null;
+    })
+    .filter((id): id is number => Boolean(id));
+
+  if (relatedIds.length === 0) return [];
+
+  const batchUrl = `${normalizedUrl}/${encodeURIComponent(
+    config.project,
+  )}/_apis/wit/workitemsbatch?api-version=7.1-preview.1`;
+  const batchRes = await fetch(batchUrl, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      ids: relatedIds,
+      fields: [
+        'System.Title',
+        'System.State',
+        'System.CreatedDate',
+        'System.ChangedDate',
+        'Microsoft.VSTS.Common.ResolvedDate',
+        'Microsoft.VSTS.Common.ClosedDate',
+        'Microsoft.VSTS.Scheduling.TargetDate',
+      ],
+    }),
+  });
+  if (!batchRes.ok) {
+    const errorText = await batchRes.text().catch(() => '');
+    throw new Error(
+      `Azure DevOps related batch failed (${batchRes.status}). ${errorText}`.trim(),
+    );
+  }
+  const batchData = (await batchRes.json()) as {
+    value?: AzureDevopsWorkItemDetail[];
+  };
+  const items = Array.isArray(batchData.value) ? batchData.value : [];
+
+  return items.map((item) => {
+    const fields = item.fields ?? {};
+    const title =
+      typeof fields['System.Title'] === 'string'
+        ? (fields['System.Title'] as string)
+        : `Work Item ${item.id}`;
+    const state =
+      typeof fields['System.State'] === 'string'
+        ? (fields['System.State'] as string)
+        : 'Unknown';
+    const createdDate =
+      typeof fields['System.CreatedDate'] === 'string'
+        ? (fields['System.CreatedDate'] as string)
+        : null;
+    const changedDate =
+      typeof fields['System.ChangedDate'] === 'string'
+        ? (fields['System.ChangedDate'] as string)
+        : null;
+    const resolvedDate =
+      typeof fields['Microsoft.VSTS.Common.ResolvedDate'] === 'string'
+        ? (fields['Microsoft.VSTS.Common.ResolvedDate'] as string)
+        : null;
+    const closedDate =
+      typeof fields['Microsoft.VSTS.Common.ClosedDate'] === 'string'
+        ? (fields['Microsoft.VSTS.Common.ClosedDate'] as string)
+        : null;
+    const targetDate =
+      typeof fields['Microsoft.VSTS.Scheduling.TargetDate'] === 'string'
+        ? (fields['Microsoft.VSTS.Scheduling.TargetDate'] as string)
+        : null;
+    return {
+      id: item.id,
+      title,
+      state,
+      createdDate,
+      changedDate,
+      resolvedDate,
+      closedDate,
+      targetDate,
+      url: `${normalizedUrl}/${encodeURIComponent(config.project)}/_workitems/edit/${item.id}`,
+    };
+  });
 }
 
 export async function validateAzureDevopsConfig(
