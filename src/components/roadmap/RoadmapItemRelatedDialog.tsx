@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { RoadmapItem } from '@/types/roadmap';
 
@@ -44,13 +45,26 @@ export function RoadmapItemRelatedDialog({
 }: Props) {
   if (!item || typeof document === 'undefined') return null;
 
+  const [filterText, setFilterText] = useState('');
+  const normalizedFilter = filterText.trim().toLowerCase();
+  const filteredGroups = normalizedFilter
+    ? groups
+        .map((group) => ({
+          ...group,
+          items: group.items.filter((related) =>
+            related.title.toLowerCase().includes(normalizedFilter),
+          ),
+        }))
+        .filter((group) => group.items.length > 0)
+    : groups;
+
   return createPortal(
     <div className="fixed inset-0 z-[270] flex items-center justify-center bg-slate-900/50 px-4">
       <div className="w-full max-w-2xl max-h-[85vh] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 dark:border-slate-700">
           <div>
             <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-              Related work items for “{item.title}”
+              {item.title}
             </div>
           </div>
           <button
@@ -62,24 +76,45 @@ export function RoadmapItemRelatedDialog({
           </button>
         </div>
         <div className="max-h-[70vh] overflow-y-auto px-5 py-4 text-xs text-slate-700 dark:text-slate-200">
+          <div className="mb-3">
+            <div className="relative w-full max-w-xs">
+              <input
+                type="text"
+                value={filterText}
+                onChange={(event) => setFilterText(event.target.value)}
+                placeholder="Filter related items..."
+                className="w-full rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:focus:ring-sky-700"
+              />
+              {filterText ? (
+                <button
+                  type="button"
+                  onClick={() => setFilterText('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-200"
+                  aria-label="Clear related filter"
+                >
+                  ×
+                </button>
+              ) : null}
+            </div>
+          </div>
           {isLoading ? (
             <div className="text-slate-500 dark:text-slate-400">
               Loading related work items...
             </div>
           ) : error ? (
             <div className="text-rose-600 dark:text-rose-300">{error}</div>
-          ) : groups.length === 0 ? (
+          ) : filteredGroups.length === 0 ? (
             <div className="text-slate-500 dark:text-slate-400">
               No related work items found.
             </div>
           ) : (
-            <div className="space-y-4">
-              {groups.map((group) => (
-                <div key={group.state} className="space-y-2">
+            <div className="space-y-3">
+              {filteredGroups.map((group) => (
+                <div key={group.state} className="space-y-1.5">
                   <div className="text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     {group.state}
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     {group.items.map((related) => {
                       const state = related.state.toLowerCase();
                       const isActive = state === 'active';
@@ -111,7 +146,7 @@ export function RoadmapItemRelatedDialog({
                       return (
                       <div
                         key={related.id}
-                        className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-950"
+                        className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-950"
                       >
                         <div className="flex flex-wrap items-center gap-2">
                           <a
