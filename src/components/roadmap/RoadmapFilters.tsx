@@ -502,6 +502,20 @@ export function RoadmapFilters({
                       <input
                         type="checkbox"
                         className={checkboxClasses}
+                        checked={displayOptions.showConvention}
+                        onChange={(e) =>
+                          setDisplayOptions({
+                            ...displayOptions,
+                            showConvention: e.target.checked,
+                          })
+                        }
+                      />
+                      Highlight convention items
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
+                      <input
+                        type="checkbox"
+                        className={checkboxClasses}
                         checked={displayOptions.titleAbove}
                         onChange={(e) =>
                           setDisplayOptions({

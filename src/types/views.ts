@@ -5,6 +5,7 @@ export type ViewRole = 'owner' | 'editor' | 'viewer';
 export interface DisplayOptions {
   showRegionEmojis: boolean;
   showShortDescription: boolean;
+  showConvention: boolean;
   titleAbove: boolean;
   itemVerticalPadding: number;
   laneDividerOpacity: number;

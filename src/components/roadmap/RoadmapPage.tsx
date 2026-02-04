@@ -73,6 +73,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
   const defaultDisplayOptions: DisplayOptions = {
     showRegionEmojis: true,
     showShortDescription: true,
+    showConvention: false,
     titleAbove: false,
     itemVerticalPadding: 6,
     laneDividerOpacity: 0.12,
@@ -1849,6 +1850,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
         displayOptions: {
           showRegionEmojis: boolean;
           showShortDescription: boolean;
+          showConvention: boolean;
           titleAbove: boolean;
           itemVerticalPadding: number;
           laneDividerOpacity: number;

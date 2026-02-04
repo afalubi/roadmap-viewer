@@ -9,6 +9,7 @@ import type { QuarterBucket } from '@/lib/timeScale';
 import { getTimelinePosition } from '@/lib/timeScale';
 import { getItemClassesByIndex, getLineFillClasses } from '@/lib/color';
 import { getRegionFlagAssets } from '@/lib/region';
+import { hasTag } from '@/lib/tags';
 
 interface Props {
   pillar: string;
@@ -26,6 +27,7 @@ interface Props {
   displayOptions: {
     showRegionEmojis: boolean;
     showShortDescription: boolean;
+    showConvention: boolean;
     titleAbove: boolean;
     itemVerticalPadding: number;
     itemStyle: 'tile' | 'line';
@@ -214,6 +216,10 @@ export function RoadmapSwimlane({
             const regionFlags = displayOptions.showRegionEmojis
               ? getRegionFlagAssets(item.region)
               : [];
+            const isConvention =
+              displayOptions.showConvention && hasTag(item.tags, 'convention');
+            const shouldMute =
+              displayOptions.showConvention && !isConvention;
             const regionBadges = regionFlags.length ? (
               <span
                 className={[
@@ -298,6 +304,10 @@ export function RoadmapSwimlane({
                     'group relative z-40 w-full text-left text-xs px-2 py-1 rounded-md border shadow-sm cursor-pointer transition-colors',
                     itemStyle ? 'hover:brightness-95' : '',
                     useDarkItemText ? 'text-slate-900 dark:text-slate-900' : 'text-slate-900 dark:text-slate-100',
+                    shouldMute ? 'opacity-25 hover:opacity-60' : '',
+                    isConvention
+                      ? 'ring-2 ring-amber-400/80 ring-offset-1 ring-offset-white dark:ring-amber-300/80 dark:ring-offset-slate-900'
+                      : '',
                     displayOptions.itemStyle === 'line'
                       ? lineBorderClasses
                       : itemColorClasses,

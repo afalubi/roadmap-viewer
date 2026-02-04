@@ -13,6 +13,7 @@ import { RoadmapSwimlane } from './RoadmapSwimlane';
 import { RoadmapItemDetailDialog } from './RoadmapItemDetailDialog';
 import type { ThemeOverrides } from '@/types/theme';
 import type { DisplayOptions } from '@/types/views';
+import { hasTag } from '@/lib/tags';
 
 interface Props {
   items: RoadmapItem[];
@@ -61,12 +62,7 @@ const GROUP_LABELS: Record<
 };
 
 function getGroupKey(item: RoadmapItem, groupBy: Props['groupBy']): string {
-  const isWorkstream =
-    item.tags
-      ?.split(/[;,]/)
-      .map((part) => part.trim().toLowerCase())
-      .filter(Boolean)
-      .includes('workstream') ?? false;
+  const isWorkstream = hasTag(item.tags, 'workstream');
   if (isWorkstream) {
     return 'Workstreams';
   }

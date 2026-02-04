@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import type { RoadmapItem } from '@/types/roadmap';
 import { getRegionFlagAssets } from '@/lib/region';
 import { renderRoadmapDescription } from '@/lib/markdown';
+import { hasTag } from '@/lib/tags';
 
 interface Props {
   item: RoadmapItem | null;
@@ -32,14 +33,8 @@ export function RoadmapItemDetailDialog({
   relatedReady = false,
   hideDates = false,
 }: Props) {
-  const hasWorkstreamTag = (value: string) =>
-    value
-      .split(/[;,]/)
-      .map((part) => part.trim().toLowerCase())
-      .filter(Boolean)
-      .includes('workstream');
-
-  const isWorkstream = Boolean(item?.tags && hasWorkstreamTag(item.tags));
+  const isWorkstream = hasTag(item?.tags, 'workstream');
+  const isConvention = hasTag(item?.tags, 'convention');
 
   useEffect(() => {
     if (!item) return;
@@ -86,6 +81,14 @@ export function RoadmapItemDetailDialog({
               <Badge label="Pillar" value={item.pillar} />
               <Badge label="Disposition" value={item.disposition} />
               <Badge label="Criticality" value={item.criticality} />
+              {isConvention ? (
+                <Badge
+                  label="Convention"
+                  value="Convention"
+                  showLabel={false}
+                  className="!border-amber-300 !bg-amber-100 !text-amber-900 !font-semibold dark:!border-amber-400 dark:!bg-amber-500/25 dark:!text-amber-100"
+                />
+              ) : null}
               <Badge
                 label=""
                 value={item.expenseType}
