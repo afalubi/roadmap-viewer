@@ -1757,6 +1757,7 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     criticality: "Criticality",
     region: "Region",
     disposition: "Disposition",
+    review: "Review",
   }[selectedGroupBy];
   const activeThemeOverrides =
     roadmapThemeConfig?.baseTheme === selectedTheme
@@ -1836,7 +1837,8 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
           | "stakeholder"
           | "criticality"
           | "region"
-          | "disposition";
+          | "disposition"
+          | "review";
         selectedTheme:
           | "coastal"
           | "orchard"
@@ -1959,6 +1961,12 @@ export function RoadmapPage({ mode }: { mode: RoadmapPageMode }) {
     capacityRoles,
     settingsKey,
   ]);
+
+  useEffect(() => {
+    if (viewMode !== "unplanned" && selectedGroupBy === "review") {
+      setSelectedGroupBy("pillar");
+    }
+  }, [viewMode, selectedGroupBy]);
 
   useEffect(() => {
     let result = [...items];

@@ -36,7 +36,8 @@ export type GroupByOption =
   | 'stakeholder'
   | 'criticality'
   | 'region'
-  | 'disposition';
+  | 'disposition'
+  | 'review';
 
 export interface ViewPayload {
   filters: {

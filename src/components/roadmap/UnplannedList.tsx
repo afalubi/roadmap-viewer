@@ -3,11 +3,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { RoadmapItem } from '@/types/roadmap';
 import { getRegionFlagAssets } from '@/lib/region';
+import { getTagValueByPrefix } from '@/lib/tags';
 import { RoadmapItemDetailDialog } from '@/components/roadmap/RoadmapItemDetailDialog';
 
 interface Props {
   items: RoadmapItem[];
-  groupBy: 'pillar' | 'stakeholder' | 'criticality' | 'region' | 'disposition';
+  groupBy:
+    | 'pillar'
+    | 'stakeholder'
+    | 'criticality'
+    | 'region'
+    | 'disposition'
+    | 'review';
   showShortDescription: boolean;
   showRegionEmojis: boolean;
   showNotes?: boolean;
@@ -38,6 +45,7 @@ const GROUP_LABELS: Record<Props['groupBy'], string> = {
   criticality: 'Criticality',
   region: 'Region',
   disposition: 'Disposition',
+  review: 'Review',
 };
 
 function getPriorityValue(item: RoadmapItem): number {
@@ -61,6 +69,9 @@ function getGroupKey(item: RoadmapItem, groupBy: Props['groupBy']): string {
   }
   if (groupBy === 'disposition') {
     return item.disposition || '';
+  }
+  if (groupBy === 'review') {
+    return getTagValueByPrefix(item.tags, 'review:') || '';
   }
   return item.pillar || '';
 }

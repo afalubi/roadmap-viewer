@@ -26,9 +26,16 @@ interface Props {
     | 'stakeholder'
     | 'criticality'
     | 'region'
-    | 'disposition';
+    | 'disposition'
+    | 'review';
   setSelectedGroupBy: (
-    value: 'pillar' | 'stakeholder' | 'criticality' | 'region' | 'disposition',
+    value:
+      | 'pillar'
+      | 'stakeholder'
+      | 'criticality'
+      | 'region'
+      | 'disposition'
+      | 'review',
   ) => void;
   displayOptions: DisplayOptions;
   setDisplayOptions: (value: DisplayOptions) => void;
@@ -270,7 +277,8 @@ export function RoadmapFilters({
                         | 'stakeholder'
                         | 'criticality'
                         | 'region'
-                        | 'disposition',
+                        | 'disposition'
+                        | 'review',
                     )
                   }
                 >
@@ -279,6 +287,7 @@ export function RoadmapFilters({
                   <option value="criticality">Criticality</option>
                   <option value="region">Region</option>
                   <option value="disposition">Disposition</option>
+                  {isUnplanned ? <option value="review">Review</option> : null}
                 </select>
               </div>
 

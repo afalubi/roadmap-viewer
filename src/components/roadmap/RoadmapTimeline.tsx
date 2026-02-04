@@ -13,11 +13,17 @@ import { RoadmapSwimlane } from './RoadmapSwimlane';
 import { RoadmapItemDetailDialog } from './RoadmapItemDetailDialog';
 import type { ThemeOverrides } from '@/types/theme';
 import type { DisplayOptions } from '@/types/views';
-import { hasTag } from '@/lib/tags';
+import { getTagValueByPrefix, hasTag } from '@/lib/tags';
 
 interface Props {
   items: RoadmapItem[];
-  groupBy: 'pillar' | 'stakeholder' | 'criticality' | 'region' | 'disposition';
+  groupBy:
+    | 'pillar'
+    | 'stakeholder'
+    | 'criticality'
+    | 'region'
+    | 'disposition'
+    | 'review';
   displayOptions: DisplayOptions;
   theme:
     | 'coastal'
@@ -51,7 +57,12 @@ interface Props {
 }
 
 const GROUP_LABELS: Record<
-  'pillar' | 'stakeholder' | 'criticality' | 'region' | 'disposition',
+  | 'pillar'
+  | 'stakeholder'
+  | 'criticality'
+  | 'region'
+  | 'disposition'
+  | 'review',
   string
 > = {
   pillar: 'Pillar',
@@ -59,6 +70,7 @@ const GROUP_LABELS: Record<
   criticality: 'Criticality',
   region: 'Region',
   disposition: 'Disposition',
+  review: 'Review',
 };
 
 function getGroupKey(item: RoadmapItem, groupBy: Props['groupBy']): string {
@@ -77,6 +89,9 @@ function getGroupKey(item: RoadmapItem, groupBy: Props['groupBy']): string {
   }
   if (groupBy === 'disposition') {
     return item.disposition || '';
+  }
+  if (groupBy === 'review') {
+    return getTagValueByPrefix(item.tags, 'review:') || '';
   }
   return item.pillar || '';
 }
